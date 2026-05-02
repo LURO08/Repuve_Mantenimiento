@@ -1,0 +1,388 @@
+
+.modal{
+   overflow: hidden;
+}
+
+.modalAgregarArco .modal-dialog{
+  max-width: 200vh;
+}
+
+.modalEditarArco .modal-dialog{
+  max-width: 200vh;
+}
+
+
+.modalMateriales .modal-dialog {
+   max-width: 400vh;
+}
+
+
+  .arco-nombre {
+  display: inline-block;
+  max-width: 220px;      /* controla cuándo baja de línea */
+  white-space: normal;   /* permite salto de línea */
+  word-break: break-word;
+  font-size: 14px;       /* tamaño normal */
+  line-height: 1.2;
+}
+
+/* cuando el texto ocupa más de una línea, se ve más pequeño */
+.arco-nombre {
+  font-size: clamp(12px, 1.2vw, 14px);
+}
+
+  .pagination .page-link {
+    color: #28a745;
+    border-radius: 6px;
+    border: 1px solid #28a745;
+    transition: 0.2s;
+    margin: 0 3px;
+  }
+
+  .pagination .page-link:hover {
+      background: #28a745;
+      color: #fff;
+      transform: scale(1.05);
+  }
+
+  .pagination .active .page-link {
+      background: #28a745;
+      border-color: #28a745;
+      color: #fff;
+      font-weight: bold;
+  }
+
+  table {
+    margin:  0 10px;
+    max-width: 98%;
+  }
+
+/* --- RESPONSIVE PARA MÓVILES --- */
+@media (max-width: 768px) {
+
+  .material-row {
+    flex-direction: column;
+  }
+  .remove-material {
+    width: 100%;
+  }
+
+
+  .material-row {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .remove-container {
+    align-self: flex-end;
+    margin-top: 5px;
+  }
+
+  .remove-material {
+    width: 100%;
+  }
+
+  /* ===== MODO CARD EN MÓVIL ===== */
+
+  .material-row {
+    background: #ffffff !important;
+    border-radius: 12px;
+    padding: 12px !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    position: relative;
+  }
+
+  /* Separación entre campos */
+  .material-row .col-12 {
+    margin-bottom: 8px;
+  }
+  
+
+  /* Botón eliminar flotante */
+  .material-row .remove-material {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 38px;
+    height: 38px;
+    border-radius: 20%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Ocultar label del botón en móvil */
+  .material-row .col-4.col-md-2 label {
+    display: none;
+  }
+
+  /* Ajustes generales */
+
+
+   .container {
+      padding-left: 8px !important;
+      padding-right: 8px !important;
+    }
+
+    h1 {
+      font-size: 22px !important;
+    }
+
+    .card-header h5 {
+      font-size: 16px !important;
+    }
+
+    td,
+    th {
+      padding: 6px !important;
+      word-wrap: break-word;
+    }
+
+    .interfaz{
+      flex-direction: column !important;
+      gap: 10px;            /* separación limpia entre elementos */
+    }
+
+  /* Ajuste del modal */
+  #modalMateriales .modal-dialog {
+    max-width: 90% !important;
+    margin: 0 auto;  
+    overflow-x: auto;
+  }
+
+  table {
+    font-size: 13px !important;
+    max-width: max-content;
+    display: block;
+    overflow-x: auto;
+    max-width: 80vh !important;
+
+  }
+
+  /* Ajuste del contenido que se vuelve columna */
+  .responsive-mobile {
+    display: flex;
+    flex-direction: column !important;
+    width: 80% !important;
+    gap: 10px;            /* separación limpia entre elementos */
+  }
+
+  /* Ajusta elementos internos si son flex */
+  .responsive-mobile > * {
+    width: 100% !important;
+  }
+}
+
+
+.material-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between; /* izquierda vs derecha */
+  gap: 10px;
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+/* Bloque izquierdo */
+.material-left {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+/* Cada campo */
+.material-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+}
+
+/* Material más ancho */
+.material-material {
+  flex: 2;
+  min-width: 220px;
+}
+
+.material-serie {
+  flex: 1.2;
+}
+
+.material-cantidad {
+  flex: 1;
+}
+
+/* Botón eliminar */
+.material-right {
+  display: flex;
+  align-items: center;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .material-left {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .material-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .material-right {
+    align-self: flex-end;
+  }
+
+  .remove-material {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+  }
+}
+
+/* MODAL VER MATERIALES */
+.material-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  transition: .2s;
+  background: #fff;
+}
+
+.material-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0,0,0,.08);
+}
+
+.material-img {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid #ddd;
+}
+
+.material-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.series-box {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 6px;
+  font-size: 12px;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+
+.series-panel {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px;
+  margin-top: 6px;
+  animation: fadeIn .2s ease;
+}
+
+.series-chip {
+  display: inline-block;
+  background: linear-gradient(135deg, #e9f2ff, #f8fbff);
+  color: #0d6efd;
+  border: 1px solid #cfe2ff;
+  border-radius: 16px;
+  padding: 3px 10px;
+  font-size: 12px;
+  margin: 2px;
+  font-weight: 500;
+}
+
+.series-btn {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+@keyframes fadeIn {
+  from {opacity: 0; transform: translateY(-3px);}
+  to {opacity: 1; transform: translateY(0);}
+}
+
+
+/* .form-check {
+    border: 1px solid #dee2e6;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: #f8f9fa;
+} */
+
+
+.check-card {
+    display: block;
+    cursor: pointer;
+}
+
+.check-input {
+    display: none;
+}
+
+.check-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #888888;
+    border-radius: 12px;
+    background: #f8f9fa;
+    transition: all 0.2s ease;
+}
+
+.check-icon {
+    font-size: 18px;
+    width: 22px;
+}
+
+.check-text {
+    flex: 1;
+    font-size: 14px;
+}
+
+.check-input:checked + .check-content {
+    background: #e7f1ff;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 2px rgba(13,110,253,0.15);
+}
+
+.check-input:checked + .check-content .check-icon::before {
+    content: "☑";
+}
+
+.check-input:not(:checked) + .check-content .check-icon::before {
+    content: "☐";
+}
+
+.modal-body{
+  max-height: 70vh;
+  overflow-y: auto;
+
+}
+
+.modal-body input,
+ .modal-body textarea {
+   border: 1px solid #888888;
+}
+
+/* VER MATERIALES ANTERIORES (HISTORIAL DE MATERIALES) */
+
+.material-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:12px;
+}

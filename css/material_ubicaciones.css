@@ -1,0 +1,290 @@
+  html, body {
+    height: 100%;
+    overflow: hidden; /* 🔒 bloquea scroll general */
+  }
+
+  .td-material-nombre {
+      white-space: normal;        /* permite saltos de línea */
+      word-break: break-word;     /* corta palabras largas */
+      max-width: 180px;           /* límite visual */
+  }
+
+
+  .custom-modal {
+    display: none;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+
+  .img-material {
+    max-width: 70px;
+    max-height: 50px;
+    width: auto;
+    height: auto;
+    object-fit: contain; 
+    border-radius: 10px;
+    transition: transform .2s ease;
+}
+
+
+  .custom-modal-content {
+    background: white;
+    width: 450px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    animation: fadeIn .2s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* HEADER DEL MODAL */
+  .modal-header-custom {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+    color: white;
+    padding: 10px 8px;
+    border-radius: 10px 10px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .modal-header-customEditar {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+    color: white;
+    padding: 10px 10px;
+    border-radius: 10px 10px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.15);
+  }
+
+  /* TÍTULO */
+  .modal-header-custom h5 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: bold;
+  }
+
+  /* BOTÓN DE CIERRE */
+  .close-modal {
+    font-size: 28px;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 8px;
+    transition: 0.2s;
+    background: rgba(255, 255, 255, 0.15);
+    font-weight: bold;
+  }
+
+  .close-modal:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+  }
+
+  .preview-img {
+    max-width: 150px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    display: none;
+    margin: auto;
+  }
+
+  .row-two {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+
+  .row-two .col {
+    flex: 1;
+  }
+
+  .row-two label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  .row-two input,
+  .row-two select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fff;
+  }
+
+  #btnActualizar {
+    background: #f1c40f;
+
+  }
+
+  #btnActualizar:hover {
+    background: #cfa913ff;
+  }
+
+  .pagination .page-link {
+    color: #28a745;
+    border-radius: 6px;
+    border: 1px solid #28a745;
+    transition: 0.2s;
+    margin: 0 3px;
+}
+
+.pagination .page-link:hover {
+    background: #28a745;
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.pagination .active .page-link {
+    background: #28a745;
+    border-color: #28a745;
+    color: #fff;
+    font-weight: bold;
+}
+
+
+  @media (max-width: 768px) {
+
+    html, body {
+      height: 100%;
+      overflow: auto; /* 🔒 bloquea scroll general */
+    }
+
+
+    .container {
+      padding-left: 8px !important;
+      padding-right: 8px !important;
+    }
+
+    h1 {
+      font-size: 22px !important;
+    }
+
+    .card-header h5 {
+      font-size: 16px !important;
+    }
+
+    .card {
+      margin-bottom: 15px;
+    }
+
+    /* 🔹 TABLAS RESPONSIVAS */
+    table {
+      font-size: 13px !important;
+    }
+
+    thead {
+      font-size: 13px !important;
+    }
+
+    tbody {
+      max-height: 35vh !important;
+    }
+
+    td,
+    th {
+      padding: 6px !important;
+      word-wrap: break-word;
+    }
+
+    /* 🔹 HACER SCROLL HORIZONTAL SI LA TABLA NO CABE */
+    .table-responsive-mobile {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      
+    }
+
+    /* 🔹 BOTONES MÁS GRANDES EN MÓVIL */
+    .btn {
+      padding: 6px 10px !important;
+      font-size: 13px !important;
+    }
+
+    /* 🔹 IMÁGENES */
+    td img {
+      width: 70px !important;
+      height: 45px !important;
+    }
+
+    /* 🔹 MODALES 100% ANCHURA */
+    .custom-modal-content {
+      width: 92% !important;
+      margin: auto;
+    }
+
+    .modal-header-custom h5,
+    .modal-header-customEditar h5 {
+      font-size: 17px !important;
+    }
+
+
+    .row-two .col {
+      width: 100% !important;
+    }
+
+    .btn-group-sm .btn {
+    padding: 6px 10px !important;
+    border-radius: 6px;
+    }
+
+
+  
+  }
+
+
+  /* 🔥 Asegurar que el modal del mapa quede encima de los custom */
+#modalSeleccionarMapa {
+  z-index: 20000 !important;
+}
+
+/* Asegurar que el modal del mapa principal esté encima del backdrop */
+#modalMapaArcos {
+  z-index: 20001 !important;
+}
+
+.modal-backdrop.show {
+  z-index: 19999 !important;
+}
+
+/* Evita que los controles del mapa se encimen en el header */
+.leaflet-container {
+    z-index: 1 !important;
+}
+
+/* Lista de arcos en el modal del mapa */
+#listaArcos .arco-item {
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+#listaArcos .arco-item.disabled {
+  color: #777;
+  cursor: default;
+  background: #f8f9fa;
+}
+
+#listaArcos .arco-item:hover {
+  background: #f1f1f1;
+}

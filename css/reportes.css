@@ -1,0 +1,20 @@
+ .pagination .page-link {
+    color: #28a745;
+    border-radius: 6px;
+    border: 1px solid #28a745;
+    transition: 0.2s;
+    margin: 0 3px;
+  }
+
+  .pagination .page-link:hover {
+      background: #28a745;
+      color: #fff;
+      transform: scale(1.05);
+  }
+
+  .pagination .active .page-link {
+      background: #28a745;
+      border-color: #28a745;
+      color: #fff;
+      font-weight: bold;
+  }
