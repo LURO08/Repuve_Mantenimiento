@@ -60,29 +60,46 @@ include('../config/db.php');
   </script>
 <?php endif; ?>
 
-<link rel="stylesheet" href="../css/arcos.css">
+<?php
+$arcosCssVersion = file_exists(__DIR__ . '/../css/arcos.css') ? filemtime(__DIR__ . '/../css/arcos.css') : time();
+$arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ . '/../js/arcos.js') : time();
+?>
+
+<link rel="stylesheet" href="../css/arcos.css?v=<?= $arcosCssVersion ?>">
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../assets/bootstrap.budle.min.js"></script>
 
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
 
 <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
-<div class="text-center">
+<div class="text-center arcos-page-heading">
   <h1 class="fw-bold text-dark">
     <i class="bi bi-bounding-box-circles text-success"></i> Lista de Arcos
   </h1>
   <hr class="mt-2 mx-auto" style="width:60%;border-top:3px solid #28a745;">
-</div><br>
+</div>
 
-<div class="card table-responsive shadow-sm rounded">
+<div class="arcos-table-switch d-flex justify-content-center mb-3">
+  <div class="btn-group shadow-sm" role="group" aria-label="Cambiar tabla">
+    <button type="button" class="btn btn-success active tabla-toggle-btn" data-table-view-target="tableViewArcos">
+      <i class="bi bi-bounding-box-circles"></i> Arcos
+    </button>
+    <button type="button" class="btn btn-outline-primary tabla-toggle-btn" data-table-view-target="tableViewInfra">
+      <i class="bi bi-broadcast-pin"></i> Puentes / Sitios
+    </button>
+  </div>
+</div>
+
+<div class="card table-responsive shadow-sm rounded arcos-table-view" id="tableViewArcos">
 
   <div class="interfaz card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAgregarArco">
+    <div class="d-flex justify-content-between align-items-center mb-0">
+      <button type="button" class="btn btn-success" id="btnModalAgregarArco"
+        data-bs-toggle="modal" data-bs-target="#modalAgregarArco">
         <i class="bi bi-plus-circle"></i> Agregar
       </button>
     </div>
@@ -99,6 +116,7 @@ include('../config/db.php');
     </div>
   </div>
 
+  <div class="tabla-scroll">
   <table id="ArcosTable" class="table table-striped align-middle mb-0">
     <thead class="table-dark text-center">
       <tr>
@@ -155,12 +173,15 @@ include('../config/db.php');
     SELECT 
         a.*,
         u.nombre AS ubic,
-        COUNT(r.id) AS fallas
+        COALESCE(rv.fallas, 0) AS fallas
     FROM arcos a
     LEFT JOIN ubicaciones u ON a.ubicacion_id = u.id
-    LEFT JOIN revisiones r ON r.arco_id = a.id
-    GROUP BY a.id
-    ORDER BY a.fecha_instalacion $order
+    LEFT JOIN (
+        SELECT arco_id, COUNT(*) AS fallas
+        FROM revisiones
+        GROUP BY arco_id
+    ) rv ON rv.arco_id = a.id
+    ORDER BY a.fecha_instalacion $order, a.id DESC
 ");
 
 
@@ -168,7 +189,7 @@ include('../config/db.php');
       ?>
       <?php if (count($arcos) === 0): ?>
         <tr>
-          <td colspan="6" class="text-center text-muted py-3">
+          <td colspan="8" class="text-center text-muted py-3">
             <i class="bi bi-info-circle"></i> No hay arcos registrados.
           </td>
         </tr>
@@ -178,24 +199,87 @@ include('../config/db.php');
           <?php
           // Cargar materiales de este arco
           $mats = $pdo->prepare("
-                  SELECT am.*, m.nombre AS material, m.medida AS medida, m.foto AS foto, a.fecha_instalacion AS fecha_instalacion
+                  SELECT am.*, am.id AS relacion_id, m.nombre AS material, m.medida AS medida, m.foto AS foto, a.fecha_instalacion AS fecha_instalacion
                   FROM arco_material am
                   JOIN materiales m ON am.material_id = m.id
                   JOIN arcos a ON am.arco_id = a.id
                   WHERE am.arco_id = ?
+                  ORDER BY am.id ASC
               ");
           $mats->execute([$r['id']]);
           $materiales_actuales = $mats->fetchAll();
 
           $cambiados = $pdo->prepare("
-              SELECT rm.*, m.nombre AS material, m.medida AS medida, m.foto AS foto, r.fecha_mantenimiento AS fecha_mantenimiento
+              SELECT rm.*, rm.id AS revision_material_id, COALESCE(rm.arco_material_id, rm.id) AS relacion_id,
+                     m.nombre AS material, m.medida AS medida, m.foto AS foto, r.fecha_mantenimiento AS fecha_mantenimiento
               FROM revision_material rm
               JOIN materiales m ON rm.material_id = m.id
               JOIN revisiones r ON rm.revision_id = r.id
               WHERE r.arco_id = ?
+              ORDER BY r.fecha_mantenimiento ASC, rm.id ASC
           ");
           $cambiados->execute([$r['id']]); // 👈 importante
           $materiales_cambiados = $cambiados->fetchAll(PDO::FETCH_ASSOC);
+
+          $infraStmt = $pdo->prepare("
+              SELECT
+                n.id,
+                n.tipo,
+                n.nombre,
+                n.ubicacion_id,
+                u.nombre AS ubicacion,
+                n.lat,
+                n.lng,
+                n.descripcion,
+                im.id AS relacion_id,
+                im.material_id,
+                im.cantidad,
+                im.serie,
+                im.fecha_instalacion,
+                m.nombre AS material,
+                m.medida,
+                m.foto
+              FROM arco_infraestructura ai
+              JOIN infraestructura_nodos n ON n.id = ai.infraestructura_id
+              LEFT JOIN ubicaciones u ON u.id = n.ubicacion_id
+              LEFT JOIN infraestructura_material im ON im.infraestructura_id = n.id
+              LEFT JOIN materiales m ON m.id = im.material_id
+              WHERE ai.arco_id = ?
+              ORDER BY n.tipo ASC, n.nombre ASC, im.id ASC
+          ");
+          $infraStmt->execute([$r['id']]);
+          $infraRows = $infraStmt->fetchAll(PDO::FETCH_ASSOC);
+          $infraestructuras = [];
+          foreach ($infraRows as $infraRow) {
+            $infraId = (int)$infraRow['id'];
+            if (!isset($infraestructuras[$infraId])) {
+              $infraestructuras[$infraId] = [
+                'id' => $infraId,
+                'tipo' => $infraRow['tipo'],
+                'nombre' => $infraRow['nombre'],
+                'ubicacion_id' => $infraRow['ubicacion_id'],
+                'ubicacion' => $infraRow['ubicacion'],
+                'lat' => $infraRow['lat'],
+                'lng' => $infraRow['lng'],
+                'descripcion' => $infraRow['descripcion'],
+                'materiales' => []
+              ];
+            }
+
+            if (!empty($infraRow['material_id'])) {
+              $infraestructuras[$infraId]['materiales'][] = [
+                'relacion_id' => $infraRow['relacion_id'],
+                'material_id' => $infraRow['material_id'],
+                'material' => $infraRow['material'],
+                'medida' => $infraRow['medida'],
+                'cantidad' => $infraRow['cantidad'],
+                'serie' => $infraRow['serie'],
+                'foto' => $infraRow['foto'],
+                'fecha_instalacion' => $infraRow['fecha_instalacion']
+              ];
+            }
+          }
+          $infraestructuras = array_values($infraestructuras);
 
           ?>
 
@@ -213,14 +297,19 @@ include('../config/db.php');
 
           $stmtMantenimiento->execute([$r['id']]);
           $ultimoMantenimiento = $stmtMantenimiento->fetchColumn();
+          $baseProximoMantenimiento = $ultimoMantenimiento ?: ($r['fecha_instalacion'] ?? null);
 
           ?>
           <tr>
             <td><?= htmlspecialchars($r['id']) ?></td>
-            <td class="text-primary fw-semibold cursor-pointer" data-bs-toggle="modal" data-bs-target="#modalMapaArcos"
-              data-lat="<?= $r['lat'] ?>" data-lng="<?= $r['lng'] ?>" data-fallas="<?= $r['fallas'] ?? 0 ?>"
-              data-nombre="<?= htmlspecialchars($r['nombre']) ?>" data-ubic="<?= htmlspecialchars($r['ubic'] ?? '') ?>">
-
+        <td class="text-primary fw-semibold cursor-pointer abrirMapaArco"
+            data-lat="<?= htmlspecialchars($r['lat'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+            data-lng="<?= htmlspecialchars($r['lng'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+            data-fallas="<?= htmlspecialchars($r['fallas'] ?? 0, ENT_QUOTES, 'UTF-8') ?>"
+            data-nombre="<?= htmlspecialchars($r['nombre'], ENT_QUOTES, 'UTF-8') ?>"
+            data-ubic="<?= htmlspecialchars($r['ubic'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+            data-bs-toggle="modal"
+            data-bs-target="#modalMapaArcos">
 
               <span class="arco-nombre">
                 <i class="bi bi-geo-alt-fill me-1"></i>
@@ -243,26 +332,34 @@ include('../config/db.php');
             </td>
             <td>
               <?php
-              if ($ultimoMantenimiento) {
-                $proximo = date("d-m-Y", strtotime($ultimoMantenimiento . " +12 months"));
+              if ($baseProximoMantenimiento) {
+                $proximo = date("d-m-Y", strtotime($baseProximoMantenimiento . " +12 months"));
                 echo $proximo;
               } else {
                 echo "<span class='text-muted'>N/A</span>";
               }
               ?>
+            </td>
             <td>
-              <button class="btn btn-sm btn-info verMaterialesBtn" data-id="<?= $r['id'] ?>"
-                data-nuevos='<?= json_encode($materiales_cambiados) ?>'
-                data-anteriores='<?= json_encode($materiales_actuales) ?>' data-bs-toggle="modal"
-                data-bs-target="#modalMateriales">
-                <i class="bi bi-box-seam"></i> Componentes
+              <button class="btn btn-sm btn-info verMaterialesBtn"
+                    data-id="<?= $r['id'] ?>"
+                    data-nuevos='<?= htmlspecialchars(json_encode($materiales_cambiados, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
+                    data-anteriores='<?= htmlspecialchars(json_encode($materiales_actuales, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
+                    data-infraestructura='<?= htmlspecialchars(json_encode($infraestructuras, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalMateriales">
+
+                <i class="bi bi-box-seam"></i>
+                Componentes
               </button>
             </td>
 
             <td class="text-center">
               <div class="btn-group btn-group-sm" role="group">
-                <button class="btn btn-warning d-flex align-items-center justify-content-center editarArcoBtn"
-                  data-id="<?= $r['id'] ?>" data-bs-toggle="modal" data-bs-target="#modalEditarArco" title="Editar arco">
+                <button type="button" class="btn btn-warning d-flex align-items-center justify-content-center editarArcoBtn"
+                  data-id="<?= $r['id'] ?>" title="Editar arco"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modalEditarArco">
                   <i class="bi bi-pencil-fill"></i>
                 </button>
                 <a href="../controllers/arcos_controller.php?action=delete&id=<?= $r['id'] ?>"
@@ -272,14 +369,14 @@ include('../config/db.php');
                 </a>
 
                 <?php
-                  $bitExiste = $pdo->prepare("
+                $bitExiste = $pdo->prepare("
                       SELECT id
                       FROM bitacoras_arco
                       WHERE arco_id = ?
                       LIMIT 1
                   ");
-                  $bitExiste->execute([$r['id']]);
-                  $yaExiste = $bitExiste->fetch(PDO::FETCH_ASSOC);
+                $bitExiste->execute([$r['id']]);
+                $yaExiste = $bitExiste->fetch(PDO::FETCH_ASSOC);
                 ?>
 
                 <?php if ($yaExiste): ?>
@@ -288,8 +385,8 @@ include('../config/db.php');
                     <i class="bi bi-file-earmark-pdf"></i>
                   </a>
                 <?php else: ?>
-                  <button class="btn btn-primary btn-sm generarBitacoraBtn p-2" data-id="<?= $r['id'] ?>" data-bs-toggle="modal"
-                    data-bs-target="#modalBitacora">
+                  <button type="button" class="btn btn-primary btn-sm generarBitacoraBtn p-2" data-id="<?= $r['id'] ?>"
+                    data-bs-toggle="modal" data-bs-target="#modalBitacora">
                     <i class="bi bi-file-earmark-plus"></i>
                   </button>
                 <?php endif; ?>
@@ -300,12 +397,122 @@ include('../config/db.php');
       <?php endif; ?>
     </tbody>
   </table>
+  </div>
 
   <div id="pagination-Arcos" class="mt-2 d-flex justify-content-center"></div>
 </div>
 
+<div class="card table-responsive shadow-sm rounded arcos-table-view d-none" id="tableViewInfra">
+  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold text-primary">
+      <i class="bi bi-broadcast-pin"></i> Puentes / Sitios / Torres
+    </h5>
+    <span class="badge bg-primary">Infraestructura conectada</span>
+  </div>
+
+  <div class="tabla-scroll">
+  <table class="table table-striped align-middle mb-0">
+    <thead class="table-dark text-center">
+      <tr>
+        <th>ID</th>
+        <th>Nombre</th>
+        <th>Tipo</th>
+        <th>UbicaciÃ³n</th>
+        <th>Arcos vinculados</th>
+        <th>Componentes</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody class="text-center">
+      <?php
+      $infraListado = $pdo->query("
+        SELECT
+          n.*,
+          u.nombre AS ubicacion,
+          COUNT(DISTINCT ai.arco_id) AS arcos_count,
+          GROUP_CONCAT(DISTINCT a.nombre ORDER BY a.nombre SEPARATOR ', ') AS arcos_nombres,
+          COUNT(DISTINCT im.id) AS materiales_count
+        FROM infraestructura_nodos n
+        LEFT JOIN ubicaciones u ON u.id = n.ubicacion_id
+        LEFT JOIN arco_infraestructura ai ON ai.infraestructura_id = n.id
+        LEFT JOIN arcos a ON a.id = ai.arco_id
+        LEFT JOIN infraestructura_material im ON im.infraestructura_id = n.id
+        GROUP BY n.id
+        ORDER BY u.nombre ASC, n.tipo ASC, n.nombre ASC
+      ")->fetchAll(PDO::FETCH_ASSOC);
+
+      if (count($infraListado) === 0): ?>
+        <tr>
+          <td colspan="7" class="text-center text-muted py-4">
+            <i class="bi bi-info-circle"></i> No hay puentes, postes o sitios registrados.
+          </td>
+        </tr>
+      <?php else: ?>
+        <?php foreach ($infraListado as $infra):
+          $infraMatsStmt = $pdo->prepare("
+            SELECT im.id AS relacion_id, im.material_id, im.cantidad, im.serie, im.fecha_instalacion,
+                   m.nombre AS material, m.medida, m.foto
+            FROM infraestructura_material im
+            JOIN materiales m ON m.id = im.material_id
+            WHERE im.infraestructura_id = ?
+            ORDER BY im.id ASC
+          ");
+          $infraMatsStmt->execute([$infra['id']]);
+          $infraMateriales = $infraMatsStmt->fetchAll(PDO::FETCH_ASSOC);
+          $infraPayload = [[
+            'id' => $infra['id'],
+            'tipo' => $infra['tipo'],
+            'nombre' => $infra['nombre'],
+            'ubicacion_id' => $infra['ubicacion_id'],
+            'ubicacion' => $infra['ubicacion'],
+            'lat' => $infra['lat'],
+            'lng' => $infra['lng'],
+            'descripcion' => $infra['descripcion'],
+            'materiales' => $infraMateriales
+          ]];
+        ?>
+          <tr>
+            <td class="fw-semibold"><?= htmlspecialchars($infra['id']) ?></td>
+            <td><?= htmlspecialchars($infra['nombre']) ?></td>
+            <td><span class="badge bg-primary"><?= htmlspecialchars($infra['tipo']) ?></span></td>
+            <td><?= htmlspecialchars($infra['ubicacion'] ?? 'Sin ubicaciÃ³n') ?></td>
+            <td>
+              <span class="badge bg-secondary"><?= (int)$infra['arcos_count'] ?></span>
+              <small class="d-block text-muted"><?= htmlspecialchars($infra['arcos_nombres'] ?? 'Sin arcos vinculados') ?></small>
+            </td>
+            <td>
+              <button type="button" class="btn btn-sm btn-info verInfraComponentesBtn"
+                data-infraestructura='<?= htmlspecialchars(json_encode($infraPayload, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
+                data-bs-toggle="modal" data-bs-target="#modalMateriales">
+                <i class="bi bi-box-seam"></i> <?= (int)$infra['materiales_count'] ?>
+              </button>
+            </td>
+            <td>
+              <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-warning editarInfraBtn"
+                  data-id="<?= htmlspecialchars($infra['id'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-bs-toggle="modal" data-bs-target="#modalEditarInfraestructura"
+                  title="Editar puente/sitio">
+                  <i class="bi bi-pencil-fill"></i>
+                </button>
+                <a href="../controllers/arcos_controller.php?action=delete_infra&id=<?= htmlspecialchars($infra['id'], ENT_QUOTES, 'UTF-8') ?>"
+                  class="btn btn-danger"
+                  onclick="return confirm('Â¿Seguro que deseas eliminar este puente/sitio y sus mantenimientos?')"
+                  title="Eliminar puente/sitio">
+                  <i class="bi bi-trash-fill"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      <?php endif; ?>
+    </tbody>
+  </table>
+  </div>
+</div>
+
 <!-- MODAL AGREGAR ARCO -->
-<div class="modal  modalAgregarArco" id="modalAgregarArco" tabindex="-1" aria-hidden="true">
+<div class="modal fade modalAgregarArco" id="modalAgregarArco" tabindex="-1" aria-hidden="true" data-bs-focus="false">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content shadow-lg">
       <div class="modal-header bg-success text-white">
@@ -318,14 +525,54 @@ include('../config/db.php');
             <div id="modalFormulario" class="col-12 col-lg-6">
               <input type="hidden" name="action" value="add">
 
-              <div class="row mb-3 ">
-                <div class="col-md-6">
-                  <label class="form-label">Nombre del Arco</label>
-                  <input name="nombre" class="form-control" required>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="checkPuenteSitio" name="es_infraestructura" value="1">
+                <label class="form-check-label fw-semibold" for="checkPuenteSitio">
+                  Registrar como Puente/Sitio
+                </label>
+              </div>
+
+              <div id="camposPuenteSitio" class="row mb-3 d-none">
+                <div class="col-md-5">
+                  <label class="form-label">Tipo</label>
+                  <select name="infra_tipo_principal" id="infraTipoPrincipal" class="form-select">
+                    <option value="Puente/Poste">Puente/Poste</option>
+                    <option value="Sitio/Torre">Sitio/Torre</option>
+                  </select>
                 </div>
-                <div class="col-md-6 ">
+                <div class="col-md-7 d-none" id="infraArcosGroup">
+                  <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <label class="form-label mb-0">Arcos vinculados</label>
+                    <span class="badge bg-primary" id="infraArcosSeleccionados">0 seleccionados</span>
+                  </div>
+                  <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="search" class="form-control" id="buscarInfraArcos" placeholder="Buscar arco...">
+                  </div>
+                  <div id="infraArcosVinculados" class="infra-arcos-selector">
+                    <?php foreach ($pdo->query('SELECT id, nombre, ubicacion_id FROM arcos ORDER BY nombre') as $arcoOption): ?>
+                      <label class="infra-arco-option" data-ubicacion-id="<?= htmlspecialchars($arcoOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="checkbox" class="form-check-input infra-arco-check"
+                          name="infra_arcos_vinculados[]"
+                          value="<?= htmlspecialchars($arcoOption['id'], ENT_QUOTES, 'UTF-8') ?>">
+                        <span><?= htmlspecialchars($arcoOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
+                      </label>
+                    <?php endforeach; ?>
+                    <div class="infra-arcos-empty" id="infraArcosEmpty">
+                      Seleccione una ubicaciÃ³n para ver los arcos.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-3 ">
+                <div class="col-md-4">
+                  <label class="form-label" id="nombrePrincipalLabel">Nombre del Arco</label>
+                  <input name="nombre" id="nombrePrincipalInput" class="form-control" required>
+                </div>
+                <div class="col-md-4 " id="ubicacionPrincipalGroup">
                   <label class="form-label">Ubicación</label>
-                  <select name="ubicacion_id" class="form-select" required>
+                  <select name="ubicacion_id" id="ubicacionPrincipalSelect" class="form-select" required>
                     <option value="">Seleccione...</option>
                     <?php foreach ($pdo->query('SELECT * FROM ubicaciones ORDER BY nombre') as $u): ?>
                       <option value="<?= $u['id'] ?>" data-lat="<?= htmlspecialchars($u['lat'] ?? '') ?>"
@@ -333,9 +580,10 @@ include('../config/db.php');
                     <?php endforeach; ?>
                   </select>
                 </div>
+                <div class="col-md-4 d-none" id="tipoPuenteSitioGroup"></div>
               </div>
 
-              <div class="row mb-1">
+              <div class="row mb-1" id="filaFechaCoordenadas">
                 <div class="col-md-4">
                   <label class="form-label">Fecha de Instalación</label>
                   <input type="datetime-local" name="fecha_instalacion" class="form-control" required>
@@ -361,6 +609,7 @@ include('../config/db.php');
               </div>
             </div>
 
+            <!-- Materiales Agregar -->
             <div class="col-12 col-lg-6">
               <div class="col-12 d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
 
@@ -375,69 +624,44 @@ include('../config/db.php');
 
                 <!-- Botón -->
                 <button type="button" class="btn btn-success d-flex align-items-center gap-2 px-3 py-2 shadow-sm"
-                  id="addMaterial">
+                     id="btnAgregarMaterial">
                   <i class="bi bi-plus-lg"></i>
                   <span>Agregar material</span>
                 </button>
 
               </div>
-              <div id="materialesContainer" style="max-height: 30vh; overflow-y: auto;">
-                <div id="materialesContainerModal"
-                  class="material-row d-flex align-items-center gap-2 mb-2 bg-light p-2 rounded flex-wrap">
-
-                  <div class="material-left">
-                    <div class="col flex-grow-2">
-                      <!-- MATERIAL -->
-                      <div class="flex-grow-2 col" style="min-width: 200px;">
-                        <label class="form-label fw-semibold">Material</label>
-                        <select name="material_id[]" class="form-select material-select" required>
-                          <option value="">Seleccione material...</option>
-                          <?php foreach ($pdo->query('SELECT * FROM materiales ORDER BY nombre') as $m): ?>
-                            <option value="<?= $m['id'] ?>" data-medida="<?= $m['medida'] ?>">
-                              <?= htmlspecialchars($m['nombre']) ?>
-                            </option>
-                          <?php endforeach; ?>
-                        </select>
-                      </div>
-
-                      <!-- SERIE -->
-                      <div class="flex-grow-2 col" style="min-width: 160px;">
-                        <label class="form-label fw-semibold">Serie</label>
-                        <div class="d-flex align-items-center gap-2">
-                          <input type="text" name="serie[]" class="form-control serie-input d-none"
-                            placeholder="Ingrese la serie">
-
-                          <div class="form-check">
-                            <input type="checkbox" name="serieactive[]" class="form-check-input sinserie-input">
-                            <label class="form-check-label">Tiene serie</label>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- CANTIDAD -->
-                      <div style="min-width: 140px;" class=" flex-grow-1 d-none cantidadform">
-                        <label class="form-label fw-semibold">Cantidad</label>
-                        <div class="d-flex align-items-center gap-2">
-                          <input type="number" name="cantidad[]" class="form-control cantidad-input" min="1" step="0.5"
-                            value="1.0">
-
-                          <span class="badge bg-secondary medida-input px-3 py-2 d-none">
-                            valor
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="material-right">
-                      <!-- BOTÓN ELIMINAR -->
-                      <div class="remove-container d-flex align-items-center ms-2">
-                        <button type="button" class="btn btn-danger remove-material">
-                          <i class="bi bi-trash"></i>
-                        </button>
-                      </div>
-                    </div>
+              <div id="materialesContainer" class="materiales-container-added">
+                <div id="listaMaterialesAgregados" class="materiales-grid-added">
+                  <div class="empty-materials-state">
+                    <i class="bi bi-box-seam"></i>
+                    <span class="fw-semibold">Ningún material agregado</span>
                   </div>
                 </div>
+              </div>
+            </div>
 
+            <div class="col-12 d-none">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2 mb-3 border-top pt-3">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center"
+                    style="width:36px; height:36px;">
+                    <i class="bi bi-broadcast-pin"></i>
+                  </div>
+                  <h5 class="mb-0 fw-semibold text-primary">Puentes / Sitios</h5>
+                </div>
+
+                <button type="button" class="btn btn-primary d-flex align-items-center gap-2 px-3 py-2 shadow-sm"
+                  id="btnAgregarInfraestructura">
+                  <i class="bi bi-plus-lg"></i>
+                  <span>Agregar puente o sitio</span>
+                </button>
+              </div>
+
+              <div id="listaInfraestructurasArco" class="infra-list">
+                <div class="empty-materials-state">
+                  <i class="bi bi-broadcast-pin"></i>
+                  <span class="fw-semibold">NingÃºn puente o sitio agregado</span>
+                </div>
               </div>
             </div>
           </div>
@@ -452,9 +676,168 @@ include('../config/db.php');
   </div>
 </div>
 
+<template id="infraMaterialOptionsTemplate">
+  <option value="">Seleccione material...</option>
+  <?php foreach ($pdo->query('SELECT * FROM materiales ORDER BY nombre') as $m): ?>
+    <option value="<?= htmlspecialchars($m['id'], ENT_QUOTES, 'UTF-8') ?>"
+      data-medida="<?= htmlspecialchars($m['medida'], ENT_QUOTES, 'UTF-8') ?>"
+      data-foto="<?= htmlspecialchars($m['foto'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+      <?= htmlspecialchars($m['nombre'], ENT_QUOTES, 'UTF-8') ?>
+    </option>
+  <?php endforeach; ?>
+</template>
+
+<datalist id="infraNodosExistentes">
+  <?php foreach ($pdo->query('SELECT tipo, nombre FROM infraestructura_nodos ORDER BY tipo, nombre') as $infra): ?>
+    <option value="<?= htmlspecialchars($infra['nombre'], ENT_QUOTES, 'UTF-8') ?>">
+      <?= htmlspecialchars($infra['tipo'], ENT_QUOTES, 'UTF-8') ?>
+    </option>
+  <?php endforeach; ?>
+</datalist>
+
+<!-- MODAL AGREGAR MATERIAL -->
+<!-- ===================== MODAL AGREGAR MATERIAL ===================== -->
+<div id="modalAgregarMaterial" class="modal fade" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <!-- HEADER -->
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-box-seam me-2"></i>
+          Agregar Material al Arco
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
+        </button>
+      </div>
+      <!-- BODY -->
+      <div class="modal-body bg-light">
+        <div class="row g-4">
+          <!-- IZQUIERDA -->
+          <div id="materialesColumna" class="col-12">
+            <!-- ================= IZQUIERDA ================= -->
+            <!-- BUSCADOR -->
+            <div class="mb-4">
+              <label class="form-label fw-bold text-secondary">
+                <i class="bi bi-search me-1"></i>
+                Buscar material
+              </label>
+              <input type="search" id="buscarMaterial" class="form-control form-control-lg shadow-sm"
+                placeholder="Escriba el nombre del material...">
+            </div>
+            <!-- GRID DE MATERIALES -->
+            <div class="row g-3" id="materialesGrid" style="max-height: 60vh; overflow-y: auto;">
+              <?php foreach ($pdo->query('SELECT * FROM materiales ORDER BY nombre') as $m): ?>
+                <div class="col-md-6 col-xl-3 material-item" data-id="<?= htmlspecialchars($m['id'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-nombre="<?= htmlspecialchars(strtolower($m['nombre']), ENT_QUOTES, 'UTF-8') ?>" data-medida="<?= htmlspecialchars($m['medida'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-label="<?= htmlspecialchars($m['nombre'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-foto="<?= htmlspecialchars($m['foto'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                  <div class="card material-card border-0 shadow-sm h-100 cursor-pointer">
+                    <div class="card-body text-center p-4">
+                      <!-- ICONO -->
+                      <div class="mb-3">
+                        <div
+                          class="rounded-circle bg-primary bg-opacity-10 d-inline-flex align-items-center justify-content-center"
+                          style="width:70px;height:70px;">
+                          <?php if ($m['foto']): ?>
+                            <img src="../uploads/materiales/<?= htmlspecialchars($m['foto']) ?>"
+                              alt="<?= htmlspecialchars($m['nombre']) ?>" class="img-fluid"
+                              style="max-width: 40px; max-height: 40px;">
+                          <?php else: ?>
+                            <i class="bi bi-box-seam text-primary" style="font-size: 24px;"></i>
+                          <?php endif; ?>
+                        </div>
+                      </div>
+                      <!-- NOMBRE -->
+                      <h6 class="fw-bold mb-1">
+                        <?= htmlspecialchars($m['nombre']) ?>
+                      </h6>
+                      <!-- MEDIDA -->
+                      <small class="text-muted">
+                        <?php if ($m['medida'] == 'pz'): ?>
+                          Por pieza
+                        <?php else: ?>
+                          Medida: <?= htmlspecialchars($m['medida']) ?>
+                        <?php endif; ?>
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+
+          <!-- ================= DERECHA ================= -->
+          <div id="configuracionColumna" class="col-lg-4 d-none">
+            <div id="camposDinamicos" class="card border-0 shadow-sm d-none" style="top:10px;">
+              <div class="card-body">
+                <!-- TITULO -->
+                <div class="text-center mb-4">
+                  <div
+                    class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                    style="width:70px;height:70px;">
+                    <i class="bi bi-sliders text-success fs-3"></i>
+                  </div>
+                  <h5 class="fw-bold text-success mb-1">
+                    Configuración
+                  </h5>
+                  <small class="text-muted">
+                    Complete los datos del material
+                  </small>
+                </div>
+                <!-- MATERIAL SELECCIONADO -->
+                <div class="alert alert-success py-2 text-center fw-semibold" id="materialSeleccionado">
+                  Ningún material seleccionado
+                </div>
+                <!-- CHECK SERIE -->
+                <div class="form-check form-switch mb-4">
+                  <input class="form-check-input" type="checkbox" id="checkSerie">
+                  <label class="form-check-label fw-semibold" for="checkSerie">
+                    Este material tiene número de serie
+                  </label>
+                </div>
+                <!-- INPUT SERIE -->
+                <div id="serieContainer" class="d-none mb-4">
+                  <label class="form-label fw-bold text-secondary">
+                    <i class="bi bi-upc-scan me-1"></i>
+                    Número de Serie
+                  </label>
+                  <input type="text" id="serieInput" class="form-control form-control-lg"
+                    placeholder="Ingrese el número de serie">
+                </div>
+                <!-- CANTIDAD -->
+                <div id="cantidadContainer" class="d-none mb-4">
+                  <label class="form-label fw-bold text-secondary">
+                    <i class="bi bi-rulers me-1"></i>
+                    Cantidad utilizada
+                  </label>
+                  <div class="input-group input-group-lg">
+                    <input type="number" id="cantidadInput" class="form-control" min="0.1" step="0.1"
+                      placeholder="Ingrese cantidad">
+                    <span class="input-group-text" id="unidadMedida">
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- FOOTER -->
+      <div class="modal-footer bg-white">
+        <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">
+          Cancelar
+        </button>
+        <button type="button" id="guardarMaterialModal" class="btn btn-success px-5 shadow">
+          <i class="bi bi-check-circle me-2"></i>
+          Agregar Material
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ===================== MODAL VER MATERIALES ===================== -->
-<div class="modal modalverMateriales" id="modalMateriales" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalMateriales" tabindex="-1"  aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content shadow-lg">
 
@@ -473,8 +856,99 @@ include('../config/db.php');
   </div>
 </div>
 
+<!-- ===================== MODAL EDITAR PUENTE / SITIO ===================== -->
+<div class="modal fade" id="modalEditarInfraestructura" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-broadcast-pin"></i> Editar Puente / Sitio / Torre</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <form method="post" action="../controllers/arcos_controller.php" id="formEditarInfraestructura">
+        <input type="hidden" name="action" value="update_infra">
+        <input type="hidden" name="id" id="editarInfraId">
+
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-6">
+              <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Nombre</label>
+              <input type="text" name="nombre" id="editarInfraNombre" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">UbicaciÃ³n</label>
+              <select name="ubicacion_id" id="editarInfraUbicacion" class="form-select" required>
+                <option value="">Seleccione...</option>
+                <?php foreach ($pdo->query('SELECT * FROM ubicaciones ORDER BY nombre') as $u): ?>
+                  <option value="<?= htmlspecialchars($u['id'], ENT_QUOTES, 'UTF-8') ?>">
+                    <?= htmlspecialchars($u['nombre'], ENT_QUOTES, 'UTF-8') ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Tipo</label>
+              <select name="tipo" id="editarInfraTipo" class="form-select" required>
+                <option value="Puente/Poste">Puente/Poste</option>
+                <option value="Sitio/Torre">Sitio/Torre</option>
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Latitud</label>
+              <input type="text" name="lat" id="editarInfraLat" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Longitud</label>
+              <input type="text" name="lng" id="editarInfraLng" class="form-control">
+            </div>
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-semibold mb-0">Arcos vinculados</label>
+                <span class="badge bg-primary" id="editarInfraArcosCount">0 seleccionados</span>
+              </div>
+              <input type="search" class="form-control form-control-sm mb-2" id="buscarEditarInfraArcos" placeholder="Buscar arco...">
+              <div id="editarInfraArcosLista" class="infra-arcos-selector">
+                <?php foreach ($pdo->query('SELECT id, nombre, ubicacion_id FROM arcos ORDER BY nombre') as $arcoOption): ?>
+                  <label class="infra-arco-option" data-ubicacion-id="<?= htmlspecialchars($arcoOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="checkbox" class="form-check-input editar-infra-arco-check"
+                      name="arcos_vinculados[]"
+                      value="<?= htmlspecialchars($arcoOption['id'], ENT_QUOTES, 'UTF-8') ?>">
+                    <span><?= htmlspecialchars($arcoOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
+                  </label>
+                <?php endforeach; ?>
+                <div class="infra-arcos-empty d-none" id="editarInfraArcosEmpty">No hay arcos para esta ubicaciÃ³n.</div>
+              </div>
+            </div>
+
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-semibold mb-0">Componentes</label>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnEditarInfraAddMaterial">
+                  <i class="bi bi-plus-lg"></i> Material
+                </button>
+              </div>
+              <div id="editarInfraMateriales" class="materiales-grid-added"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Guardar cambios</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== MODAL EDITAR ARCO ===================== -->
-<div class="modal modalEditarArco" id="modalEditarArco" tabindex="-1" aria-hidden="true">
+<div class="modal fade modalEditarArco" id="modalEditarArco" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content shadow-lg">
       <div class="modal-header bg-warning text-dark">
@@ -556,16 +1030,20 @@ include('../config/db.php');
                 <!-- Botón -->
                 <button type="button"
                   class="btn btn-warning d-flex align-items-center gap-2 px-3 py-2 shadow-sm text-white"
-                  id="editarAddMaterial">
+                  id="editarAddMaterial"
+                  data-material-context="editar">
                   <i class="bi bi-plus-lg"></i>
                   <span>Agregar material</span>
                 </button>
               </div>
 
-              <div id="editarMaterialesContainer" class=" text-muted py-2"
-                style="overflow-y: auto; max-height: 40vh; padding: 10px;">
-                <div class="spinner-border text-warning" role="status"></div>
-                <p class="mt-2 mb-0">Cargando materiales...</p>
+              <div id="editarMaterialesContainer" class="materiales-container-added">
+                <div id="listaMaterialesEditar" class="materiales-grid-added">
+                  <div class="empty-materials-state">
+                    <div class="spinner-border text-warning" role="status"></div>
+                    <span class="fw-semibold">Cargando materiales...</span>
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -581,7 +1059,7 @@ include('../config/db.php');
   </div>
 </div>
 
-<div class="modal fade" id="modalBitacora" tabindex="-1">
+<div class="modal fade" id="modalBitacora" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content shadow-lg border-0 rounded-4">
 
@@ -684,9 +1162,6 @@ include('../config/db.php');
                     </label>
                   <?php endforeach; ?>
                 </div>
-
-
-
               </div>
             </div>
           </div>
@@ -753,7 +1228,7 @@ include('../config/db.php');
 
       <div class="modal-body p-0">
         <!-- MAPA -->
-        <div id="map" style="height: 400px; width: 100%;"></div>
+        <div id="mapEditar" style="height: 400px; width: 100%;"></div>
       </div>
 
       <div class="modal-footer">
@@ -780,74 +1255,6 @@ include('../config/db.php');
     </div>
   </div>
 </div>
-
-
-<!-- CODIGO PARA MOSTRAR ARCO EN MAPA -->
-<script>
-  document.querySelectorAll('.generarBitacoraBtn').forEach(btn => {
-    btn.addEventListener('click', function () {
-      document.getElementById('bitacoraArcoId').value = this.dataset.id;
-    });
-  });
-
-
-  let map;
-  let mapInitialized = false;
-  let selectedMarker = null;
-  let lastSearchController = null;
-
-
-  const modalMapaArcos = document.getElementById('modalMapaArcos');
-
-  modalMapaArcos.addEventListener('show.bs.modal', function (event) {
-
-    const trigger = event.relatedTarget;
-    if (!trigger) return;
-
-    const lat = parseFloat(trigger.getAttribute('data-lat'));
-    const lng = parseFloat(trigger.getAttribute('data-lng'));
-    const nombre = trigger.getAttribute('data-nombre');
-    const ubic = trigger.getAttribute('data-ubic');
-    const fallas = trigger.getAttribute('data-fallas');
-
-    // Inicializar mapa una sola vez
-    if (!mapInitialized) {
-      map = L.map('map').setView([lat || 19.432608, lng || -99.133209], 14);
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
-
-      mapInitialized = true;
-    }
-
-    // Recalcular tamaño
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
-
-    const popupContent = `
-            <strong>${nombre}</strong><br>
-            📍 ${ubic || 'Sin ubicación'}
-            <br>⚠️ Fallas: ${fallas}  <br>
-        `;
-
-    // Limpiar marcador anterior
-    if (selectedMarker) {
-      map.removeLayer(selectedMarker);
-      selectedMarker = null;
-    }
-
-    // Colocar marcador SOLO del arco seleccionado
-    if (!isNaN(lat) && !isNaN(lng)) {
-      selectedMarker = L.marker([lat, lng]).addTo(map);
-
-      selectedMarker.bindPopup(popupContent).openPopup();
-
-      map.setView([lat, lng], 16);
-    }
-  });
-</script>
 
 
 <div class="modal fade" id="modalSeleccionarMapa" tabindex="-1" data-bs-backdrop="static">
@@ -885,392 +1292,28 @@ include('../config/db.php');
   </div>
 </div>
 
-
 <script>
-  function obtenerUbicacionActual(callback) {
-    if (!navigator.geolocation) {
-      console.warn("Geolocalización no soportada");
-      callback(17.550826, -99.501462);
-      return;
-    }
+  const modalAgregarMaterial =
+  document.getElementById("modalAgregarMaterial");
 
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        callback(pos.coords.latitude, pos.coords.longitude);
-      },
-      err => {
-        console.warn("Permiso denegado o error:", err.message);
-        callback(17.550826, -99.501462); // fallback
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
-  }
+  if (modalAgregarMaterial) {
 
-  // modal seleccionar ubicacion en mapa
-  let mapSelector, markerSelector;
-  let selectedLat = null;
-  let selectedLng = null;
-  let selectorInitialized = false;
+      modalAgregarMaterial.addEventListener("shown.bs.modal", () => {
 
-  // Destinos dinámicos para lat/lng (soporta agregar o editar)
-  let inputLatDestino = null;
-  let inputLngDestino = null;
+          const buscar =
+          document.getElementById("buscarMaterial");
 
-  const modalMapa = new bootstrap.Modal(
-    document.getElementById('modalSeleccionarMapa'),
-    {
-      backdrop: 'static',
-      keyboard: false,
-      focus: false   // 🔥 CLAVE
-    }
-  );
-
-  // Abrir modal mapa (Agregar)
-  document.querySelectorAll('#btnAbrirMapa').forEach(btn => {
-    btn.addEventListener('click', () => {
-      console.log('abrirMapa click, data-lat:', btn.dataset.lat, 'data-lng:', btn.dataset.lng);
-      inputLatDestino = btn.dataset.lat;
-      inputLngDestino = btn.dataset.lng;
-
-      // Si los inputs ya tienen valores (editar rápido), pre-seleccionarlos
-      const latVal = document.getElementById('latInput')?.value;
-      const lngVal = document.getElementById('lngInput')?.value;
-      if (latVal && lngVal) {
-        selectedLat = latVal;
-        selectedLng = lngVal;
-      } else {
-        selectedLat = null;
-        selectedLng = null;
-      }
-
-      const parentCustom = btn.closest('.custom-modal');
-      if (parentCustom) {
-        parentCustom.style.display = 'none';
-        // Guardamos referencia para restaurarla cuando se cierre el selector
-        modalMapa._parentCustomModal = parentCustom;
-      }
-      // Definir modo: editar o agregar (para personalizar el texto y el comportamiento)
-      const mode = parentCustom && parentCustom.id === 'modalEditarUbicacion' ? 'editar' : 'agregar';
-      modalMapa._mode = mode;
-
-      // Cambiar estilo del header y texto según modo
-      const headerEl = document.querySelector('#modalSeleccionarMapa .modal-header');
-      const titleEl = document.querySelector('#modalSeleccionarMapa .modal-title');
-      const acceptBtn = document.getElementById('btnAceptarUbicacion');
-      const helpEl = document.getElementById('mapHelp');
-      if (headerEl && titleEl && acceptBtn && helpEl) {
-        if (mode === 'editar') {
-          headerEl.classList.remove('bg-success', 'text-white');
-          headerEl.classList.add('bg-warning', 'text-dark');
-          titleEl.textContent = 'Seleccionar ubicación (Editar)';
-          helpEl.textContent = 'Editar ubicación: haz clic en el mapa para colocar o arrastra el marcador para ajustar.';
-          acceptBtn.classList.remove('btn-success');
-          acceptBtn.classList.add('btn-warning');
-        } else {
-          headerEl.classList.remove('bg-warning', 'text-dark');
-          headerEl.classList.add('bg-success', 'text-white');
-          titleEl.textContent = 'Seleccionar ubicación (Agregar)';
-          helpEl.textContent = 'Agregar ubicación: haz clic en el mapa para colocar o arrastra el marcador para ajustar.';
-          acceptBtn.classList.remove('btn-warning');
-          acceptBtn.classList.add('btn-success');
-        }
-      }
-
-      modalMapa.show();
-    });
-  });
-
-  // Abrir modal mapa (Editar)
-  document.getElementById('btnAbrirMapaEditar')?.addEventListener('click', () => {
-    inputLatDestino = 'editar_lat';
-    inputLngDestino = 'editar_lng';
-
-    const latVal = document.getElementById('editar_lat')?.value;
-    const lngVal = document.getElementById('editar_lng')?.value;
-    if (latVal && lngVal) {
-      selectedLat = latVal;
-      selectedLng = lngVal;
-    } else {
-      selectedLat = null;
-      selectedLng = null;
-    }
-
-    modalMapa._mode = 'editar';
-
-    const headerElE = document.querySelector('#modalSeleccionarMapa .modal-header');
-    const titleElE = document.querySelector('#modalSeleccionarMapa .modal-title');
-    const acceptBtnE = document.getElementById('btnAceptarUbicacion');
-    const helpElE = document.getElementById('mapHelp');
-    if (headerElE && titleElE && acceptBtnE && helpElE) {
-      headerElE.classList.remove('bg-success', 'text-white');
-      headerElE.classList.add('bg-warning', 'text-dark');
-      titleElE.textContent = 'Seleccionar ubicación (Editar)';
-      helpElE.textContent = 'Editar ubicación: haz clic en el mapa para colocar o arrastra el marcador para ajustar.';
-      acceptBtnE.classList.remove('btn-success');
-      acceptBtnE.classList.add('btn-warning');
-    }
-
-    modalMapa.show();
-  });
-
-  document.getElementById('modalSeleccionarMapa')
-    .addEventListener('shown.bs.modal', () => {
-
-      // Resetear marcadores al abrir el selector para evitar problemas al colocar nuevos marcadores
-      if (markerSelector && mapSelector) {
-        try { mapSelector.removeLayer(markerSelector); } catch (e) { console.warn('Error al remover marcador al abrir selector:', e); }
-      }
-      markerSelector = null;
-
-      if (!selectorInitialized) {
-
-        obtenerUbicacionActual((lat, lng, error) => {
-
-          // Si el selector ya tiene un valor preseleccionado (editar), centrar ahí
-          const preLat = selectedLat || lat;
-          const preLng = selectedLng || lng;
-
-          mapSelector = L.map('mapSelector').setView([preLat, preLng], 13);
-
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-          }).addTo(mapSelector);
-
-          // Mostrar mensaje si hubo error al obtener la ubicación
-          const statusEl = document.getElementById('mapStatus');
-          if (error) {
-            statusEl.textContent = 'Estado: ' + error;
-            statusEl.classList.remove('text-muted');
-            statusEl.classList.add('text-danger');
-          } else {
-            statusEl.textContent = 'Estado: ubicación obtenida.';
-            statusEl.classList.remove('text-danger');
-            statusEl.classList.add('text-success');
+          if (buscar) {
+              buscar.focus();
           }
 
-          // Si ya había coordenadas seleccionadas (p.ej. por editar), colocar marcador
-          if (selectedLat && selectedLng) {
-            try { colocarMarcador(parseFloat(selectedLat), parseFloat(selectedLng)); } catch (e) { console.warn('pre-seed marker failed', e); }
-          }
-
-          // Click en mapa
-          mapSelector.on('click', e => {
-            colocarMarcador(e.latlng.lat, e.latlng.lng);
-          });
-
-        });
-
-        selectorInitialized = true;
-      } else {
-        // Mapa ya inicializado: si hay valores preseleccionados, colocar marcador
-        if (selectedLat && selectedLng) {
-          try { colocarMarcador(parseFloat(selectedLat), parseFloat(selectedLng)); } catch (e) { console.warn('pre-seed marker failed', e); }
-        }
-      }
-
-      setTimeout(() => mapSelector.invalidateSize(), 200);
-
-    });
-
-  function colocarMarcador(lat, lng) {
-    selectedLat = Number(lat).toFixed(6);
-    selectedLng = Number(lng).toFixed(6);
-
-    const popupContent = `
-      📍 <strong>Latitud:</strong> ${selectedLat}<br>
-      📍 <strong>Longitud:</strong> ${selectedLng}
-    `;
-
-    if (!markerSelector) {
-      markerSelector = L.marker([selectedLat, selectedLng], {
-        draggable: true,
-        autoPan: true
-      }).addTo(mapSelector);
-
-      markerSelector.on('dragend', () => {
-        const pos = markerSelector.getLatLng();
-        colocarMarcador(pos.lat, pos.lng);
       });
-    } else {
-      markerSelector.setLatLng([selectedLat, selectedLng]);
-    }
 
-    markerSelector.bindPopup(popupContent).openPopup();
-
-    // Actualizar campos preview y destino (si existen)
-    const lp = document.getElementById('latPreview');
-    const lg = document.getElementById('lngPreview');
-    if (lp) lp.value = selectedLat;
-    if (lg) lg.value = selectedLng;
-
-    if (inputLatDestino && document.getElementById(inputLatDestino)) document.getElementById(inputLatDestino).value = selectedLat;
-    if (inputLngDestino && document.getElementById(inputLngDestino)) document.getElementById(inputLngDestino).value = selectedLng;
   }
-
-  // ✅ Aceptar ubicación
-  document.getElementById('btnAceptarUbicacion').addEventListener('click', () => {
-    if (!selectedLat || !selectedLng) {
-      alert('Selecciona una ubicación en el mapa');
-      return;
-    }
-
-    const targetLatId = inputLatDestino || 'latInput';
-    const targetLngId = inputLngDestino || 'lngInput';
-
-    const latEl = document.getElementById(targetLatId);
-    const lngEl = document.getElementById(targetLngId);
-    if (latEl) latEl.value = selectedLat;
-    if (lngEl) lngEl.value = selectedLng;
-
-    // limpiar destino
-    inputLatDestino = null;
-    inputLngDestino = null;
-
-    modalMapa.hide();
-  });
-
-
-  function solicitarPermisoDirecto() {
-    const fallback = { lat: 17.550826, lng: -99.501462 };
-    return new Promise(resolve => {
-      if (!navigator.geolocation) {
-        resolve({ lat: fallback.lat, lng: fallback.lng, error: 'Geolocalización no soportada' });
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, error: null }),
-        err => {
-          let msg = err.message || 'Error de geolocalización';
-          try {
-            switch (err.code) {
-              case err.PERMISSION_DENIED:
-                msg = 'Permiso denegado por el usuario.';
-                break;
-              case err.POSITION_UNAVAILABLE:
-                msg = 'Posición no disponible.';
-                break;
-              case err.TIMEOUT:
-                msg = 'Tiempo de espera agotado (timeout).';
-                break;
-            }
-          } catch (e) { }
-          resolve({ lat: fallback.lat, lng: fallback.lng, error: msg });
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    });
-  }
-
-  document.getElementById('btnUsarMiUbicacion').addEventListener('click', () => {
-    const statusEl = document.getElementById('mapStatus');
-    const helpEl = document.getElementById('mapHelp');
-    statusEl.textContent = 'Estado: solicitando ubicación...';
-    statusEl.classList.remove('text-danger', 'text-success');
-    statusEl.classList.add('text-muted');
-    helpEl.classList.add('d-none');
-
-    const permissionQuery = (navigator.permissions && navigator.permissions.query)
-      ? navigator.permissions.query({ name: 'geolocation' }).catch(() => ({ state: 'prompt' }))
-      : Promise.resolve({ state: 'prompt' });
-
-    permissionQuery.then(status => {
-      console.log('permission.state =', status && status.state);
-      return solicitarPermisoDirecto();
-    }).then(({ lat, lng, error }) => {
-      if (error) {
-        statusEl.textContent = 'Estado: ' + error;
-        statusEl.classList.remove('text-muted');
-        statusEl.classList.add('text-danger');
-        if (error.toLowerCase().includes('permiso denegado')) {
-          helpEl.classList.remove('d-none');
-          helpEl.textContent = 'Permiso denegado. Habilita “Ubicación” para este sitio desde la configuración del navegador (haz clic en el icono de candado en la barra de direcciones).';
-        }
-      } else {
-        // Ubicación obtenida: inicializar o centrar mapa y colocar marcador
-        statusEl.textContent = 'Estado: ubicación obtenida.';
-        statusEl.classList.remove('text-danger');
-        statusEl.classList.add('text-success');
-
-        if (!selectorInitialized) {
-          try {
-            mapSelector = L.map('mapSelector').setView([lat, lng], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              attribution: '© OpenStreetMap'
-            }).addTo(mapSelector);
-            mapSelector.on('click', e => colocarMarcador(e.latlng.lat, e.latlng.lng));
-            selectorInitialized = true;
-          } catch (err) {
-            console.warn('Error al inicializar mapa desde Usar mi ubicación:', err);
-          }
-        } else {
-          try { mapSelector.setView([lat, lng], 13); } catch (e) { console.warn('Error al centrar mapa:', e); }
-        }
-
-        try { colocarMarcador(lat, lng); } catch (e) { console.warn('Error al colocar marcador:', e); }
-      }
-    }).catch(err => console.warn('Error al solicitar ubicación:', err));
-
-    // Sincronizar selects de ubicaciones con los inputs de lat/lng
-    (function setupUbicacionSync() {
-      // Al cambiar la ubicación en el modal Agregar, copiar coordenadas si existen
-      const addSel = document.querySelector('#modalAgregarArco select[name="ubicacion_id"]');
-      if (addSel) {
-        addSel.addEventListener('change', function () {
-          const opt = this.selectedOptions[0];
-          if (!opt) return;
-          const lat = opt.dataset.lat;
-          const lng = opt.dataset.lng;
-          if (lat !== undefined) document.getElementById('latInput').value = lat || '';
-          if (lng !== undefined) document.getElementById('lngInput').value = lng || '';
-        });
-
-        // Al abrir el modal, pre-seleccionar coords si ya hay opción seleccionada
-        document.getElementById('modalAgregarArco')?.addEventListener('shown.bs.modal', () => {
-          const opt = addSel.selectedOptions[0];
-          if (!opt) return;
-          if (opt.dataset.lat) document.getElementById('latInput').value = opt.dataset.lat;
-          if (opt.dataset.lng) document.getElementById('lngInput').value = opt.dataset.lng;
-        });
-      }
-
-      // Para el modal Editar
-      const editSel = document.querySelector('#formEditarArco select[name="ubicacion_id"]');
-      if (editSel) {
-        editSel.addEventListener('change', function () {
-          const opt = this.selectedOptions[0];
-          if (!opt) return;
-          const lat = opt.dataset.lat;
-          const lng = opt.dataset.lng;
-          if (lat !== undefined) document.getElementById('editar_lat').value = lat || '';
-          if (lng !== undefined) document.getElementById('editar_lng').value = lng || '';
-        });
-
-        document.getElementById('modalEditarArco')?.addEventListener('shown.bs.modal', () => {
-          const opt = editSel.selectedOptions[0];
-          if (!opt) return;
-          if (opt.dataset.lat) document.getElementById('editar_lat').value = opt.dataset.lat;
-          if (opt.dataset.lng) document.getElementById('editar_lng').value = opt.dataset.lng;
-        });
-      }
-    })();
-  });
-
-  // Cerrar modal
-  document.querySelectorAll('.cerrarMapa').forEach(btn => {
-    btn.addEventListener('click', () => modalMapa.hide());
-  });
-
-
 
 </script>
 
 
-
-
-<script src="../js/arcos.js"></script>
+<script src="../js/arcos.js?v=<?= $arcosJsVersion ?>"></script>
 
 <?php include('../views/footer.php'); ?>

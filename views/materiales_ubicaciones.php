@@ -391,12 +391,12 @@ if (!isset($_SESSION["user"])) {
         <div class="row-two mt-2">
           <div class="col ">
             <label>Latitud:</label>
-            <input type="number" step="any" name="latAgregar" id="latAgregar" class="form-control">
+            <input type="number" step="any" name="latAgregar" id="latAgregar" class="form-control" required>
           </div>
 
           <div class="col">
             <label>Longitud:</label>
-            <input type="number" step="any" name="lngAgregar" id="lngAgregar" class="form-control">
+            <input type="number" step="any" name="lngAgregar" id="lngAgregar" class="form-control" required>
           </div>
 
 
@@ -442,12 +442,12 @@ if (!isset($_SESSION["user"])) {
         <div class="row-two mt-2 movilEditarUbicacion">
               <div class="col ">
                 <label>Latitud:</label>
-                <input type="number" step="any" name="lateditar" id="edit-material-latitud" class="form-control">
+                <input type="number" step="any" name="lateditar" id="edit-material-latitud" class="form-control" required>
               </div>
 
             <div class="col">
               <label>Longitud:</label>
-              <input type="number" step="any" name="lngeditar" id="edit-material-longitud" class="form-control">
+              <input type="number" step="any" name="lngeditar" id="edit-material-longitud" class="form-control" required>
             </div>
           
            

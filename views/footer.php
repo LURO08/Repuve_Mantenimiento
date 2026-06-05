@@ -1,3 +1,7 @@
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  if (!window.bootstrap) {
+    document.write('<script src="../assets/bootstrap.budle.min.js"><\/script>');
+  }
+</script>
 </body></html>

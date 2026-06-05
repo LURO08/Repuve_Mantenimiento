@@ -1,44 +1,126 @@
-body {
-    font-family: Arial, sans-serif;
-    font-size: 11px;
-    background: #6b6b6b;
-}
-
-/* VISTA EN PANTALLA */
-.Diseño{
-    width: 210mm;
-    min-height: 279mm;
-    margin: 20px auto;
-    background: white;
-    box-shadow: 0 0 10px rgba(0,0,0,.15);
-    box-sizing: border-box;
-}
-
-.hoja {
-    width: 100%;
-    padding: 8mm;
-    box-sizing: border-box;
-}
-
 @page {
     size: letter;
     margin: 10mm;
 }
 
-
-.titulo {
-    text-align: center;
-    font-size: 18px;
-    margin-bottom: 15px;
+body {
+    margin: 0;
+    padding: 0;
+    background: #eaeaea;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    color: #000;
 }
 
+/* BOTÓN IMPRIMIR */
+.no-print {
+    text-align: center;
+    margin: 15px;
+}
+
+.no-print button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    background: #1f3d70;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* HOJA */
+.Diseño {
+    display: flex;
+    justify-content: center;
+}
+
+.hoja {
+    width: 8.5in;
+    min-height: 11in;
+    background: white;
+    padding: 20px 32px 150px 32px;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* ENCABEZADO */
+.encabezado-formato {
+    display: grid;
+    grid-template-columns: 160px 1fr 170px;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 4px;
+    border-bottom: 10px solid #003865;
+}
+
+.encabezado-logo {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.encabezado-logo img {
+    max-width: 144px;
+    max-height: 65px;
+    object-fit: contain;
+}
+
+.encabezado-titulo {
+    text-align: center;
+    font-size: 30px;
+    font-weight: 900;
+    letter-spacing: .5px;
+    color: #000;
+    white-space: nowrap;
+    margin-left: -5px;
+}
+
+.encabezado-info {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.encabezado-info table {
+    width: auto;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.encabezado-info th {
+    background: #f28c13;
+    color: #000;
+    padding: 5px 8px;
+    text-align: left;
+    border: 1px solid #f28c13;
+}
+
+.encabezado-info td {
+    background: #fff;
+    color: #000;
+    padding: 5px 8px;
+    border: 1px solid #fff;
+    white-space: nowrap;
+}
+
+.linea-azul {
+    width: 67%;
+    height: 8px;
+    background: #003865;
+    margin-left: 215px;
+    margin-bottom: 12px;
+}
+
+/* SECCIONES */
 .seccion {
-    margin-bottom: 20px;
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 .titulo-seccion {
-    font-weight: bold;
-    margin-bottom: 5px;
+    font-weight: 800;
+    font-size: 15px;
+    margin-bottom: 8px;
 }
 
 table {
@@ -46,103 +128,113 @@ table {
     border-collapse: collapse;
 }
 
-.tabla-componentes td,
-.tabla-componentes th,
+.tabla-servicio{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.tabla-componentes {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
 .tabla-servicio td {
-    border: 0.7px solid #000;
+    border: 1px solid #f28c13;
+    padding: 7px;
+}
+
+.tabla-componentes th {
+    background: #1f3d70;
+    color: white;
+    border: 1px solid #000;
+    padding: 7px;
+    text-align: center;
+    font-size: 12px;
+}
+
+.tabla-componentes td {
+    border: 1px solid #000;
     padding: 6px;
-    font-size: 11px;
 }
 
-
-/* .tabla-servicio td,
-        .tabla-componentes td,
-        .tabla-componentes th {
-            border: 1px solid #000;
-            padding: 6px;
-            font-size: 11px;
-        } */
-
-.linea {
-    display: inline-block;
-    min-width: 250px;
-    border-bottom: 1px solid #000;
-}
-
-.linea-corta {
-    display: inline-block;
-    min-width: 35px;
-    border-bottom: 1px solid #000;
-    text-align: center;
-}
-
-.linea-larga {
-    display: inline-block;
-    width: 500px;
-    border-bottom: 1px solid #000;
-}
-
+/* OBSERVACIONES */
 .observaciones {
-    margin-top: 30px;
-}
-
-.linea-observacion {
-    border-bottom: 1px solid #000;
-    margin-top: 30px;
-}
-
-.firmas {
-    margin-top: 80px;
-    display: flex;
-    justify-content: space-between;
-}
-
-
-.firma {
-    width: 40%;
-    text-align: center;
-}
-
-.firma small {
-    font-weight: bold;
-    font-size: 11px;
-}
-
-.linea-firma {
-    border-bottom: 1px solid #000;
-    margin-bottom: 8px;
-}
-
-.no-print {
-    text-align: right;
-    margin: 10px;
-}
-
-.componente-cell {
-    padding: 4px 6px;
-}
-
-.nombre-material {
-    float: left;
-}
-
-.cantidad-material {
-    float: right;
-    /* font-weight: bold; */
+    margin-top: 10px;
+    font-size: 13px;
 }
 
 .observaciones-box {
-    min-height: 70px;
+    min-height: 90px;
     border: 1px solid #000;
-    padding: 6px;
-    margin-top: 10px;
+    margin-top: 6px;
+    padding: 8px;
     line-height: 20px;
 }
 
+/* FIRMA HASTA ABAJO */
+.firmas {
+    position: absolute;
+    left: 32px;
+    right: 32px;
+    bottom: 118px;
+    display: flex;
+    justify-content: center;
+}
+
+.firma {
+    width: 55%;
+    text-align: center;
+}
+
+.nombre-firma {
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.texto-firma {
+    font-size: 12px;
+    padding-top: 2px;
+    font-weight: bold;
+    font-style: italic;
+    border-top:1px solid #000;
+}
+
+/* PIE DE FORMATO */
+.pie-formato {
+    position: absolute;
+    left: 32px;
+    right: 32px;
+    bottom: 22px;
+    display: grid;
+    grid-template-columns: 1fr 4px 1fr;
+    align-items: center;
+    font-size: 13px;
+    color: #333;
+}
+
+.pie-izquierdo {
+    text-align: center;
+    line-height: 1.6;
+}
+
+.pie-separador {
+    height: 60px;
+    width: 3px;
+    background: #003865;
+    justify-self: center;
+}
+
+.pie-derecho {
+    text-align: center;
+    line-height: 1.6;
+}
+
+/* IMPRESIÓN */
 @media print {
     body {
-        margin: 0;
-        padding: 0;
         background: white;
     }
 
@@ -150,19 +242,30 @@ table {
         display: none;
     }
 
-    /* AQUÍ SE QUITA EL EFECTO HOJA */
     .Diseño {
-        width: 100%;
-        min-height: auto;
-        margin: 0;
-        box-shadow: none;
-        background: white;
+        display: block;
     }
 
     .hoja {
         width: 100%;
-        padding: 0;
-        margin: 0;
-        box-sizing: border-box;
+        min-height: 100vh;
+        box-shadow: none;
+        padding: 10mm 12mm 38mm 12mm;
+    }
+
+    .firmas {
+        left: 12mm;
+        right: 12mm;
+        bottom: 32mm;
+    }
+
+    .pie-formato {
+        left: 12mm;
+        right: 12mm;
+        bottom: 8mm;
+    }
+
+    .tabla-componentes th {
+        background: #1f3d70;
     }
 }

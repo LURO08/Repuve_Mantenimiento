@@ -29,8 +29,9 @@ CREATE TABLE IF NOT EXISTS arco_material (
     id INT AUTO_INCREMENT PRIMARY KEY,
     arco_id INT NOT NULL,
     material_id INT NOT NULL,
+    cantidad FLOAT DEFAULT 1,
     foto VARCHAR(255) DEFAULT NULL,
-    UNIQUE(arco_id, material_id),
+    serie VARCHAR(50) DEFAULT NULL,
     FOREIGN KEY (arco_id) REFERENCES arcos(id) ON DELETE CASCADE,
     FOREIGN KEY (material_id) REFERENCES materiales(id) ON DELETE CASCADE
 );
@@ -54,12 +55,29 @@ CREATE TABLE IF NOT EXISTS revision_evidencias (
     FOREIGN KEY (revision_id) REFERENCES revisiones(id) ON DELETE CASCADE
 );
 
+-- evidencias para mantenimientos de postes, puentes y sitios
+CREATE TABLE IF NOT EXISTS infraestructura_revision_evidencias (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    revision_id INT NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    mimetype VARCHAR(100) DEFAULT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_infra_revision_evidencias_revision_id (revision_id),
+    FOREIGN KEY (revision_id) REFERENCES infraestructura_revisiones(id) ON DELETE CASCADE
+);
+
 -- relación revision <-> material (varios materiales cambiados por revisión), con foto por material-cambio
 CREATE TABLE IF NOT EXISTS revision_material (
     id INT AUTO_INCREMENT PRIMARY KEY,
     revision_id INT NOT NULL,
+    arco_material_id INT DEFAULT NULL,
     material_id INT NOT NULL,
+    cantidad FLOAT DEFAULT 1,
     foto VARCHAR(255) DEFAULT NULL,
+    serie VARCHAR(40) DEFAULT NULL,
+    accion VARCHAR(20) NOT NULL DEFAULT 'cambio',
+    INDEX idx_revision_material_arco_material_id (arco_material_id),
     FOREIGN KEY (revision_id) REFERENCES revisiones(id) ON DELETE CASCADE,
+    FOREIGN KEY (arco_material_id) REFERENCES arco_material(id) ON DELETE SET NULL,
     FOREIGN KEY (material_id) REFERENCES materiales(id) ON DELETE CASCADE
 );

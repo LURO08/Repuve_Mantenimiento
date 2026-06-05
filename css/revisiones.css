@@ -164,6 +164,47 @@ table th, table td {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
 }
+
+#modalMateriales .revision-material-date-group {
+  margin-bottom: 18px;
+}
+
+#modalMateriales .revision-material-date-title {
+  align-items: center;
+  background: #f0f8f3;
+  border: 1px solid rgba(25,135,84,.18);
+  border-radius: 10px;
+  color: #146c43;
+  display: flex;
+  font-weight: 700;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+}
+
+#modalMateriales .revision-material-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+#modalMateriales .revision-material-card {
+  border: 1px solid #dbe7df;
+  border-left: 5px solid #198754;
+  border-radius: 10px;
+  min-width: 0;
+}
+
+#modalMateriales .revision-material-card:hover {
+  box-shadow: 0 10px 24px rgba(25,135,84,.12);
+}
+
+#modalMateriales .revision-material-name {
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+#modalMateriales .revision-material-qty {
+  flex: 0 0 auto;
+}
   
 
 .material-hover-name {
@@ -721,3 +762,608 @@ table th, table td {
     object-fit: contain;
 }
 
+#modalSerie .modal-body {
+  max-height:72vh;
+  overflow-y:auto;
+}
+
+.modal-material-layout {
+  display:grid;
+  gap:1rem;
+  grid-template-columns:minmax(0, 2fr) minmax(280px, .9fr);
+}
+
+.modal-material-list-panel,
+.modal-material-config-panel {
+  min-width:0;
+}
+
+.modal-material-config-panel {
+  align-self:start;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  box-shadow:0 8px 22px rgba(15,23,42,.08);
+  padding:1rem;
+  position:sticky;
+  top:0;
+}
+
+.modal-material-config-head {
+  margin-bottom:1rem;
+  text-align:center;
+}
+
+.modal-material-config-head .rounded-circle {
+  height:58px;
+  margin-bottom:.55rem;
+  width:58px;
+}
+
+.modal-material-config-head i {
+  font-size:1.55rem;
+}
+
+.modal-material-selected {
+  align-items:center;
+  background:#f8fafc;
+  border:1px solid #d9e3ec;
+  border-radius:8px;
+  color:#66727c;
+  display:flex;
+  gap:.45rem;
+  justify-content:space-between;
+  min-height:38px;
+  padding:.45rem .65rem;
+}
+
+.modal-material-selected-name {
+  color:#111827;
+  font-size:.9rem;
+  font-weight:700;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.modal-material-selected-measure {
+  background:#e8f5ee;
+  border-radius:999px;
+  color:#198754;
+  font-size:.72rem;
+  font-weight:800;
+  padding:.18rem .5rem;
+  text-transform:uppercase;
+}
+
+.modal-material-fields {
+  background:#fbfcfd;
+  border:1px solid #e5e7eb;
+  border-radius:8px;
+  padding:.6rem .7rem;
+}
+
+.modal-material-fields label {
+  color:#4b5563;
+  font-weight:800;
+  margin-bottom:.25rem;
+}
+
+#DatosSeries:not(.d-none) {
+  align-items:end;
+  display:grid;
+  gap:.65rem;
+  grid-template-columns:minmax(220px, .85fr) minmax(220px, 1fr);
+}
+
+.modal-material-config-panel #DatosSeries:not(.d-none) {
+  display:block;
+}
+
+.modal-serie-switch {
+  align-items:center;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:8px;
+  display:flex;
+  min-height:38px;
+  padding:.45rem .65rem;
+}
+
+.modal-material-config-panel .modal-serie-input {
+  margin-top:.65rem;
+}
+
+.modal-serie-switch .form-check-input {
+  flex:0 0 auto;
+  margin-top:0;
+}
+
+.modal-serie-switch .form-check-label {
+  line-height:1.15;
+  margin-left:.45rem;
+}
+
+.modal-serie-input label {
+  display:block;
+}
+
+@media (max-width: 768px) {
+  .modal-material-layout {
+    grid-template-columns:1fr;
+  }
+
+  .modal-material-config-panel {
+    position:static;
+  }
+
+  #DatosSeries:not(.d-none) {
+    grid-template-columns:1fr;
+  }
+}
+
+.modal-material-grid {
+  display:grid;
+  gap:.55rem;
+  grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));
+  max-height:285px;
+  overflow-y:auto;
+  padding:.1rem .15rem .2rem 0;
+}
+
+.modal-material-option {
+  background:#fff;
+  border:1px solid #dfe6ee;
+  border-radius:8px;
+  color:#111827;
+  display:flex;
+  flex-direction:column;
+  min-height:142px;
+  padding:.55rem;
+  text-align:center;
+  transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.modal-material-option:hover {
+  border-color:#198754;
+  box-shadow:0 6px 16px rgba(25,135,84,.16);
+  transform:translateY(-1px);
+}
+
+.modal-material-option.is-selected {
+  border-color:#198754;
+  box-shadow:0 0 0 2px rgba(25,135,84,.18);
+}
+
+.modal-material-option img {
+  height:58px;
+  object-fit:contain;
+  width:100%;
+}
+
+.modal-material-option span {
+  display:-webkit-box;
+  font-size:.84rem;
+  font-weight:800;
+  line-height:1.15;
+  margin-top:.45rem;
+  overflow:hidden;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+}
+
+.modal-material-option small {
+  color:#6c757d;
+  font-size:.74rem;
+  font-weight:700;
+  margin-top:auto;
+  padding-top:.35rem;
+}
+
+.infra-revision-material-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.infra-revision-material-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(130px, 170px) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .infra-revision-material-row {
+    grid-template-columns: 1fr;
+  }
+
+  .infra-revision-material-row .btn {
+    width: 100%;
+  }
+}
+
+.revisiones-table-switch .btn{
+  min-width:140px;
+  font-weight:600;
+  padding:.42rem .9rem;
+}
+
+.revisiones-table-switch .btn i{
+  margin-right:6px;
+}
+
+.revisiones-table-view{
+  margin-bottom:8px;
+  max-height:none;
+  overflow:visible;
+}
+
+.revision-tabla-scroll{
+  max-height:none;
+  overflow-x:auto;
+  overflow-y:visible;
+}
+
+.revision-tabla-scroll.is-scroll-limited{
+  max-height:calc(100vh - 385px);
+  overflow:auto;
+}
+
+.revision-tabla-scroll table{
+  margin:0;
+  min-width:920px;
+}
+
+.revision-tabla-scroll thead th{
+  position:sticky;
+  top:0;
+  z-index:2;
+}
+
+.revision-tabla-scroll::-webkit-scrollbar{
+  width:8px;
+  height:8px;
+}
+
+.revision-tabla-scroll::-webkit-scrollbar-thumb{
+  background:#b8c2cc;
+  border-radius:20px;
+}
+
+.revision-search-input{
+  width:280px;
+}
+
+.revisiones-page-heading{
+  margin:4px 0 8px;
+}
+
+.revisiones-page-heading h1{
+  font-size:clamp(1.8rem, 3vw, 2.45rem);
+  line-height:1.05;
+  margin-bottom:4px;
+}
+
+.revisiones-page-heading hr{
+  margin-top:4px !important;
+  margin-bottom:0;
+  width:50% !important;
+}
+
+.revisiones-table-switch{
+  margin-bottom:10px !important;
+}
+
+#revisionViewArcos .interfaz{
+  height:auto !important;
+  min-height:58px;
+  padding:.55rem .75rem !important;
+}
+
+#revisionViewArcos .interfaz > .d-flex{
+  margin-bottom:0 !important;
+}
+
+#revisionViewArcos .interfaz > .input-group{
+  padding:0 !important;
+  width:min(34%, 305px) !important;
+}
+
+#revisionViewArcos .interfaz .btn{
+  padding:.48rem .75rem !important;
+}
+
+#revisionesTable th,
+#revisionesTable td,
+#infraRevisionesTable th,
+#infraRevisionesTable td{
+  font-size:.9rem;
+  line-height:1.2;
+  padding:5px 7px;
+}
+
+.detalle-mantenimiento .detalle-header{
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  padding:14px;
+}
+
+.detalle-info-box{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:8px;
+  min-height:72px;
+  padding:10px 12px;
+}
+
+.detalle-info-box span{
+  color:#6c757d;
+  display:block;
+  font-size:.82rem;
+  margin-bottom:4px;
+}
+
+.detalle-info-box strong{
+  display:block;
+  overflow-wrap:anywhere;
+}
+
+.detalle-observaciones{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-left:4px solid #198754;
+  border-radius:8px;
+  line-height:1.45;
+  min-height:72px;
+  padding:12px;
+}
+
+.detalle-evidencias-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
+  gap:12px;
+}
+
+.detalle-evidencias-loading{
+  align-items:center;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:8px;
+  color:#6c757d;
+  display:flex;
+  gap:8px;
+  grid-column:1 / -1;
+  justify-content:center;
+  min-height:70px;
+}
+
+.detalle-evidencias-grid .evidencia-card,
+.detalle-evidencias-grid .pdf-card{
+  height:150px;
+  margin:0;
+  overflow:hidden;
+  width:100%;
+}
+
+.detalle-evidencias-grid .pdf-preview{
+  height:104px;
+}
+
+.detalle-evidencias-grid .pdf-info{
+  padding:6px 8px;
+}
+
+.detalle-evidencia-imagen{
+  background:#fff;
+}
+
+.detalle-evidencia-preview{
+  align-items:center;
+  background:#eef6ff;
+  color:#0d6efd;
+  display:flex;
+  font-size:2.4rem;
+  height:92px;
+  justify-content:center;
+}
+
+.detalle-evidencia-thumb{
+  display:block;
+  height:100%;
+  object-fit:cover;
+  width:100%;
+}
+
+.detalle-evidencia-info{
+  padding:8px;
+}
+
+.detalle-evidencia-info .pdf-name,
+.detalle-evidencias-grid .pdf-name{
+  font-size:.78rem;
+  line-height:1.2;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+#pagination-revisiones,
+#pagination-infraRevisiones{
+  margin-top:.45rem !important;
+  margin-bottom:.35rem;
+}
+
+#pagination-revisiones .pagination,
+#pagination-infraRevisiones .pagination{
+  margin-bottom:0;
+}
+
+@media (max-width:768px){
+  .revisiones-table-switch{
+    justify-content:stretch !important;
+  }
+
+  .revisiones-table-switch .btn-group{
+    width:100%;
+  }
+
+  .revisiones-table-switch .btn{
+    min-width:0;
+    flex:1;
+    white-space:normal;
+  }
+
+  .revision-tabla-scroll{
+    max-height:none;
+  }
+
+  .revision-tabla-scroll.is-scroll-limited{
+    max-height:calc(100vh - 330px);
+  }
+
+  .revision-search-input{
+    width:100%;
+  }
+}
+
+#modalRevision #materialesContainer{
+  display:block;
+  overflow-x:hidden;
+  overflow-y:auto;
+  padding-right:6px;
+}
+
+#modalRevision .contenedor-materiales{
+  display:grid !important;
+  grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
+  align-items:stretch;
+  grid-auto-rows:1fr;
+  gap:12px;
+  margin:0;
+  width:100%;
+}
+
+#modalRevision .contenedor-material{
+  min-width:0;
+  width:100%;
+}
+
+#modalRevision .material-card{
+  height:100% !important;
+  min-height:240px;
+  max-height:none;
+  overflow:visible;
+  position:relative;
+  width:100%;
+}
+
+#modalRevision .material-card .card-body{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  padding:10px;
+}
+
+#modalRevision .material-card .card-body > .fw-semibold{
+  display:-webkit-box;
+  line-height:1.25;
+  min-height:3.75em;
+  overflow:hidden;
+  overflow-wrap:anywhere;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+}
+
+#modalRevision .material-actions{
+  display:grid;
+  gap:6px;
+  grid-template-columns:1fr;
+  margin-top:auto;
+}
+
+#modalRevision .btn-edit-material{
+  width:100%;
+}
+
+#modalRevision .material-retire-x{
+  align-items:center;
+  border-radius:50%;
+  display:flex !important;
+  font-size:18px;
+  height:28px !important;
+  justify-content:center;
+  line-height:1;
+  max-width:28px !important;
+  min-width:28px !important;
+  padding:0 !important;
+  position:absolute !important;
+  right:8px;
+  top:8px;
+  width:28px !important;
+  z-index:3;
+}
+
+#modalRevision .material-retire-x.btn-secondary{
+  font-size:14px;
+}
+
+#modalRevision .material-retirado{
+  opacity:.82;
+}
+
+#modalRevision .serie-label{
+  display:block;
+  font-size:.85rem;
+  margin-top:4px;
+}
+
+#modalRevision .serie-container{
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:6px;
+  line-height:1.2;
+  margin:2px 0 8px;
+  max-width:100%;
+  overflow:hidden;
+  padding:4px 6px;
+}
+
+#modalRevision .serie-value,
+#modalRevision .serie-scroll{
+  animation:none !important;
+  display:block;
+  max-width:100%;
+  overflow:hidden;
+  padding-left:0 !important;
+  text-overflow:ellipsis;
+  transform:none !important;
+  white-space:nowrap;
+}
+
+@media (max-width:768px){
+  #modalRevision .contenedor-materiales{
+    grid-template-columns:repeat(auto-fill, minmax(135px, 1fr));
+  }
+}
+
+#modalRevision .mantenimiento-tipo-tecnico-row{
+  align-items:flex-start !important;
+}
+
+#modalRevision .mantenimiento-field{
+  display:flex;
+  flex-direction:column;
+}
+
+#modalRevision .mantenimiento-field .form-label,
+#modalRevision .mantenimiento-field label{
+  display:block;
+  min-height:24px;
+  margin-bottom:6px;
+}
+
+#modalRevision .mantenimiento-field .form-control,
+#modalRevision .mantenimiento-field .form-select{
+  height:38px;
+}
