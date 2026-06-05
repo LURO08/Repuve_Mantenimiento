@@ -68,6 +68,7 @@ function generarBitacora($pdo)
             encargado,
             observaciones
         ) VALUES (?, ?, ?)
+        RETURNING id
     ");
 
     $stmt->execute([
@@ -76,7 +77,7 @@ function generarBitacora($pdo)
         $observaciones
     ]);
 
-    $bitacora_id = $pdo->lastInsertId();
+    $bitacora_id = (int)$stmt->fetchColumn();
 
     foreach ($checks as $concepto_id) {
         $stmt = $pdo->prepare("
