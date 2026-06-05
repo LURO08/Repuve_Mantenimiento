@@ -430,14 +430,14 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
           n.*,
           u.nombre AS ubicacion,
           COUNT(DISTINCT ai.arco_id) AS arcos_count,
-          STRING_AGG(DISTINCT a.nombre, ', ' ORDER BY a.nombre) AS arcos_nombres,
+          GROUP_CONCAT(DISTINCT a.nombre ORDER BY a.nombre SEPARATOR ', ') AS arcos_nombres,
           COUNT(DISTINCT im.id) AS materiales_count
         FROM infraestructura_nodos n
         LEFT JOIN ubicaciones u ON u.id = n.ubicacion_id
         LEFT JOIN arco_infraestructura ai ON ai.infraestructura_id = n.id
         LEFT JOIN arcos a ON a.id = ai.arco_id
         LEFT JOIN infraestructura_material im ON im.infraestructura_id = n.id
-        GROUP BY n.id, u.nombre
+        GROUP BY n.id
         ORDER BY u.nombre ASC, n.tipo ASC, n.nombre ASC
       ")->fetchAll(PDO::FETCH_ASSOC);
 

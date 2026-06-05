@@ -30,11 +30,10 @@ function obtenerOCrearInfraestructura($pdo, $tipo, $nombre, $ubicacion_id, $lat,
   $ins = $pdo->prepare("
     INSERT INTO infraestructura_nodos (tipo, nombre, ubicacion_id, lat, lng, descripcion)
     VALUES (?, ?, ?, ?, ?, ?)
-    RETURNING id
   ");
   $ins->execute([$tipo, $nombre, $ubicacion_id ?: null, $lat ?: null, $lng ?: null, $descripcion ?: null]);
 
-  return (int)$ins->fetchColumn();
+  return (int)$pdo->lastInsertId();
 }
 
 function guardarInfraestructuraArco($pdo, $arco_id, $fecha_instalacion, $post)
@@ -53,9 +52,8 @@ function guardarInfraestructuraArco($pdo, $arco_id, $fecha_instalacion, $post)
   }
 
   $stmtRel = $pdo->prepare("
-    INSERT INTO arco_infraestructura (arco_id, infraestructura_id)
+    INSERT IGNORE INTO arco_infraestructura (arco_id, infraestructura_id)
     VALUES (?, ?)
-    ON CONFLICT (arco_id, infraestructura_id) DO NOTHING
   ");
   $stmtMat = $pdo->prepare("
     INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, fecha_instalacion)
@@ -215,11 +213,7 @@ try {
         $stmt->execute([$tipo, $nombre, $ubicacion_id, $lat ?: null, $lng ?: null, $id]);
 
         $pdo->prepare("DELETE FROM arco_infraestructura WHERE infraestructura_id = ?")->execute([$id]);
-        $stmtRel = $pdo->prepare("
-          INSERT INTO arco_infraestructura (arco_id, infraestructura_id)
-          VALUES (?, ?)
-          ON CONFLICT (arco_id, infraestructura_id) DO NOTHING
-        ");
+        $stmtRel = $pdo->prepare("INSERT IGNORE INTO arco_infraestructura (arco_id, infraestructura_id) VALUES (?, ?)");
         foreach ($arcos_vinculados as $arco_id) {
           if (!empty($arco_id)) {
             $stmtRel->execute([$arco_id, $id]);
@@ -229,7 +223,7 @@ try {
         $pdo->prepare("DELETE FROM infraestructura_material WHERE infraestructura_id = ?")->execute([$id]);
         $stmtMat = $pdo->prepare("
           INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, fecha_instalacion)
-          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+          VALUES (?, ?, ?, ?, NOW())
         ");
         if (is_array($material_ids)) {
           foreach ($material_ids as $i => $material_id) {
@@ -308,9 +302,8 @@ try {
         $infra_id = obtenerOCrearInfraestructura($pdo, $tipo_infra, $nombre, $ubicacion_id, $lat, $lng, '');
 
         $stmtRel = $pdo->prepare("
-          INSERT INTO arco_infraestructura (arco_id, infraestructura_id)
+          INSERT IGNORE INTO arco_infraestructura (arco_id, infraestructura_id)
           VALUES (?, ?)
-          ON CONFLICT (arco_id, infraestructura_id) DO NOTHING
         ");
         foreach ($arcos_vinculados as $arco_vinculado_id) {
           if (!empty($arco_vinculado_id)) {
@@ -337,13 +330,9 @@ try {
       $pdo->beginTransaction();
 
       // Crear arco
-      $stmt = $pdo->prepare("
-        INSERT INTO arcos (nombre, ubicacion_id, fecha_instalacion, lat, lng)
-        VALUES (?, ?, ?, ?, ?)
-        RETURNING id
-      ");
+      $stmt = $pdo->prepare("INSERT INTO arcos (nombre, ubicacion_id, fecha_instalacion, lat, lng) VALUES (?, ?, ?, ?, ?)");
       $stmt->execute([$nombre, $ubicacion_id, $fecha_instalacion, $lat, $lng]);
-      $arco_id = (int)$stmt->fetchColumn();
+      $arco_id = $pdo->lastInsertId();
       
 
       // Materiales asociados
@@ -466,7 +455,7 @@ try {
           SET cantidad = ?, serie = ?
           WHERE id = ? AND arco_id = ?
         ");
-        $stmtInsertMat = $pdo->prepare("INSERT INTO arco_material (arco_id, material_id, cantidad, serie) VALUES (?, ?, ?, ?) RETURNING id");
+        $stmtInsertMat = $pdo->prepare("INSERT INTO arco_material (arco_id, material_id, cantidad, serie) VALUES (?, ?, ?, ?)");
         $stmtBuscarMatLibre = $pdo->prepare("
           SELECT am.id
           FROM arco_material am
@@ -537,7 +526,7 @@ try {
               $relacionesConservarMap[$relacionLibre] = true;
             } else {
               $stmtInsertMat->execute([$id, $mat_id, $cant, $serie]);
-              $nuevoId = (int)$stmtInsertMat->fetchColumn();
+              $nuevoId = (int)$pdo->lastInsertId();
               $relacionesConservar[] = $nuevoId;
               $relacionesConservarMap[$nuevoId] = true;
             }

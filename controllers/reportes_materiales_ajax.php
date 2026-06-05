@@ -45,7 +45,7 @@ LEFT JOIN (
         SUM(rm.cantidad) AS piezas_cambiadas,
         COUNT(rm.id) AS veces_cambiado,
         MAX(r.fecha_mantenimiento) AS ultima_fecha,
-        STRING_AGG(DISTINCT NULLIF(TRIM(r.observaciones), ''), ' | ') AS observaciones
+        GROUP_CONCAT(DISTINCT NULLIF(TRIM(r.observaciones), '') ORDER BY r.fecha_mantenimiento DESC SEPARATOR ' | ') AS observaciones
     FROM revision_material rm
     JOIN revisiones r ON r.id = rm.revision_id
     WHERE rm.material_id = ?

@@ -32,7 +32,6 @@ try {
             encargado,
             observaciones
         ) VALUES (?, ?, ?)
-        RETURNING id
     ");
 
     $stmt->execute([
@@ -41,7 +40,7 @@ try {
         $observaciones
     ]);
 
-    $bitacora_id = (int)$stmt->fetchColumn();
+    $bitacora_id = $pdo->lastInsertId();
 
     /* guardar checklist */
     foreach ($checks as $concepto_id) {
