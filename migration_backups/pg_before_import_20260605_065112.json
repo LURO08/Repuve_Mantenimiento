@@ -1,0 +1,27 @@
+{
+    "users": [
+        {
+            "id": 1,
+            "username": "jlromero",
+            "password": "$2y$10$noOwWCIMjzmJ5i5LS7TYouXk8IX.l2sCgJnN7m5mb8.0c4uRCUPPi",
+            "role": "admin",
+            "created_at": "2026-06-05 04:15:14.952195"
+        }
+    ],
+    "ubicaciones": [],
+    "materiales": [],
+    "arcos": [],
+    "arco_material": [],
+    "revisiones": [],
+    "revision_material": [],
+    "revision_evidencias": [],
+    "infraestructura_nodos": [],
+    "arco_infraestructura": [],
+    "infraestructura_material": [],
+    "infraestructura_revisiones": [],
+    "infraestructura_revision_material": [],
+    "infraestructura_revision_evidencias": [],
+    "bitacoras_arco": [],
+    "checklist_conceptos": [],
+    "bitacora_checklist": []
+}

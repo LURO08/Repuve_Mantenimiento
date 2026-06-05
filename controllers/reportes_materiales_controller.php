@@ -52,13 +52,13 @@ $kpis['correctivos_90'] = (int)$pdo->query("
     SELECT COUNT(*)
     FROM revisiones
     WHERE tipo_mantenimiento = 'Correctivo'
-      AND fecha_mantenimiento >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '90 days'
 ")->fetchColumn();
 $kpis['correctivos_60'] = (int)$pdo->query("
     SELECT COUNT(*)
     FROM revisiones
     WHERE tipo_mantenimiento = 'Correctivo'
-      AND fecha_mantenimiento >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
 ")->fetchColumn();
 $kpis['preventivos_total'] = (int)$pdo->query("SELECT COUNT(*) FROM revisiones WHERE tipo_mantenimiento = 'Preventivo'")->fetchColumn();
 $kpis['correctivos_total'] = (int)$pdo->query("SELECT COUNT(*) FROM revisiones WHERE tipo_mantenimiento = 'Correctivo'")->fetchColumn();
@@ -80,7 +80,7 @@ $kpis['mantenimientos_vencidos'] = (int)$pdo->query("
         GROUP BY a.id, a.fecha_instalacion
     ) x
     WHERE x.base_mantenimiento IS NOT NULL
-      AND DATE_ADD(x.base_mantenimiento, INTERVAL 12 MONTH) < CURDATE()
+      AND x.base_mantenimiento + INTERVAL '12 months' < CURRENT_DATE
 ")->fetchColumn();
 
 $kpis['mantenimientos_proximos'] = (int)$pdo->query("
@@ -91,32 +91,32 @@ $kpis['mantenimientos_proximos'] = (int)$pdo->query("
         LEFT JOIN revisiones r ON r.arco_id = a.id
         GROUP BY a.id, a.fecha_instalacion
     ) x
-    WHERE DATE_ADD(x.base_mantenimiento, INTERVAL 12 MONTH) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+    WHERE x.base_mantenimiento + INTERVAL '12 months' BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
 ")->fetchColumn();
 
 $kpis['preventivos_60'] = (int)$pdo->query("
     SELECT COUNT(*)
     FROM revisiones
     WHERE tipo_mantenimiento = 'Preventivo'
-      AND fecha_mantenimiento >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
 ")->fetchColumn();
 $kpis['arcos_preventivos_60'] = (int)$pdo->query("
     SELECT COUNT(DISTINCT arco_id)
     FROM revisiones
     WHERE tipo_mantenimiento = 'Preventivo'
-      AND fecha_mantenimiento >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
 ")->fetchColumn();
 $kpis['arcos_correctivos_60'] = (int)$pdo->query("
     SELECT COUNT(DISTINCT arco_id)
     FROM revisiones
     WHERE tipo_mantenimiento = 'Correctivo'
-      AND fecha_mantenimiento >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
 ")->fetchColumn();
 $kpis['arcos_mantenimientos_60'] = (int)$pdo->query("
     SELECT COUNT(DISTINCT arco_id)
     FROM revisiones
     WHERE tipo_mantenimiento IN ('Preventivo', 'Correctivo')
-      AND fecha_mantenimiento >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
 ")->fetchColumn();
 $totalArcosPorcentaje = max(1, (int)$kpis['total_arcos']);
 $kpis['porcentaje_preventivos_60'] = round(((int)$kpis['preventivos_60'] / $totalArcosPorcentaje) * 100, 1);
@@ -140,18 +140,18 @@ $arcosCriticosMantenimiento = $pdo->query("
         COALESCE(MAX(r.fecha_mantenimiento), a.fecha_instalacion) AS base_mantenimiento,
         CASE
             WHEN MAX(r.fecha_mantenimiento) IS NULL THEN 'Sin mantenimiento vencido'
-            WHEN DATE_ADD(MAX(r.fecha_mantenimiento), INTERVAL 12 MONTH) < CURDATE() THEN 'Mantenimiento vencido'
+            WHEN MAX(r.fecha_mantenimiento) + INTERVAL '12 months' < CURRENT_DATE THEN 'Mantenimiento vencido'
             ELSE 'Al dia'
         END AS estado,
-        DATE_ADD(COALESCE(MAX(r.fecha_mantenimiento), a.fecha_instalacion), INTERVAL 12 MONTH) AS fecha_requerida
+        COALESCE(MAX(r.fecha_mantenimiento), a.fecha_instalacion) + INTERVAL '12 months' AS fecha_requerida
     FROM arcos a
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
     LEFT JOIN revisiones r ON r.arco_id = a.id
     GROUP BY a.id, a.nombre, u.nombre, a.fecha_instalacion
-    HAVING fecha_requerida < CURDATE()
+    HAVING COALESCE(MAX(r.fecha_mantenimiento), a.fecha_instalacion) + INTERVAL '12 months' < CURRENT_DATE
     ORDER BY
-        CASE WHEN ultima_mantenimiento IS NULL THEN 0 ELSE 1 END ASC,
-        fecha_requerida ASC,
+        CASE WHEN MAX(r.fecha_mantenimiento) IS NULL THEN 0 ELSE 1 END ASC,
+        COALESCE(MAX(r.fecha_mantenimiento), a.fecha_instalacion) + INTERVAL '12 months' ASC,
         a.nombre ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -171,7 +171,7 @@ $reporteArcosMaterial = $pdo->query("
         COALESCE(cambios.correctivos, 0) AS correctivos,
         COALESCE(cambios.preventivos, 0) AS preventivos,
         cambios.ultima_mantenimiento,
-        DATE_ADD(COALESCE(cambios.ultima_mantenimiento, a.fecha_instalacion), INTERVAL 12 MONTH) AS proximo_mantenimiento,
+        COALESCE(cambios.ultima_mantenimiento, a.fecha_instalacion) + INTERVAL '12 months' AS proximo_mantenimiento,
         cambios.ultimo_preventivo
     FROM arcos a
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
@@ -238,7 +238,7 @@ $preventivosRecientes = $pdo->query("
         GROUP BY rm.revision_id
     ) mat ON mat.revision_id = r.id
     WHERE r.tipo_mantenimiento = 'Preventivo'
-      AND r.fecha_mantenimiento >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+      AND r.fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
     ORDER BY r.fecha_mantenimiento DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -312,9 +312,9 @@ $materiales = $pdo->query("
         cambios.primera,
         cambios.ultima,
         CASE WHEN COALESCE(cambios.total_cambios, 0) > 1
-             THEN ROUND(DATEDIFF(cambios.ultima, cambios.primera) / (cambios.total_cambios - 1))
+             THEN ROUND((DATE_PART('day', cambios.ultima::timestamp - cambios.primera::timestamp) / (cambios.total_cambios - 1))::numeric)
              ELSE NULL END AS avg_interval_days,
-        CASE WHEN cambios.ultima IS NULL THEN NULL ELSE DATE_ADD(cambios.ultima, INTERVAL 1 YEAR) END AS proxima_estimacion
+        CASE WHEN cambios.ultima IS NULL THEN NULL ELSE cambios.ultima + INTERVAL '1 year' END AS proxima_estimacion
     FROM materiales m
     LEFT JOIN (
         SELECT
@@ -350,7 +350,7 @@ $topUbicaciones = $pdo->query("
     FROM arcos a
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
     GROUP BY u.id, u.nombre
-    HAVING arcos > 0
+    HAVING COUNT(a.id) > 0
     ORDER BY arcos DESC, ubicacion ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
