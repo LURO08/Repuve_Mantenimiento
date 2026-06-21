@@ -1,6 +1,11 @@
 <?php
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-if (!isset($_SESSION['user'])) header(header: 'Location: ../index.php');
+if (!isset($_SESSION['user'])) {
+  header('Location: ../index.php');
+  exit;
+}
+$currentUser = $_SESSION['user'] ?? '';
+$currentRole = $_SESSION['role'] ?? '';
 ?>
 <!doctype html>
 <html lang="es">
@@ -80,7 +85,10 @@ if (!isset($_SESSION['user'])) header(header: 'Location: ../index.php');
           <a class="nav-link" href="formatos.php"><i class="bi bi-speedometer2"></i> Formatos</a>
         </li>
         <li class="nav-item">
-          <?php if ($_SESSION['role'] === 'admin'): ?>
+          <a class="nav-link" href="tecnicos.php"><i class="bi bi-person-badge"></i> Tecnicos</a>
+        </li>
+        <li class="nav-item">
+          <?php if ($currentRole === 'admin'): ?>
           <a href="usuarios.php" class="nav-link"><i class="bi bi-person-circle"></i>  Usuario</a>
           <?php endif; ?>
         </li>
@@ -91,7 +99,7 @@ if (!isset($_SESSION['user'])) header(header: 'Location: ../index.php');
       <div class="d-flex align-items-center">
         <div class="user-badge me-3 text-white">
           <i class="bi bi-person-circle"></i>
-          <?= htmlspecialchars($_SESSION['user']) ?>
+          <?= htmlspecialchars($currentUser) ?>
         </div>
         <a class="btn btn-sm logout-btn" href="/views/logout.php">
           <i class="bi bi-box-arrow-right"></i> Salir

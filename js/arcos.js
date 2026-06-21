@@ -175,6 +175,48 @@ const ModalManager = {
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("#ArcosTable tbody tr").forEach(r => r.dataset.visible = "1");
   renderPagination("ArcosTable");
+
+  document.querySelectorAll(".gestionarArcoBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idInput = document.getElementById("baja_arco_id");
+      const nombreEl = document.getElementById("baja_arco_nombre");
+      const ubicacionEl = document.getElementById("baja_arco_ubicacion");
+      const observaciones = document.getElementById("baja_observaciones");
+      const motivo = document.getElementById("baja_motivo");
+      const deleteLink = document.getElementById("gestionEliminarArcoLink");
+      const opciones = document.getElementById("gestionOpcionesArco");
+      const camposBaja = document.getElementById("gestionBajaCampos");
+      const btnConfirmar = document.getElementById("btnConfirmarBajaArco");
+
+      if (idInput) idInput.value = btn.dataset.id || "";
+      if (nombreEl) nombreEl.textContent = btn.dataset.nombre || "Arco seleccionado";
+      if (ubicacionEl) ubicacionEl.textContent = btn.dataset.ubicacion || "Ubicacion no indicada";
+      if (observaciones) observaciones.value = "";
+      if (motivo) motivo.value = "";
+      if (deleteLink) deleteLink.href = btn.dataset.deleteUrl || "#";
+      opciones?.classList.remove("d-none");
+      camposBaja?.classList.add("d-none");
+      btnConfirmar?.classList.add("d-none");
+    });
+  });
+
+  const btnMostrarBaja = document.getElementById("btnMostrarBajaArco");
+  const btnVolverGestion = document.getElementById("btnVolverGestionArco");
+  const opcionesGestion = document.getElementById("gestionOpcionesArco");
+  const camposBajaGestion = document.getElementById("gestionBajaCampos");
+  const btnConfirmarBaja = document.getElementById("btnConfirmarBajaArco");
+
+  btnMostrarBaja?.addEventListener("click", () => {
+    opcionesGestion?.classList.add("d-none");
+    camposBajaGestion?.classList.remove("d-none");
+    btnConfirmarBaja?.classList.remove("d-none");
+  });
+
+  btnVolverGestion?.addEventListener("click", () => {
+    camposBajaGestion?.classList.add("d-none");
+    opcionesGestion?.classList.remove("d-none");
+    btnConfirmarBaja?.classList.add("d-none");
+  });
 });
 
 window.addEventListener("resize", () => {
@@ -193,12 +235,19 @@ document.addEventListener("DOMContentLoaded", () => {
     botones.forEach(btn => {
       const activo = btn.dataset.tableViewTarget === targetId;
       const esInfra = btn.dataset.tableViewTarget === "tableViewInfra";
+      const esBajas = btn.dataset.tableViewTarget === "tableViewBajas";
       btn.classList.toggle("active", activo);
-      btn.classList.toggle("btn-success", activo && !esInfra);
+      btn.classList.toggle("btn-success", activo && !esInfra && !esBajas);
       btn.classList.toggle("btn-primary", activo && esInfra);
-      btn.classList.toggle("btn-outline-success", !activo && !esInfra);
+      btn.classList.toggle("btn-danger", activo && esBajas);
+      btn.classList.toggle("btn-outline-success", !activo && !esInfra && !esBajas);
       btn.classList.toggle("btn-outline-primary", !activo && esInfra);
-      btn.classList.remove(activo ? (esInfra ? "btn-outline-primary" : "btn-outline-success") : (esInfra ? "btn-primary" : "btn-success"));
+      btn.classList.toggle("btn-outline-danger", !activo && esBajas);
+      btn.classList.remove(
+        activo
+          ? (esInfra ? "btn-outline-primary" : esBajas ? "btn-outline-danger" : "btn-outline-success")
+          : (esInfra ? "btn-primary" : esBajas ? "btn-danger" : "btn-success")
+      );
     });
 
     document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -334,7 +383,32 @@ function buscarConOrden(input) {
 }
 
 document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
-  btn.addEventListener('click', function () {
+  btn.addEventListener('click', async function () {
+    if (!this.dataset.nuevos && !this.dataset.anteriores && !this.dataset.infraestructura) {
+      const contenedorCarga = document.getElementById("contenedorMateriales");
+      contenedorCarga.innerHTML = `
+        <div class="text-center text-muted p-4">
+          <div class="spinner-border text-primary mb-2" role="status"></div>
+          <div>Cargando componentes...</div>
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`../controllers/arcos_controller.php?action=get_componentes&id=${encodeURIComponent(this.dataset.id || "")}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        this.dataset.nuevos = JSON.stringify(data.nuevos || []);
+        this.dataset.anteriores = JSON.stringify(data.anteriores || []);
+        this.dataset.infraestructura = JSON.stringify(data.infraestructura || []);
+      } catch (error) {
+        contenedorCarga.innerHTML = `
+          <div class="alert alert-danger mb-0">
+            No se pudieron cargar los componentes: ${error.message || "Error desconocido"}
+          </div>
+        `;
+        return;
+      }
+    }
 
     let nuevos = JSON.parse(this.dataset.nuevos || "[]");       // 🔴 PRINCIPALES
     let anteriores = JSON.parse(this.dataset.anteriores || "[]"); // 🔽 HISTORIAL
