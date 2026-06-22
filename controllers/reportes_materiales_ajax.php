@@ -53,6 +53,7 @@ LEFT JOIN (
     GROUP BY r.arco_id
 ) cambios ON cambios.arco_id = a.id
 WHERE COALESCE(cambios.veces_cambiado, 0) > 0
+  AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ORDER BY piezas_cambiadas DESC, piezas_instaladas DESC, a.nombre ASC
 ";
 

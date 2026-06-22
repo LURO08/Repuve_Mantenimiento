@@ -7,7 +7,8 @@ if (!isset($_GET['id'])) {
 
 
 $logoPath = '../../assets/LOGO INNOVATEC.png';
-$fechaFormato = '02-Abril-2026';
+date_default_timezone_set('America/Mexico_City');
+$fechaFormato = date("d M Y");
 $codigoFormato = 'INN-FOR-001';
 $tituloFormato = 'BITÁCORA';
 

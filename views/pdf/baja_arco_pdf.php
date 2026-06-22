@@ -42,7 +42,8 @@ $matStmt->execute([$baja['arco_id']]);
 $materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $logoPath = '../../assets/LOGO INNOVATEC.png';
-$fechaFormato = '02-Abril-2026';
+date_default_timezone_set('America/Mexico_City');
+$fechaFormato = date("d M Y");
 $codigoFormato = 'INN-FOR-002';
 ?>
 
@@ -158,32 +159,57 @@ $codigoFormato = 'INN-FOR-002';
             <div class="seccion">
                 <div class="titulo-seccion">III. COMPONENTES REGISTRADOS</div>
 
-                <table class="tabla-componentes">
-                    <tr>
-                        <th style="width:55%;">COMPONENTE</th>
-                        <th style="width:20%;">CANTIDAD</th>
-                        <th style="width:25%;">SERIE</th>
-                    </tr>
-
-                    <?php if (count($materiales) > 0): ?>
-                        <?php foreach ($materiales as $m): ?>
+                <?php if (count($materiales) > 0): ?>
+                    <?php
+                    $mitadMateriales = (int)ceil(count($materiales) / 2);
+                    $materialesIzquierda = array_slice($materiales, 0, $mitadMateriales);
+                    $materialesDerecha = array_slice($materiales, $mitadMateriales);
+                    ?>
+                    <table class="tabla-componentes">
+                        <tr>
+                            <th style="width:25%;">COMPONENTE</th>
+                            <th style="width:10%;">CANT.</th>
+                            <th style="width:15%;">SERIE</th>
+                            <th style="width:25%;">COMPONENTE</th>
+                            <th style="width:10%;">CANT.</th>
+                            <th style="width:15%;">SERIE</th>
+                        </tr>
+                        <?php for ($i = 0; $i < $mitadMateriales; $i++): ?>
+                            <?php
+                            $izquierda = $materialesIzquierda[$i] ?? null;
+                            $derecha = $materialesDerecha[$i] ?? null;
+                            ?>
                             <tr>
-                                <td><?= htmlspecialchars($m['material']) ?></td>
+                                <td><?= $izquierda ? htmlspecialchars($izquierda['material']) : '&nbsp;' ?></td>
                                 <td style="text-align:center;">
-                                    <?= htmlspecialchars($m['cantidad']) ?>
-                                    <?= htmlspecialchars($m['medida'] === 'm' ? 'Metros' : 'Piezas') ?>
+                                    <?php if ($izquierda): ?>
+                                        <?= htmlspecialchars($izquierda['cantidad']) ?>
+                                        <?= htmlspecialchars($izquierda['medida'] === 'm' ? 'm' : 'pz') ?>
+                                    <?php endif; ?>
                                 </td>
                                 <td style="text-align:center;">
-                                    <?= !empty($m['serie']) ? htmlspecialchars($m['serie']) : 'N/A' ?>
+                                    <?= $izquierda ? htmlspecialchars($izquierda['serie'] ?: 'N/A') : '' ?>
+                                </td>
+                                <td><?= $derecha ? htmlspecialchars($derecha['material']) : '&nbsp;' ?></td>
+                                <td style="text-align:center;">
+                                    <?php if ($derecha): ?>
+                                        <?= htmlspecialchars($derecha['cantidad']) ?>
+                                        <?= htmlspecialchars($derecha['medida'] === 'm' ? 'm' : 'pz') ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="text-align:center;">
+                                    <?= $derecha ? htmlspecialchars($derecha['serie'] ?: 'N/A') : '' ?>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
+                        <?php endfor; ?>
+                    </table>
+                <?php else: ?>
+                    <table class="tabla-componentes">
                         <tr>
-                            <td colspan="3" style="text-align:center;">No hay materiales registrados</td>
+                            <td style="text-align:center;">No hay materiales registrados</td>
                         </tr>
-                    <?php endif; ?>
-                </table>
+                    </table>
+                <?php endif; ?>
             </div>
 
             <div class="observaciones">

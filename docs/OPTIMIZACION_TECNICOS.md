@@ -11,6 +11,14 @@
   - los componentes se cargan bajo demanda con `arcos_controller.php?action=get_componentes`;
   - ultima fecha de mantenimiento y bitacora se obtienen en la consulta principal, no con consultas por fila.
 - Se agregaron indices para consultas frecuentes por arco/fecha y bitacora.
+- Las bajas de arco aceptan multiples evidencias en imagen o PDF.
+- Las evidencias de baja se guardan en `uploads/bajas/` y se relacionan mediante `arcos_bajas_evidencias`.
+- Mientras un arco tenga estado `Baja`, queda excluido de:
+  - la tabla operativa de mantenimientos;
+  - indicadores, graficas y modales de reportes;
+  - calculos de mantenimiento vencido/proximo;
+  - conteos de materiales y ubicaciones activas.
+- Al restaurar el arco, su historial vuelve a participar en mantenimientos y reportes.
 
 ## Reglas para mantenerlo rapido
 

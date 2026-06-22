@@ -27,13 +27,15 @@ $kpis = [
     'arcos_sin_material' => 0,
 ];
 
-$kpis['total_arcos'] = (int)$pdo->query("SELECT COUNT(*) FROM arcos")->fetchColumn();
+$kpis['total_arcos'] = (int)$pdo->query("SELECT COUNT(*) FROM arcos WHERE COALESCE(estado, 'Activo') <> 'Baja'")->fetchColumn();
 $totalesInstalados = $pdo->query("
     SELECT
         COALESCE(SUM(CASE WHEN LOWER(COALESCE(m.medida, '')) IN ('m', 'mt', 'ml') OR LOWER(m.nombre) LIKE '%cable%' THEN 0 ELSE am.cantidad END), 0) AS piezas,
         COALESCE(SUM(CASE WHEN LOWER(COALESCE(m.medida, '')) IN ('m', 'mt', 'ml') OR LOWER(m.nombre) LIKE '%cable%' THEN am.cantidad ELSE 0 END), 0) AS metros
     FROM arco_material am
     JOIN materiales m ON m.id = am.material_id
+    JOIN arcos a ON a.id = am.arco_id
+    WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetch(PDO::FETCH_ASSOC);
 $kpis['material_total_arcos'] = (float)$totalesInstalados['piezas'];
 $kpis['material_metros_arcos'] = (float)$totalesInstalados['metros'];
@@ -44,31 +46,39 @@ $totalesCambiados = $pdo->query("
         COALESCE(SUM(CASE WHEN LOWER(COALESCE(m.medida, '')) IN ('m', 'mt', 'ml') OR LOWER(m.nombre) LIKE '%cable%' THEN rm.cantidad ELSE 0 END), 0) AS metros
     FROM revision_material rm
     JOIN materiales m ON m.id = rm.material_id
+    JOIN revisiones r ON r.id = rm.revision_id
+    JOIN arcos a ON a.id = r.arco_id
     WHERE COALESCE(rm.accion, 'cambio') <> 'retiro'
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetch(PDO::FETCH_ASSOC);
 $kpis['componentes_cambiados'] = (float)$totalesCambiados['piezas'];
 $kpis['metros_cambiados'] = (float)$totalesCambiados['metros'];
 $kpis['correctivos_90'] = (int)$pdo->query("
     SELECT COUNT(*)
-    FROM revisiones
-    WHERE tipo_mantenimiento = 'Correctivo'
-      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '90 days'
+    FROM revisiones r
+    JOIN arcos a ON a.id = r.arco_id
+    WHERE r.tipo_mantenimiento = 'Correctivo'
+      AND r.fecha_mantenimiento >= CURRENT_DATE - INTERVAL '90 days'
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetchColumn();
 $kpis['correctivos_60'] = (int)$pdo->query("
     SELECT COUNT(*)
-    FROM revisiones
-    WHERE tipo_mantenimiento = 'Correctivo'
-      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+    FROM revisiones r
+    JOIN arcos a ON a.id = r.arco_id
+    WHERE r.tipo_mantenimiento = 'Correctivo'
+      AND r.fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetchColumn();
-$kpis['preventivos_total'] = (int)$pdo->query("SELECT COUNT(*) FROM revisiones WHERE tipo_mantenimiento = 'Preventivo'")->fetchColumn();
-$kpis['correctivos_total'] = (int)$pdo->query("SELECT COUNT(*) FROM revisiones WHERE tipo_mantenimiento = 'Correctivo'")->fetchColumn();
-$kpis['mantenimientos_total'] = (int)$pdo->query("SELECT COUNT(*) FROM revisiones WHERE tipo_mantenimiento IN ('Preventivo', 'Correctivo')")->fetchColumn();
+$kpis['preventivos_total'] = (int)$pdo->query("SELECT COUNT(*) FROM revisiones r JOIN arcos a ON a.id = r.arco_id WHERE r.tipo_mantenimiento = 'Preventivo' AND COALESCE(a.estado, 'Activo') <> 'Baja'")->fetchColumn();
+$kpis['correctivos_total'] = (int)$pdo->query("SELECT COUNT(*) FROM revisiones r JOIN arcos a ON a.id = r.arco_id WHERE r.tipo_mantenimiento = 'Correctivo' AND COALESCE(a.estado, 'Activo') <> 'Baja'")->fetchColumn();
+$kpis['mantenimientos_total'] = (int)$pdo->query("SELECT COUNT(*) FROM revisiones r JOIN arcos a ON a.id = r.arco_id WHERE r.tipo_mantenimiento IN ('Preventivo', 'Correctivo') AND COALESCE(a.estado, 'Activo') <> 'Baja'")->fetchColumn();
 
 $kpis['arcos_sin_mantenimiento'] = (int)$pdo->query("
     SELECT COUNT(*)
     FROM arcos a
     LEFT JOIN revisiones r ON r.arco_id = a.id
     WHERE r.id IS NULL
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetchColumn();
 
 $kpis['mantenimientos_vencidos'] = (int)$pdo->query("
@@ -77,6 +87,7 @@ $kpis['mantenimientos_vencidos'] = (int)$pdo->query("
         SELECT a.id, COALESCE(MAX(r.fecha_mantenimiento), a.fecha_instalacion) AS base_mantenimiento
         FROM arcos a
         LEFT JOIN revisiones r ON r.arco_id = a.id
+        WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
         GROUP BY a.id, a.fecha_instalacion
     ) x
     WHERE x.base_mantenimiento IS NOT NULL
@@ -89,6 +100,7 @@ $kpis['mantenimientos_proximos'] = (int)$pdo->query("
         SELECT a.id, COALESCE(MAX(r.fecha_mantenimiento), a.fecha_instalacion) AS base_mantenimiento
         FROM arcos a
         LEFT JOIN revisiones r ON r.arco_id = a.id
+        WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
         GROUP BY a.id, a.fecha_instalacion
     ) x
     WHERE x.base_mantenimiento + INTERVAL '12 months' BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
@@ -96,27 +108,35 @@ $kpis['mantenimientos_proximos'] = (int)$pdo->query("
 
 $kpis['preventivos_60'] = (int)$pdo->query("
     SELECT COUNT(*)
-    FROM revisiones
-    WHERE tipo_mantenimiento = 'Preventivo'
-      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+    FROM revisiones r
+    JOIN arcos a ON a.id = r.arco_id
+    WHERE r.tipo_mantenimiento = 'Preventivo'
+      AND r.fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetchColumn();
 $kpis['arcos_preventivos_60'] = (int)$pdo->query("
-    SELECT COUNT(DISTINCT arco_id)
-    FROM revisiones
-    WHERE tipo_mantenimiento = 'Preventivo'
-      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+    SELECT COUNT(DISTINCT r.arco_id)
+    FROM revisiones r
+    JOIN arcos a ON a.id = r.arco_id
+    WHERE r.tipo_mantenimiento = 'Preventivo'
+      AND r.fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetchColumn();
 $kpis['arcos_correctivos_60'] = (int)$pdo->query("
-    SELECT COUNT(DISTINCT arco_id)
-    FROM revisiones
-    WHERE tipo_mantenimiento = 'Correctivo'
-      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+    SELECT COUNT(DISTINCT r.arco_id)
+    FROM revisiones r
+    JOIN arcos a ON a.id = r.arco_id
+    WHERE r.tipo_mantenimiento = 'Correctivo'
+      AND r.fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetchColumn();
 $kpis['arcos_mantenimientos_60'] = (int)$pdo->query("
-    SELECT COUNT(DISTINCT arco_id)
-    FROM revisiones
-    WHERE tipo_mantenimiento IN ('Preventivo', 'Correctivo')
-      AND fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+    SELECT COUNT(DISTINCT r.arco_id)
+    FROM revisiones r
+    JOIN arcos a ON a.id = r.arco_id
+    WHERE r.tipo_mantenimiento IN ('Preventivo', 'Correctivo')
+      AND r.fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetchColumn();
 $totalArcosPorcentaje = max(1, (int)$kpis['total_arcos']);
 $kpis['porcentaje_preventivos_60'] = round(((int)$kpis['preventivos_60'] / $totalArcosPorcentaje) * 100, 1);
@@ -128,6 +148,7 @@ $kpis['arcos_sin_material'] = (int)$pdo->query("
     FROM arcos a
     LEFT JOIN arco_material am ON am.arco_id = a.id
     WHERE am.id IS NULL
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
 ")->fetchColumn();
 
 $arcosCriticosMantenimiento = $pdo->query("
@@ -147,6 +168,7 @@ $arcosCriticosMantenimiento = $pdo->query("
     FROM arcos a
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
     LEFT JOIN revisiones r ON r.arco_id = a.id
+    WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
     GROUP BY a.id, a.nombre, u.nombre, a.fecha_instalacion
     HAVING COALESCE(MAX(r.fecha_mantenimiento), a.fecha_instalacion) + INTERVAL '12 months' < CURRENT_DATE
     ORDER BY
@@ -201,6 +223,7 @@ $reporteArcosMaterial = $pdo->query("
         LEFT JOIN materiales m ON m.id = rm.material_id
         GROUP BY r.arco_id
     ) cambios ON cambios.arco_id = a.id
+    WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
     ORDER BY
         CASE
             WHEN cambios.ultima_mantenimiento IS NULL THEN 0
@@ -239,6 +262,7 @@ $preventivosRecientes = $pdo->query("
     ) mat ON mat.revision_id = r.id
     WHERE r.tipo_mantenimiento = 'Preventivo'
       AND r.fecha_mantenimiento >= CURRENT_DATE - INTERVAL '60 days'
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
     ORDER BY r.fecha_mantenimiento DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -268,6 +292,7 @@ $mantenimientosReporte = $pdo->query("
         GROUP BY rm.revision_id
     ) mat ON mat.revision_id = r.id
     WHERE r.tipo_mantenimiento IN ('Preventivo', 'Correctivo')
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
     ORDER BY r.fecha_mantenimiento DESC, r.id DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -322,8 +347,10 @@ $materiales = $pdo->query("
             SUM(cantidad) AS total_instalado,
             COUNT(DISTINCT arco_id) AS arcos_instalado,
             SUM(CASE WHEN serie IS NOT NULL AND TRIM(serie) <> '' THEN 1 ELSE 0 END) AS series_instaladas
-        FROM arco_material
-        GROUP BY material_id
+        FROM arco_material am
+        JOIN arcos a ON a.id = am.arco_id
+        WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
+        GROUP BY am.material_id
     ) inst ON inst.material_id = m.id
     LEFT JOIN (
         SELECT
@@ -335,7 +362,9 @@ $materiales = $pdo->query("
             MAX(r.fecha_mantenimiento) AS ultima
         FROM revision_material rm
         JOIN revisiones r ON r.id = rm.revision_id
+        JOIN arcos a ON a.id = r.arco_id
         WHERE COALESCE(rm.accion, 'cambio') <> 'retiro'
+          AND COALESCE(a.estado, 'Activo') <> 'Baja'
         GROUP BY rm.material_id
     ) cambios ON cambios.material_id = m.id
     WHERE LOWER(COALESCE(m.medida, '')) NOT IN ('m', 'mt', 'ml')
@@ -349,6 +378,7 @@ $topUbicaciones = $pdo->query("
         COUNT(a.id) AS arcos
     FROM arcos a
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
+    WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
     GROUP BY u.id, u.nombre
     HAVING COUNT(a.id) > 0
     ORDER BY arcos DESC, ubicacion ASC

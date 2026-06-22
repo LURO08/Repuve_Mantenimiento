@@ -43,6 +43,12 @@ $currentRole = $_SESSION['role'] ?? '';
       display: flex;
       align-items: center;
       gap: .5rem;
+      text-decoration: none;
+      transition: background-color .2s ease;
+    }
+    .user-badge:hover {
+      background: rgba(255,255,255,0.2);
+      color: white;
     }
     .logout-btn {
       background-color: #dc3545;
@@ -97,10 +103,10 @@ $currentRole = $_SESSION['role'] ?? '';
     </div>
 
       <div class="d-flex align-items-center">
-        <div class="user-badge me-3 text-white">
+        <a class="user-badge me-3 text-white" href="perfil.php" title="Abrir mi cuenta">
           <i class="bi bi-person-circle"></i>
           <?= htmlspecialchars($currentUser) ?>
-        </div>
+        </a>
         <a class="btn btn-sm logout-btn" href="/views/logout.php">
           <i class="bi bi-box-arrow-right"></i> Salir
         </a>

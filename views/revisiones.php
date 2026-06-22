@@ -160,6 +160,7 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
                 FROM revisiones r
                 JOIN arcos a ON r.arco_id=a.id
                 JOIN ubicaciones u ON a.ubicacion_id=u.id
+                WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
                 ORDER BY r.fecha_mantenimiento DESC";
 
         $revisiones = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);

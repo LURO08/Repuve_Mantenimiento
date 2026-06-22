@@ -175,6 +175,7 @@ const ModalManager = {
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("#ArcosTable tbody tr").forEach(r => r.dataset.visible = "1");
   renderPagination("ArcosTable");
+  let bajaArchivosSeleccionados = [];
 
   document.querySelectorAll(".gestionarArcoBtn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -184,6 +185,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const observaciones = document.getElementById("baja_observaciones");
       const motivo = document.getElementById("baja_motivo");
       const deleteLink = document.getElementById("gestionEliminarArcoLink");
+      const evidenciasInput = document.getElementById("bajaEvidenciasInput");
+      const evidenciasPreview = document.getElementById("bajaEvidenciasPreview");
       const opciones = document.getElementById("gestionOpcionesArco");
       const camposBaja = document.getElementById("gestionBajaCampos");
       const btnConfirmar = document.getElementById("btnConfirmarBajaArco");
@@ -194,6 +197,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (observaciones) observaciones.value = "";
       if (motivo) motivo.value = "";
       if (deleteLink) deleteLink.href = btn.dataset.deleteUrl || "#";
+      if (evidenciasInput) evidenciasInput.value = "";
+      if (evidenciasPreview) evidenciasPreview.innerHTML = "";
+      bajaArchivosSeleccionados = [];
       opciones?.classList.remove("d-none");
       camposBaja?.classList.add("d-none");
       btnConfirmar?.classList.add("d-none");
@@ -217,6 +223,186 @@ document.addEventListener("DOMContentLoaded", () => {
     opcionesGestion?.classList.remove("d-none");
     btnConfirmarBaja?.classList.add("d-none");
   });
+
+  const bajaEvidenciasInput = document.getElementById("bajaEvidenciasInput");
+  const bajaEvidenciasPreview = document.getElementById("bajaEvidenciasPreview");
+
+  function actualizarInputEvidenciasBaja() {
+    if (!bajaEvidenciasInput) return;
+    const dt = new DataTransfer();
+    bajaArchivosSeleccionados.forEach(file => dt.items.add(file));
+    bajaEvidenciasInput.files = dt.files;
+  }
+
+  function renderPreviewEvidenciasBaja() {
+    if (!bajaEvidenciasPreview) return;
+    bajaEvidenciasPreview.innerHTML = "";
+
+    bajaArchivosSeleccionados.forEach((file, index) => {
+      const item = document.createElement("div");
+      item.className = "preview-item";
+
+      if (file.type.startsWith("image/")) {
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        img.alt = file.name;
+        item.appendChild(img);
+      } else {
+        const pdf = document.createElement("div");
+        pdf.className = "preview-pdf";
+        pdf.innerHTML = '<i class="bi bi-file-earmark-pdf-fill"></i>';
+        item.appendChild(pdf);
+      }
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "preview-remove";
+      remove.setAttribute("aria-label", "Quitar evidencia");
+      remove.innerHTML = "&times;";
+      remove.addEventListener("click", () => {
+        bajaArchivosSeleccionados.splice(index, 1);
+        actualizarInputEvidenciasBaja();
+        renderPreviewEvidenciasBaja();
+      });
+
+      const name = document.createElement("div");
+      name.className = "preview-name";
+      name.title = file.name;
+      name.textContent = file.name;
+
+      item.appendChild(remove);
+      item.appendChild(name);
+      bajaEvidenciasPreview.appendChild(item);
+    });
+  }
+
+  bajaEvidenciasInput?.addEventListener("change", () => {
+    const nuevos = Array.from(bajaEvidenciasInput.files || []);
+    const existentes = new Set(
+      bajaArchivosSeleccionados.map(file => `${file.name}_${file.size}_${file.lastModified}`)
+    );
+
+    nuevos.forEach(file => {
+      const key = `${file.name}_${file.size}_${file.lastModified}`;
+      if (!existentes.has(key)) {
+        bajaArchivosSeleccionados.push(file);
+        existentes.add(key);
+      }
+    });
+
+    actualizarInputEvidenciasBaja();
+    renderPreviewEvidenciasBaja();
+  });
+
+  document.querySelectorAll(".verBajaEvidenciasBtn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const contenedor = document.getElementById("bajaEvidenciasGuardadas");
+      const arcoLabel = document.getElementById("bajaEvidenciasArco");
+      if (!contenedor) return;
+
+      if (arcoLabel) arcoLabel.textContent = btn.dataset.arco || "";
+      contenedor.innerHTML = `
+        <div class="detalle-evidencias-loading">
+          <span class="spinner-border spinner-border-sm"></span>
+          Cargando evidencias...
+        </div>
+      `;
+
+      try {
+        const response = await fetch(
+          `../controllers/arcos_controller.php?action=get_baja_evidencias&baja_id=${encodeURIComponent(btn.dataset.bajaId || "")}`
+        );
+        const evidencias = await response.json();
+
+        if (!Array.isArray(evidencias) || !evidencias.length) {
+          contenedor.innerHTML = '<div class="alert alert-warning mb-0">No hay evidencias registradas.</div>';
+          return;
+        }
+
+        contenedor.innerHTML = "";
+        evidencias.forEach(evidencia => {
+          const original = `../uploads/bajas/${encodeURIComponent(evidencia.filename)}`;
+          const esPdf = String(evidencia.mimetype || "").includes("pdf");
+          const card = document.createElement("div");
+          card.className = "card shadow-sm border-0 evidencia-card";
+          card.tabIndex = 0;
+          card.title = evidencia.filename;
+
+          if (esPdf) {
+            card.classList.add("pdf-card");
+            card.innerHTML = `
+              <div class="pdf-preview">
+                <i class="bi bi-file-earmark-pdf-fill pdf-icon"></i>
+              </div>
+              <div class="pdf-info">
+                <p class="pdf-name mb-0"></p>
+              </div>
+            `;
+          } else {
+            const thumb = `../controllers/arcos_controller.php?action=thumb_baja_evidencia&id=${encodeURIComponent(evidencia.id)}&w=260`;
+            card.innerHTML = `
+              <div class="detalle-evidencia-preview">
+                <img class="detalle-evidencia-thumb" loading="lazy" decoding="async" alt="Evidencia de baja">
+                <i class="bi bi-image d-none"></i>
+              </div>
+              <div class="detalle-evidencia-info">
+                <p class="pdf-name mb-0"></p>
+              </div>
+            `;
+            const img = card.querySelector("img");
+            img.src = thumb;
+            img.onerror = () => {
+              img.classList.add("d-none");
+              img.nextElementSibling?.classList.remove("d-none");
+            };
+          }
+
+          card.querySelector(".pdf-name").textContent = evidencia.filename;
+          card.addEventListener("click", () => abrirVisorEvidenciaBaja(original, evidencia.filename, esPdf));
+          card.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              abrirVisorEvidenciaBaja(original, evidencia.filename, esPdf);
+            }
+          });
+          contenedor.appendChild(card);
+        });
+      } catch (error) {
+        contenedor.innerHTML = '<div class="alert alert-danger mb-0">No se pudieron cargar las evidencias.</div>';
+      }
+    });
+  });
+
+  function abrirVisorEvidenciaBaja(src, nombre, esPdf) {
+    const body = document.getElementById("bajaEvidenciaVisorBody");
+    const titulo = document.getElementById("bajaEvidenciaVisorTitulo");
+    const modalEl = document.getElementById("modalBajaEvidenciaVisor");
+    if (!body || !modalEl) return;
+
+    const galeriaEl = document.getElementById("modalBajaEvidencias");
+    if (galeriaEl) {
+      bootstrap.Modal.getInstance(galeriaEl)?.hide();
+    }
+
+    if (titulo) titulo.textContent = nombre || "Evidencia";
+    body.innerHTML = "";
+
+    if (esPdf) {
+      const iframe = document.createElement("iframe");
+      iframe.src = src;
+      iframe.className = "baja-evidencia-pdf";
+      iframe.title = nombre || "Documento PDF";
+      body.appendChild(iframe);
+    } else {
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = nombre || "Evidencia de baja";
+      img.className = "baja-evidencia-full";
+      body.appendChild(img);
+    }
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
 });
 
 window.addEventListener("resize", () => {
@@ -2849,3 +3035,86 @@ document.addEventListener("DOMContentLoaded", () => {
   // });
 
 // El modal de mapa se abre con data-bs-toggle desde la celda del arco.
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest(".verFormatosArcoBtn");
+  if (!button) return;
+
+  const arcId = button.dataset.id;
+  const container = document.getElementById("formatosArcoContenido");
+  const title = document.getElementById("formatosArcoNombre");
+  const createLink = document.getElementById("crearFormatoArco");
+  const downloadAllButton = document.getElementById("descargarFormatosArco");
+  const labels = {
+    checklist: "Check List de Diagnóstico Inicial",
+    quality: "Pruebas de Calidad",
+    tools: "Formato de Herramientas"
+  };
+
+  title.textContent = button.dataset.nombre || "";
+  createLink.href = `formatos.php?arco_id=${encodeURIComponent(arcId)}`;
+  downloadAllButton.disabled = true;
+  downloadAllButton.dataset.urls = "[]";
+  container.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando formatos...</div>';
+
+  try {
+    const response = await fetch(`../controllers/formatos_ajax.php?arco_id=${encodeURIComponent(arcId)}`);
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.message || "No se pudieron cargar los formatos.");
+
+    const cards = [];
+    if (data.arco.tiene_bitacora) {
+      cards.push(`
+        <a class="formato-arco-card formato-arco-card--primary" href="../views/pdf/bitacora_arco.php?id=${arcId}" target="_blank">
+          <i class="bi bi-file-earmark-check"></i>
+          <span><strong>Diagnóstico / Bitácora de instalación</strong><small>Documento base del arco</small></span>
+          <i class="bi bi-box-arrow-up-right"></i>
+        </a>
+      `);
+    } else {
+      cards.push(`
+        <div class="formato-arco-card formato-arco-card--muted">
+          <i class="bi bi-file-earmark-x"></i>
+          <span><strong>Diagnóstico / Bitácora</strong><small>Aún no ha sido generado</small></span>
+        </div>
+      `);
+    }
+
+    data.formatos.forEach((format) => {
+      const date = new Date(String(format.created_at).replace(" ", "T"));
+      const formattedDate = Number.isNaN(date.getTime()) ? format.created_at : date.toLocaleString("es-MX");
+      cards.push(`
+        <div class="formato-arco-card">
+          <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
+          <span><strong>${labels[format.tipo] || "Formato de servicio"}</strong><small>${formattedDate}</small></span>
+          <div class="formato-arco-card__actions">
+            <a class="btn btn-outline-primary btn-sm" href="../controllers/formato_servicio_pdf.php?id=${format.id}" target="_blank" title="Ver PDF"><i class="bi bi-eye"></i></a>
+            <a class="btn btn-outline-warning btn-sm" href="formato_llenar.php?type=${encodeURIComponent(format.tipo)}&arco_id=${arcId}&formato_id=${format.id}" title="Editar"><i class="bi bi-pencil"></i></a>
+          </div>
+        </div>
+      `);
+    });
+
+    container.innerHTML = cards.join("");
+    const pdfUrls = data.formatos.map((format) => `../controllers/formato_servicio_pdf.php?id=${format.id}`);
+    downloadAllButton.dataset.urls = JSON.stringify(pdfUrls);
+    downloadAllButton.disabled = pdfUrls.length === 0;
+  } catch (error) {
+    container.innerHTML = `<div class="alert alert-danger mb-0">${error.message}</div>`;
+  }
+});
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("#descargarFormatosArco");
+  if (!button || button.disabled) return;
+  const urls = JSON.parse(button.dataset.urls || "[]");
+  urls.forEach((url, index) => {
+    window.setTimeout(() => {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }, index * 180);
+  });
+});
