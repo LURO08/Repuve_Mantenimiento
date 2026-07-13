@@ -158,6 +158,38 @@ table {
     padding: 6px;
 }
 
+.tabla-componentes--dos-columnas th {
+    padding: 5px 6px;
+    font-size: 11px;
+}
+
+.tabla-componentes--dos-columnas td {
+    padding: 5px 6px;
+    vertical-align: top;
+}
+
+.tabla-componentes--dos-columnas .componente-cell {
+    line-height: 1.25;
+}
+
+.tabla-componentes--dos-columnas .serie-cell {
+    text-align: center;
+    font-size: 10px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.nombre-material,
+.cantidad-material {
+    display: block;
+}
+
+.cantidad-material {
+    margin-top: 2px;
+    font-size: 10px;
+    color: #333;
+}
+
 /* OBSERVACIONES */
 .observaciones {
     margin-top: 10px;

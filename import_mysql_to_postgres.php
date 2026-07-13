@@ -26,6 +26,7 @@ function normalizeValue(string $column, mixed $value): mixed
         'uploaded_at',
         'created_at',
         'creado_at',
+        'fecha_baja',
     ];
 
     if (in_array($column, $dateColumns, true)) {
@@ -58,6 +59,62 @@ function normalizeForeignKeys(PDO $mysql, string $table, string $column, mixed $
     }
 
     return $value;
+}
+
+function legacyTechnicianColumn(string $table): ?string
+{
+    return [
+        'revisiones' => 'tecnico_responsable',
+        'infraestructura_revisiones' => 'tecnico_responsable',
+        'bitacoras_arco' => 'encargado',
+        'arcos_bajas' => 'tecnico_responsable',
+    ][$table] ?? null;
+}
+
+function mysqlTechnicianMap(PDO $mysql): array
+{
+    static $map = null;
+    if ($map !== null) {
+        return $map;
+    }
+
+    $map = [];
+    $nextId = 1;
+    if (tableExists($mysql, 'tecnicos', 'mysql')) {
+        foreach ($mysql->query("SELECT id, TRIM(nombre) AS nombre FROM tecnicos WHERE nombre IS NOT NULL AND TRIM(nombre) <> ''")->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $id = (int)($row['id'] ?? 0);
+            $name = (string)($row['nombre'] ?? '');
+            if ($id > 0 && $name !== '') {
+                $map[$name] = $id;
+                $nextId = max($nextId, $id + 1);
+            }
+        }
+    }
+
+    $names = array_fill_keys(array_keys($map), true);
+    foreach ([
+        ['revisiones', 'tecnico_responsable'],
+        ['infraestructura_revisiones', 'tecnico_responsable'],
+        ['bitacoras_arco', 'encargado'],
+        ['arcos_bajas', 'tecnico_responsable'],
+    ] as [$table, $column]) {
+        if (!tableExists($mysql, $table, 'mysql') || !in_array($column, columns($mysql, $table, 'mysql'), true)) {
+            continue;
+        }
+
+        $rows = $mysql->query("SELECT DISTINCT TRIM(`{$column}`) FROM `{$table}` WHERE `{$column}` IS NOT NULL AND TRIM(`{$column}`) <> ''")->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($rows as $name) {
+            $names[(string)$name] = true;
+        }
+    }
+
+    foreach (array_keys($names) as $name) {
+        if (!isset($map[$name])) {
+            $map[$name] = $nextId++;
+        }
+    }
+
+    return $map;
 }
 
 function columns(PDO $pdo, string $table, string $driver): array
@@ -111,6 +168,7 @@ function ensurePostgresCompatibility(PDO $pg): void
     $pg->exec("ALTER TABLE infraestructura_nodos ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE");
     $pg->exec("ALTER TABLE infraestructura_revisiones ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE");
     $pg->exec("ALTER TABLE arco_infraestructura ADD COLUMN IF NOT EXISTS id INTEGER");
+    $pg->exec("ALTER TABLE arco_infraestructura ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE");
 }
 
 function backupPostgres(PDO $pg, array $tables): string
@@ -135,20 +193,49 @@ function backupPostgres(PDO $pg, array $tables): string
 
 function importTable(PDO $mysql, PDO $pg, string $table): int
 {
-    if (!tableExists($mysql, $table, 'mysql') || !tableExists($pg, $table, 'pgsql')) {
+    if (($table !== 'tecnicos' && !tableExists($mysql, $table, 'mysql')) || !tableExists($pg, $table, 'pgsql')) {
         return 0;
     }
 
-    $mysqlColumns = columns($mysql, $table, 'mysql');
+    $mysqlColumns = tableExists($mysql, $table, 'mysql') ? columns($mysql, $table, 'mysql') : [];
     $pgColumns = columns($pg, $table, 'pgsql');
     $commonColumns = array_values(array_intersect($mysqlColumns, $pgColumns));
+    $legacyTecnicoColumn = legacyTechnicianColumn($table);
+
+    if ($legacyTecnicoColumn && in_array('tecnico_id', $pgColumns, true) && !in_array('tecnico_id', $commonColumns, true)) {
+        $commonColumns[] = 'tecnico_id';
+    }
+
+    if ($table === 'tecnicos' && !$commonColumns) {
+        $commonColumns = array_values(array_intersect(['id', 'nombre', 'telefono', 'puesto', 'activo', 'eliminado', 'created_at'], $pgColumns));
+    }
 
     if (!$commonColumns) {
         return 0;
     }
 
-    $selectColumns = implode(', ', array_map(fn($col) => '`' . str_replace('`', '``', $col) . '`', $commonColumns));
-    $rows = $mysql->query("SELECT {$selectColumns} FROM `" . str_replace('`', '``', $table) . "`")->fetchAll(PDO::FETCH_ASSOC);
+    $selectColumns = array_values(array_intersect($commonColumns, $mysqlColumns));
+    if ($legacyTecnicoColumn && in_array($legacyTecnicoColumn, $mysqlColumns, true) && !in_array($legacyTecnicoColumn, $selectColumns, true)) {
+        $selectColumns[] = $legacyTecnicoColumn;
+    }
+
+    if ($table === 'tecnicos' && !tableExists($mysql, $table, 'mysql')) {
+        $rows = [];
+        foreach (mysqlTechnicianMap($mysql) as $name => $id) {
+            $rows[] = [
+                'id' => $id,
+                'nombre' => $name,
+                'telefono' => null,
+                'puesto' => null,
+                'activo' => 1,
+                'eliminado' => 0,
+                'created_at' => date('Y-m-d H:i:s'),
+            ];
+        }
+    } else {
+        $selectSql = implode(', ', array_map(fn($col) => '`' . str_replace('`', '``', $col) . '`', $selectColumns));
+        $rows = $mysql->query("SELECT {$selectSql} FROM `" . str_replace('`', '``', $table) . "`")->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     if (!$rows) {
         return 0;
@@ -164,6 +251,10 @@ function importTable(PDO $mysql, PDO $pg, string $table): int
             $rawValue = $row[$column] ?? null;
             if ($column === 'uploaded_at' && ($rawValue === null || $rawValue === '') && !empty($row['created_at'])) {
                 $rawValue = $row['created_at'];
+            }
+            if ($column === 'tecnico_id' && $legacyTecnicoColumn) {
+                $legacyName = trim((string)($row[$legacyTecnicoColumn] ?? ''));
+                $rawValue = $legacyName !== '' ? (mysqlTechnicianMap($mysql)[$legacyName] ?? null) : null;
             }
             $value = normalizeValue($column, $rawValue);
             $values[] = normalizeForeignKeys($mysql, $table, $column, $value);
@@ -219,15 +310,21 @@ $mysql = new PDO($mysqlDsn, envValue('MYSQL_USER', 'jlromero'), envValue('MYSQL_
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
 ]);
 
-$tables = [
+function orderedImportTables(PDO $mysql, PDO $pg): array
+{
+    $preferredTables = [
     'users',
     'ubicaciones',
     'materiales',
+    'tecnicos',
     'arcos',
     'arco_material',
     'revisiones',
     'revision_material',
     'revision_evidencias',
+    'formatos_mantenimiento',
+    'arcos_bajas',
+    'arcos_bajas_evidencias',
     'infraestructura_nodos',
     'arco_infraestructura',
     'infraestructura_material',
@@ -237,7 +334,39 @@ $tables = [
     'bitacoras_arco',
     'checklist_conceptos',
     'bitacora_checklist',
-];
+    ];
+
+    $tables = [];
+    foreach ($preferredTables as $table) {
+        if (tableExists($mysql, $table, 'mysql') && tableExists($pg, $table, 'pgsql')) {
+            $tables[] = $table;
+        }
+    }
+
+    if (!in_array('tecnicos', $tables, true) && tableExists($pg, 'tecnicos', 'pgsql') && mysqlTechnicianMap($mysql)) {
+        $afterMateriales = array_search('materiales', $tables, true);
+        if ($afterMateriales === false) {
+            array_unshift($tables, 'tecnicos');
+        } else {
+            array_splice($tables, $afterMateriales + 1, 0, ['tecnicos']);
+        }
+    }
+
+    $mysqlTables = $mysql->query("
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+        ORDER BY table_name
+    ")->fetchAll(PDO::FETCH_COLUMN);
+
+    foreach ($mysqlTables as $table) {
+        if (!in_array($table, $tables, true) && tableExists($pg, $table, 'pgsql')) {
+            $tables[] = $table;
+        }
+    }
+
+    return $tables;
+}
 
 try {
     $schemaPath = __DIR__ . '/database.sql';
@@ -245,6 +374,11 @@ try {
         $pdo->exec(file_get_contents($schemaPath));
     }
     ensurePostgresCompatibility($pdo);
+
+    $tables = orderedImportTables($mysql, $pdo);
+    if (!$tables) {
+        throw new RuntimeException('No hay tablas comunes para importar.');
+    }
 
     $backupPath = backupPostgres($pdo, $tables);
     echo "Respaldo PostgreSQL previo: {$backupPath}\n";

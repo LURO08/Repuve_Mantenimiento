@@ -12,6 +12,15 @@ function pdfMark(bool $checked): string
     return $checked ? 'X' : '&nbsp;';
 }
 
+function pdfToolItem($item): string
+{
+    if (!is_array($item)) return pdfText($item);
+    $name = pdfText($item['nombre'] ?? '');
+    $quantity = (int)($item['cantidad'] ?? 0);
+    $unit = pdfText($item['unidad'] ?? '', '');
+    return $quantity > 0 ? $quantity . ' ' . $unit . ' - ' . $name : $name;
+}
+
 $fechaMantenimiento = strtotime($registro['fecha_mantenimiento']);
 $fechaDocumento = strtotime($registro['created_at']);
 ?>
@@ -245,22 +254,34 @@ $fechaDocumento = strtotime($registro['created_at']);
   <div class="section">
     <div class="section-title">I. DATOS DEL SERVICIO</div>
     <table class="data">
+      <?php if ($registro['tipo'] === 'checklist'): ?>
       <tr>
-        <td style="width:58%"><strong>Nombre del arco</strong><?= pdfText($registro['arco']) ?></td>
-        <td style="width:42%"><strong>Ubicación</strong><?= pdfText($registro['ubicacion']) ?></td>
+        <td style="width:34%"><strong>Arco</strong><?= pdfText($registro['arco']) ?></td>
+        <td style="width:28%"><strong>Ubicación</strong><?= pdfText($registro['ubicacion']) ?></td>
+        <td style="width:38%"><strong>Técnico responsable</strong><?= pdfText($registro['tecnico_responsable']) ?></td>
       </tr>
+      <?php else: ?>
       <tr>
-        <td><strong>Técnico responsable</strong><?= pdfText($registro['tecnico_responsable']) ?></td>
+        <td style="width:58%">
+          <strong>Arco / Ubicación</strong>
+          <?= pdfText($registro['arco']) ?> - <?= pdfText($registro['ubicacion']) ?>
+        </td>
+        <td style="width:42%"><strong>Técnico responsable</strong><?= pdfText($registro['tecnico_responsable']) ?></td>
+      </tr>
+      <?php endif; ?>
+      <tr>
         <td>
           <strong>Fecha y hora</strong>
           <?= $fechaMantenimiento ? date('d/m/Y H:i', $fechaMantenimiento) : 'N/A' ?>
         </td>
-      </tr>
-      <tr>
-        <td colspan="2">
+        <td>
           <strong style="margin: 5px 0px;">Tipo de mantenimiento</strong>
+          <?php if ($registro['tipo'] === 'tools'): ?>
+            <span class="mark"><?= pdfMark($registro['tipo_mantenimiento'] === 'Nueva Instalacion') ?></span> Nueva instalación
+            &nbsp;
+          <?php endif; ?>
           <span class="mark"><?= pdfMark($registro['tipo_mantenimiento'] === 'Preventivo') ?></span> Preventivo
-          &nbsp;&nbsp;
+          &nbsp;
           <span class="mark"><?= pdfMark($registro['tipo_mantenimiento'] === 'Correctivo') ?></span> Correctivo
         </td>
       </tr>
@@ -378,21 +399,16 @@ $fechaDocumento = strtotime($registro['created_at']);
           <?php else: ?>
             <?php for ($index = 0; $index < count($items); $index += 2): ?>
               <tr>
-                <td><span class="check">[X]</span> <?= pdfText($items[$index]) ?></td>
+                <td><span class="check">[X]</span> <?= pdfToolItem($items[$index]) ?></td>
                 <td>
                   <?php if (isset($items[$index + 1])): ?>
-                    <span class="check">[X]</span> <?= pdfText($items[$index + 1]) ?>
+                    <span class="check">[X]</span> <?= pdfToolItem($items[$index + 1]) ?>
                   <?php else: ?>&nbsp;<?php endif; ?>
                 </td>
               </tr>
             <?php endfor; ?>
           <?php endif; ?>
         </table>
-        <?php if ($groupTitle === 'III. CONSUMIBLES Y REFACCIONES' && !empty($datos['yagi_cantidad'])): ?>
-          <div class="observation-box" style="min-height:0">
-            <strong>Cantidad de antenas Yagi:</strong> <?= (int)$datos['yagi_cantidad'] ?>
-          </div>
-        <?php endif; ?>
       </div>
     <?php endforeach; ?>
   <?php endif; ?>

@@ -56,10 +56,18 @@ return [
             ['Juego de dados', 'Cinchos de plástico'],
         ],
         'consumables' => [
-            ['Antenas Yagi', 'Cable de UTP'],
+            ['Antenas Yagi', 'Paneles Solares'],
             ['Baterías', 'Lector SpeedWay de repuesto'],
-            ['Herrajes para Panel Solar', 'Switch de repuesto'],
+            ['Switch de repuesto', 'Cable de UTP'],
+            ['Herrajes para Panel Solar', 'Cableado fotovoltaico'],
             ['Herrajes para Gabinete', 'Cable de luz 1+1'],
+        ],
+        'quantifiable_consumables' => [
+            'Antenas Yagi',
+            'Paneles Solares',
+            'Baterías',
+            'Lector SpeedWay de repuesto',
+            'Switch de repuesto',
         ],
         'epp' => [
             ['Casco de seguridad', 'Guantes'],

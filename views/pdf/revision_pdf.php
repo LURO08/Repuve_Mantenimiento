@@ -11,10 +11,11 @@ $id = $_GET['id'];
    DATOS DE LA REVISIÓN
 ========================= */
 $stmt = $pdo->prepare("
-    SELECT r.*, a.nombre AS arco, u.nombre AS ubicacion
+    SELECT r.*, t.nombre AS tecnico_responsable, a.nombre AS arco, u.nombre AS ubicacion
     FROM revisiones r
     JOIN arcos a ON r.arco_id = a.id
     JOIN ubicaciones u ON a.ubicacion_id = u.id
+    LEFT JOIN tecnicos t ON t.id = r.tecnico_id
     WHERE r.id = ?
 ");
 $stmt->execute([$id]);
@@ -25,7 +26,7 @@ if (!$revision) {
 }
 
 /* =========================
-   MATERIALES CAMBIADOS
+   MATERIALES CAMBIADOS / AGREGADOS
 ========================= */
 $matStmt = $pdo->prepare("
     SELECT rm.*, m.nombre AS material, m.medida
@@ -130,7 +131,7 @@ $codigoFormato = 'INN-FOR-002';
 
             <!-- II MATERIALES -->
             <div class="seccion">
-                <div class="titulo-seccion">II. MATERIALES CAMBIADOS / RETIRADOS</div>
+                <div class="titulo-seccion">II. MATERIALES CAMBIADOS / AGREGADOS / RETIRADOS</div>
 
                 <table class="tabla-componentes">
                     <tr>

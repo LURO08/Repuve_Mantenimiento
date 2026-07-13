@@ -342,13 +342,26 @@ body.format-editor-page {
   gap: 10px;
 }
 
+.service-data-grid--primary {
+  grid-template-columns: minmax(300px, 1.35fr) minmax(220px, .9fr) minmax(300px, 1.2fr);
+  align-items: end;
+}
+
+.service-data-grid--checklist {
+  grid-template-columns: minmax(190px, .75fr) minmax(280px, 1.15fr) minmax(240px, 1fr);
+}
+
 .service-data-grid--secondary {
-  grid-template-columns: 1fr 1fr 2fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
   margin-top: 10px;
 }
 
-.service-data-grid--secondary .service-type {
+.service-data-grid--secondary-checklist {
+  grid-template-columns: minmax(170px, .65fr) minmax(170px, .65fr) minmax(320px, 1.7fr);
+}
+
+.service-data-grid .service-type {
   min-height: 38px;
   margin: 0;
   padding: 6px 10px;
@@ -383,8 +396,59 @@ body.format-editor-page {
   background: #f8fafb;
 }
 
+.checklist-profile {
+  display: grid;
+  grid-template-columns: minmax(280px, .8fr) minmax(420px, 1.2fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.checklist-profile fieldset {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #dce2e7;
+  border-radius: 7px;
+  background: #f8fafb;
+}
+
+.checklist-profile legend {
+  float: none;
+  width: auto;
+  margin: 0 4px 0 0;
+  color: #25313c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.checklist-profile label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  white-space: nowrap;
+}
+
 .checklist-material-option {
   cursor: pointer;
+}
+
+.checklist-material-option.is-included {
+  cursor: default;
+}
+
+.checklist-material-option.is-included > span {
+  border-color: #9fd5b7;
+  background: #edf8f2;
+}
+
+.checklist-material-option.is-included i {
+  border-color: #198754;
+  background: #198754;
+  color: #fff;
 }
 
 .checklist-material-option > input {
@@ -601,6 +665,33 @@ body.format-editor-page {
   cursor: pointer;
 }
 
+.selection-item-wrap {
+  display: grid;
+  min-width: 0;
+}
+
+.selection-item-wrap.is-quantifiable {
+  grid-template-columns: minmax(0, 1fr) 88px;
+  gap: 5px;
+}
+
+.selection-quantity {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+
+.selection-quantity input {
+  min-width: 0;
+  text-align: center;
+}
+
+.selection-quantity span {
+  color: #68747e;
+  font-size: 11px;
+}
+
 .selection-item input {
   position: absolute;
   opacity: 0;
@@ -669,12 +760,14 @@ body.format-editor-page {
   }
 
   .service-data-grid,
+  .service-data-grid--primary,
   .service-data-grid--secondary,
   .quality-workspace {
     grid-template-columns: 1fr 1fr;
   }
 
-  .checklist-material-selector {
+  .checklist-material-selector,
+  .checklist-profile {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -722,9 +815,11 @@ body.format-editor-page {
   }
 
   .service-data-grid,
+  .service-data-grid--primary,
   .service-data-grid--secondary,
   .quality-workspace,
-  .checklist-material-selector {
+  .checklist-material-selector,
+  .checklist-profile {
     grid-template-columns: 1fr;
   }
 }

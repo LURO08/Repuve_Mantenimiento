@@ -1,11 +1,11 @@
 <?php
 
-$host = getenv('PGHOST') ?: 'dpg-d8fqc5d7vvec739gc6k0-a.oregon-postgres.render.com';
+$host = getenv('PGHOST') ?: 'dpg-d9a9htgk1i2s73fa59lg-a.oregon-postgres.render.com';
 $user = getenv('PGUSER') ?: 'jlromero';
-$pass = getenv('PGPASSWORD') ?: 'jY9vqAVL552bbvUOMvzMRo5SMmW25UxL';
-$dbname = getenv('PGDATABASE') ?: 'mantenimiento_08cb';
+$pass = getenv('PGPASSWORD') ?: '2G3XIajD62KAaUGIKysn1rfIypQ2FI2U';
+$dbname = getenv('PGDATABASE') ?: 'repuve_mantenimiento';
 $port = getenv('PGPORT') ?: '5432';
-$sslmode = getenv('PGSSLMODE') ?: 'prefer';
+$sslmode = getenv('PGSSLMODE') ?: 'disable';
 
 try {
     $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode={$sslmode}";

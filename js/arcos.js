@@ -3,18 +3,30 @@ const config = {
   ArcosTable: {
     page: 1,
     limit: 3
+  },
+  BajasTable: {
+    page: 1,
+    limit: 3
+  },
+  InfraTable: {
+    page: 1,
+    limit: 3
   }
 };
+const paginationLimitOptions = [3, 10, 20, 30, 40, 50, 60, 100];
 
 // RENDER PAGINACIÓN
 function renderPagination(tableId) {
   const state = config[tableId];
   const allRows = Array.from(document.querySelectorAll(`#${tableId} tbody tr`));
+  const dataRows = allRows.filter(row => !row.classList.contains("pagination-empty-row"));
+  const emptyRows = allRows.filter(row => row.classList.contains("pagination-empty-row"));
 
   // SOLO filas visibles por búsqueda
-  const visibleRows = allRows.filter(row => row.dataset.visible !== "0");
+  const visibleRows = dataRows.filter(row => row.dataset.visible !== "0");
 
   const total = visibleRows.length;
+  state.limit = normalizePaginationLimit(total, state.limit);
   const totalPages = Math.ceil(total / state.limit) || 1;
 
   // corregir página si se pasa
@@ -32,6 +44,9 @@ function renderPagination(tableId) {
 
   // ocultar TODAS primero
   allRows.forEach(row => row.style.display = "none");
+  if (total === 0) {
+    emptyRows.forEach(row => row.style.display = "");
+  }
 
   // mostrar SOLO las de la página actual
   visibleRows.slice(start, end).forEach(row => {
@@ -63,12 +78,29 @@ function renderPaginationButtons(tableId, totalPages, shownStart = 0, shownEnd =
   if (!pag) return;
   pag.innerHTML = "";
 
-  if (totalPages <= 1) return;
+  const options = getPaginationLimitOptions(total, state.limit);
 
   let html = `
-    <div class="w-100 text-center small text-muted mb-1">
-      Mostrando ${shownStart}-${shownEnd} de ${total}
+    <div class="pagination-toolbar">
+      <div class="pagination-summary">
+        ${shownEnd - shownStart + (total > 0 ? 1 : 0)} de ${total} ${getPaginationItemLabel(tableId)} &middot; Pagina ${state.page} de ${totalPages}
+        <span>Mostrando ${shownStart}-${shownEnd}</span>
+      </div>
+      <label class="pagination-limit">
+        <span>Mostrar</span>
+        <select class="form-select form-select-sm" onchange="changePageLimit('${tableId}', this.value)">
+          ${options.map(opt => `<option value="${opt}" ${opt === state.limit ? "selected" : ""}>${opt}</option>`).join("")}
+        </select>
+      </label>
     </div>
+  `;
+
+  if (totalPages <= 1) {
+    pag.innerHTML = html;
+    return;
+  }
+
+  html += `
     <nav><ul class="pagination pagination-sm mb-0">
   `;
 
@@ -80,15 +112,18 @@ function renderPaginationButtons(tableId, totalPages, shownStart = 0, shownEnd =
         </li>
     `;
 
-  for (let i = 1; i <= totalPages; i++) {
+  getPaginationPages(state.page, totalPages).forEach(item => {
+    if (item === "...") {
+      html += `<li class="page-item disabled"><span class="page-link pagination-ellipsis">...</span></li>`;
+      return;
+    }
+
     html += `
-            <li class="page-item ${i === state.page ? 'active' : ''}">
-                <button type="button" class="page-link" onclick="changePage('${tableId}', ${i})">
-                    ${i}
-                </button>
-            </li>
-        `;
-  }
+      <li class="page-item ${item === state.page ? 'active' : ''}">
+        <button type="button" class="page-link" onclick="changePage('${tableId}', ${item})">${item}</button>
+      </li>
+    `;
+  });
 
   html += `
         <li class="page-item ${state.page === totalPages ? 'disabled' : ''}">
@@ -100,6 +135,171 @@ function renderPaginationButtons(tableId, totalPages, shownStart = 0, shownEnd =
 
   html += `</ul></nav>`;
   pag.innerHTML = html;
+}
+
+function getPaginationPages(current, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const pages = new Set([1, totalPages, current, current - 1, current + 1]);
+  if (current <= 3) {
+    pages.add(2);
+    pages.add(3);
+    pages.add(4);
+  }
+  if (current >= totalPages - 2) {
+    pages.add(totalPages - 1);
+    pages.add(totalPages - 2);
+    pages.add(totalPages - 3);
+  }
+
+  const sorted = [...pages].filter(p => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+  return sorted.reduce((acc, page, index) => {
+    if (index > 0 && page - sorted[index - 1] > 1) acc.push("...");
+    acc.push(page);
+    return acc;
+  }, []);
+}
+
+function getPaginationLimitOptions(total, currentLimit) {
+  if (total <= 0) return [];
+  const maxOption = paginationLimitOptions.find(opt => opt >= total) || paginationLimitOptions[paginationLimitOptions.length - 1];
+  const currentOption = currentLimit <= maxOption ? [currentLimit] : [];
+  const options = [...paginationLimitOptions.filter(opt => opt <= maxOption), ...currentOption];
+  return [...new Set(options)]
+    .filter(opt => Number.isFinite(Number(opt)) && Number(opt) > 0)
+    .map(Number)
+    .sort((a, b) => a - b);
+}
+
+function normalizePaginationLimit(total, currentLimit) {
+  if (total <= 0) return currentLimit;
+  const maxOption = paginationLimitOptions.find(opt => opt >= total) || paginationLimitOptions[paginationLimitOptions.length - 1];
+  return currentLimit > maxOption ? maxOption : currentLimit;
+}
+
+function getPaginationItemLabel(tableId) {
+  if (tableId === "BajasTable") return "bajas";
+  if (tableId === "InfraTable") return "puentes/sitios";
+  return "arcos";
+}
+
+function normalizarTextoOrden(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function obtenerValorOrden(row, columnIndex, sortType) {
+  const cell = row.children[columnIndex];
+  const text = cell?.innerText || "";
+
+  if (sortType === "number") {
+    const match = text.replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+    return match ? Number(match[0]) : 0;
+  }
+
+  if (sortType === "date") {
+    const dateMatch = text.match(/(\d{2})-(\d{2})-(\d{4})/);
+    if (dateMatch) {
+      return new Date(`${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}T00:00:00`).getTime();
+    }
+    const parsed = Date.parse(text);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  return normalizarTextoOrden(text);
+}
+
+function ordenarTablaPorEncabezado(tableId, th) {
+  const table = document.getElementById(tableId);
+  if (!table || !config[tableId]) return;
+
+  const tbody = table.querySelector("tbody");
+  const columnIndex = Array.from(th.parentElement.children).indexOf(th);
+  const sortType = th.dataset.sortType || "text";
+  const currentDirection = th.dataset.sortDirection === "asc" ? "asc" : "desc";
+  const nextDirection = currentDirection === "asc" ? "desc" : "asc";
+  const multiplier = nextDirection === "asc" ? 1 : -1;
+
+  const dataRows = Array.from(tbody.querySelectorAll("tr:not(.pagination-empty-row)"));
+  dataRows.sort((a, b) => {
+    const valA = obtenerValorOrden(a, columnIndex, sortType);
+    const valB = obtenerValorOrden(b, columnIndex, sortType);
+    if (typeof valA === "number" && typeof valB === "number") {
+      return (valA - valB) * multiplier;
+    }
+    return String(valA).localeCompare(String(valB), "es", { numeric: true }) * multiplier;
+  });
+
+  dataRows.forEach(row => tbody.appendChild(row));
+  table.querySelectorAll(".sortable-header").forEach(header => {
+    header.classList.remove("sort-asc", "sort-desc");
+    delete header.dataset.sortDirection;
+  });
+  th.dataset.sortDirection = nextDirection;
+  th.classList.add(nextDirection === "asc" ? "sort-asc" : "sort-desc");
+
+  config[tableId].page = 1;
+  renderPagination(tableId);
+}
+
+function initSortableTables() {
+  Object.keys(config).forEach(tableId => {
+    const table = document.getElementById(tableId);
+    if (!table || table.dataset.sortableReady === "1") return;
+    table.dataset.sortableReady = "1";
+
+    if (tableId === "InfraTable") {
+      const ubicacionHeader = table.querySelector("thead tr")?.children[3];
+      ubicacionHeader?.classList.add("sortable-header");
+      if (ubicacionHeader && !ubicacionHeader.dataset.sortType) {
+        ubicacionHeader.dataset.sortType = "text";
+      }
+    }
+
+    table.querySelectorAll("thead .sortable-header").forEach(th => {
+      th.setAttribute("role", "button");
+      th.setAttribute("tabindex", "0");
+      th.addEventListener("click", event => {
+        event.preventDefault();
+        ordenarTablaPorEncabezado(tableId, th);
+      });
+      th.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          ordenarTablaPorEncabezado(tableId, th);
+        }
+      });
+    });
+  });
+}
+
+function renderArcosVinculadosModal(nombre, arcos) {
+  const titulo = document.getElementById("modalArcosVinculadosTitulo");
+  const contenedor = document.getElementById("modalArcosVinculadosContenido");
+  if (titulo) titulo.textContent = `${nombre || "Puente/Sitio"} - ${arcos.length} arco${arcos.length === 1 ? "" : "s"}`;
+  if (!contenedor) return;
+
+  if (!arcos.length) {
+    contenedor.innerHTML = '<div class="alert alert-light border mb-0">Sin arcos vinculados.</div>';
+    return;
+  }
+
+  contenedor.innerHTML = arcos.map(arco => `
+    <article class="linked-arco-card">
+      <div>
+        <strong>${escapeHtml(arco.nombre || "Sin nombre")}</strong>
+        <small><i class="bi bi-geo-alt-fill"></i> ${escapeHtml(arco.ubicacion || "Sin ubicacion")}</small>
+      </div>
+      <span class="badge ${String(arco.estado || "Activo").toLowerCase() === "baja" ? "bg-danger" : "bg-success"}">
+        ${escapeHtml(arco.estado || "Activo")}
+      </span>
+    </article>
+  `).join("");
 }
 
 function filterTable(inputId, tableId) {
@@ -129,7 +329,17 @@ function changePage(tableId, page) {
   renderPagination(tableId);
 }
 
+function changePageLimit(tableId, limit) {
+  if (!config[tableId]) return;
+  const nextLimit = Number(limit);
+  if (!Number.isFinite(nextLimit) || nextLimit <= 0) return;
+  config[tableId].limit = nextLimit;
+  config[tableId].page = 1;
+  renderPagination(tableId);
+}
+
 window.changePage = changePage;
+window.changePageLimit = changePageLimit;
 window.filterTable = filterTable;
 
 const ModalManager = {
@@ -173,8 +383,11 @@ const ModalManager = {
 
 
 document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll("#ArcosTable tbody tr").forEach(r => r.dataset.visible = "1");
-  renderPagination("ArcosTable");
+  ["ArcosTable", "BajasTable", "InfraTable"].forEach(tableId => {
+    document.querySelectorAll(`#${tableId} tbody tr`).forEach(r => r.dataset.visible = "1");
+    renderPagination(tableId);
+  });
+  initSortableTables();
   let bajaArchivosSeleccionados = [];
 
   document.querySelectorAll(".gestionarArcoBtn").forEach(btn => {
@@ -373,6 +586,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll(".verArcosVinculadosBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      let arcos = [];
+      try {
+        arcos = JSON.parse(btn.dataset.arcos || "[]");
+      } catch (error) {
+        arcos = [];
+      }
+      renderArcosVinculadosModal(btn.dataset.nombre || "", Array.isArray(arcos) ? arcos : []);
+    });
+  });
+
   function abrirVisorEvidenciaBaja(src, nombre, esPdf) {
     const body = document.getElementById("bajaEvidenciaVisorBody");
     const titulo = document.getElementById("bajaEvidenciaVisorTitulo");
@@ -406,7 +631,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 window.addEventListener("resize", () => {
-  renderPagination("ArcosTable");
+  Object.keys(config).forEach(renderPagination);
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -437,9 +662,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (targetId === "tableViewArcos") {
-      renderPagination("ArcosTable");
-    }
+    const tableIdByView = {
+      tableViewArcos: "ArcosTable",
+      tableViewBajas: "BajasTable",
+      tableViewInfra: "InfraTable"
+    };
+    renderPagination(tableIdByView[targetId] || "ArcosTable");
   }
 
   botones.forEach(btn => {

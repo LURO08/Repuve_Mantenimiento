@@ -1266,13 +1266,129 @@
     border-radius:20px;
 }
 
-#pagination-Arcos{
+#pagination-Arcos,
+#pagination-Bajas,
+#pagination-Infra{
     margin-top:.45rem !important;
     margin-bottom:.35rem;
 }
 
-#pagination-Arcos .pagination{
-    margin-bottom:0;
+#pagination-Arcos .pagination,
+#pagination-Bajas .pagination,
+#pagination-Infra .pagination{
+  margin-bottom:0;
+}
+
+.pagination-toolbar {
+  align-items:center;
+  display:flex;
+  flex-wrap:wrap;
+  gap:.5rem .75rem;
+  justify-content:space-between;
+  margin-bottom:.45rem;
+  width:100%;
+}
+
+.pagination-summary {
+  color:#4b5563;
+  font-size:.84rem;
+  font-weight:600;
+  line-height:1.2;
+}
+
+.pagination-summary span {
+  color:#6b7280;
+  display:block;
+  font-size:.74rem;
+  font-weight:500;
+  margin-top:.1rem;
+}
+
+.pagination-limit {
+  align-items:center;
+  color:#4b5563;
+  display:flex;
+  font-size:.78rem;
+  font-weight:700;
+  gap:.4rem;
+  margin:0;
+  white-space:nowrap;
+}
+
+.pagination-limit .form-select {
+  min-width:68px;
+  padding-bottom:.2rem;
+  padding-top:.2rem;
+}
+
+.pagination .pagination-ellipsis {
+  background:#fff;
+  color:#6b7280;
+  min-width:34px;
+  text-align:center;
+}
+
+.sortable-header {
+  cursor:pointer;
+  position:relative;
+  user-select:none;
+  white-space:nowrap;
+}
+
+.sortable-header::after {
+  color:rgba(255,255,255,.65);
+  content:"\F282";
+  font-family:"bootstrap-icons";
+  font-size:.72rem;
+  margin-left:.35rem;
+}
+
+.sortable-header.sort-asc::after {
+  color:#fff;
+  content:"\F286";
+}
+
+.sortable-header.sort-desc::after {
+  color:#fff;
+  content:"\F282";
+}
+
+.linked-arcos-grid {
+  display:grid;
+  gap:.65rem;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.linked-arco-card {
+  align-items:center;
+  background:#fff;
+  border:1px solid #dbe3ea;
+  border-radius:8px;
+  display:flex;
+  gap:.75rem;
+  justify-content:space-between;
+  padding:.75rem .85rem;
+}
+
+.linked-arco-card strong {
+  color:#111827;
+  display:block;
+  font-size:.94rem;
+  line-height:1.2;
+}
+
+.linked-arco-card small {
+  color:#6b7280;
+  display:block;
+  font-size:.78rem;
+  margin-top:.2rem;
+}
+
+@media (max-width:576px) {
+  .pagination-toolbar {
+    justify-content:center;
+    text-align:center;
+  }
 }
 
 @media(max-width:768px){

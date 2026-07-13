@@ -61,22 +61,10 @@
         <a href="usuarios.php" class="text-decoration-none">
           <div class="card border-0 shadow-sm text-center p-3 h-100">
             <i class="bi bi-people text-info fs-2 mb-2"></i>
-            <h6 class="fw-semibold">Usuarios</h6>
+            <h6 class="fw-semibold">Usuarios / Tecnicos</h6>
           </div>
         </a>
       </div>
-      <?php endif; ?>
-
-      <?php if ($_SESSION['role'] === 'admin'): ?>
-        <!--  TECNICOS -->
-        <div class="col-md-3 col-sm-6">
-          <a href="tecnicos.php" class="text-decoration-none">
-            <div class="card border-0 shadow-sm text-center p-3 h-100">
-              <i class="bi bi-wrench text-warning fs-2 mb-2"></i>
-              <h6 class="fw-semibold">Técnicos</h6>
-            </div>
-          </a>
-        </div>
       <?php endif; ?>
 
       <!-- FORMATOS -->

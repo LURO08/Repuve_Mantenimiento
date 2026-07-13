@@ -1,6 +1,7 @@
 <?php
 include('../views/header.php');
 include('../config/db.php');
+require_once '../config/tecnicos_schema.php';
 
 $pdo->exec("
   CREATE TABLE IF NOT EXISTS tecnicos (
@@ -15,23 +16,8 @@ $pdo->exec("
 ");
 $pdo->exec("CREATE INDEX IF NOT EXISTS idx_tecnicos_activo ON tecnicos (activo)");
 $pdo->exec("ALTER TABLE tecnicos ADD COLUMN IF NOT EXISTS eliminado INTEGER NOT NULL DEFAULT 0");
-$pdo->exec("INSERT INTO tecnicos (nombre)
-  SELECT DISTINCT tecnico_responsable FROM revisiones
-  WHERE tecnico_responsable IS NOT NULL AND TRIM(tecnico_responsable) <> ''
-  ON CONFLICT (nombre) DO NOTHING");
-$pdo->exec("INSERT INTO tecnicos (nombre)
-  SELECT DISTINCT tecnico_responsable FROM infraestructura_revisiones
-  WHERE tecnico_responsable IS NOT NULL AND TRIM(tecnico_responsable) <> ''
-  ON CONFLICT (nombre) DO NOTHING");
-$pdo->exec("INSERT INTO tecnicos (nombre)
-  SELECT DISTINCT encargado FROM bitacoras_arco
-  WHERE encargado IS NOT NULL AND TRIM(encargado) <> ''
-  ON CONFLICT (nombre) DO NOTHING");
-$pdo->exec("INSERT INTO tecnicos (nombre)
-  SELECT DISTINCT tecnico_responsable FROM arcos_bajas
-  WHERE tecnico_responsable IS NOT NULL AND TRIM(tecnico_responsable) <> ''
-  ON CONFLICT (nombre) DO NOTHING");
-$tecnicosActivos = $pdo->query("SELECT nombre FROM tecnicos WHERE activo = 1 AND COALESCE(eliminado, 0) = 0 ORDER BY nombre ASC")->fetchAll(PDO::FETCH_COLUMN);
+asegurarRelacionTecnicos($pdo);
+$tecnicosActivos = $pdo->query("SELECT id, nombre FROM tecnicos WHERE activo = 1 AND COALESCE(eliminado, 0) = 0 ORDER BY nombre ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 $revisionesCssVersion = file_exists(__DIR__ . '/../css/revisiones.css') ? filemtime(__DIR__ . '/../css/revisiones.css') : time();
 $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtime(__DIR__ . '/../js/revisiones2.js') : time();
@@ -149,17 +135,18 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
           <th>Arco</th>
           <th>Fecha</th>
           <th>Tipo</th>
-          <th>Componentes Cambiados</th>
+          <th>Componentes Cambiados / Agregados</th>
           <th>Acciones</th>
         </tr>
       </thead>
       <tbody class="text-center">
         <?php
-        $sql = "SELECT r.*, a.nombre AS arco, u.nombre AS ubic, a.lat AS lat, a.lng AS lng, r.tecnico_responsable AS tecnicoresponsable,
+        $sql = "SELECT r.*, a.nombre AS arco, u.nombre AS ubic, a.lat AS lat, a.lng AS lng, t.nombre AS tecnicoresponsable,
                 (SELECT COUNT(*) FROM revision_evidencias re WHERE re.revision_id = r.id) AS evidencias_count
                 FROM revisiones r
                 JOIN arcos a ON r.arco_id=a.id
                 JOIN ubicaciones u ON a.ubicacion_id=u.id
+                LEFT JOIN tecnicos t ON t.id = r.tecnico_id
                 WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
                 ORDER BY r.fecha_mantenimiento DESC";
 
@@ -284,10 +271,12 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
         <?php
         $infraSql = "
           SELECT ir.*, n.nombre AS infraestructura, n.tipo AS tipo_infraestructura, u.nombre AS ubicacion,
+                 t.nombre AS tecnico_nombre,
                  (SELECT COUNT(*) FROM infraestructura_revision_evidencias ire WHERE ire.revision_id = ir.id) AS evidencias_count
           FROM infraestructura_revisiones ir
           JOIN infraestructura_nodos n ON n.id = ir.infraestructura_id
           LEFT JOIN ubicaciones u ON u.id = n.ubicacion_id
+          LEFT JOIN tecnicos t ON t.id = ir.tecnico_id
           ORDER BY ir.fecha_mantenimiento DESC
         ";
         $infraRevisiones = $pdo->query($infraSql)->fetchAll(PDO::FETCH_ASSOC);
@@ -316,7 +305,7 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
               'ubicacion' => $ir['ubicacion'] ?? '',
               'fecha' => $ir['fecha_mantenimiento'],
               'tipo' => $ir['tipo_mantenimiento'] ?? 'Correctivo',
-              'tecnico' => $ir['tecnico_responsable'] ?? '',
+              'tecnico' => $ir['tecnico_nombre'] ?? '',
               'observaciones' => $ir['observaciones'] ?? '',
               'evidencias' => (int)($ir['evidencias_count'] ?? 0),
               'evidencias_ajax' => true,
@@ -433,12 +422,12 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
                       </div>
 
                       <div class="col-md-7 mb-3 mantenimiento-field">
-                        <label for="tecnicoresponsable">Técnico responsable</label>
-                        <select name="tecnicoresponsable" id="tecnicoresponsable" class="form-select" required>
+                        <label for="tecnico_id">Técnico responsable</label>
+                        <select name="tecnico_id" id="tecnico_id" class="form-select" required>
                           <option value="">Seleccione tecnico...</option>
-                          <?php foreach ($tecnicosActivos as $tecnicoNombre): ?>
-                            <option value="<?= htmlspecialchars($tecnicoNombre, ENT_QUOTES, 'UTF-8') ?>">
-                              <?= htmlspecialchars($tecnicoNombre) ?>
+                          <?php foreach ($tecnicosActivos as $tecnico): ?>
+                            <option value="<?= htmlspecialchars((string)$tecnico['id'], ENT_QUOTES, 'UTF-8') ?>">
+                              <?= htmlspecialchars($tecnico['nombre']) ?>
                             </option>
                           <?php endforeach; ?>
                         </select>
@@ -468,7 +457,12 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
 
               <!-- Right: materiales (scroll independiente) -->
               <div class="col col-xl-6 border-top bg-light p-3 lado-derecho flex-fill">
-                <h6 class="fw-semibold text-center" id="tituloMaterialesMantenimiento">Material(es) cambiados</h6>
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                  <h6 class="fw-semibold mb-0" id="tituloMaterialesMantenimiento">Material(es) cambiados / agregados</h6>
+                  <button type="button" class="btn btn-sm btn-outline-success d-none" id="btnAgregarMaterialMantenimiento">
+                    <i class="bi bi-plus-lg"></i> Agregar material
+                  </button>
+                </div>
                 <div id="materialesContainer" class=" mt-3">
                   Seleccione un arco para mostrar sus materiales...
                 </div>
@@ -533,11 +527,11 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
 
                 <div class="col mb-3">
                   <label class="form-label fw-semibold">TÃ©cnico responsable</label>
-                  <select name="tecnicoresponsable" class="form-select" required>
+                  <select name="tecnico_id" class="form-select" required>
                     <option value="">Seleccione tecnico...</option>
-                    <?php foreach ($tecnicosActivos as $tecnicoNombre): ?>
-                      <option value="<?= htmlspecialchars($tecnicoNombre, ENT_QUOTES, 'UTF-8') ?>">
-                        <?= htmlspecialchars($tecnicoNombre) ?>
+                    <?php foreach ($tecnicosActivos as $tecnico): ?>
+                      <option value="<?= htmlspecialchars((string)$tecnico['id'], ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars($tecnico['nombre']) ?>
                       </option>
                     <?php endforeach; ?>
                   </select>
@@ -557,7 +551,7 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
 
               <div class="col col-xl-6 border-top bg-light p-3 flex-fill">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                  <h6 class="fw-semibold mb-0">Material(es) cambiados</h6>
+                  <h6 class="fw-semibold mb-0">Material(es) cambiados / agregados</h6>
                   <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddInfraRevisionMaterial">
                     <i class="bi bi-plus-lg"></i> Material
                   </button>
@@ -677,7 +671,7 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
     <div class="modal-content shadow-lg">
 
       <div class="modal-header bg-success text-white">
-        <h5 class="modal-title"><i class="bi bi-box-seam"></i> Componentes cambiados por mantenimiento</h5>
+        <h5 class="modal-title"><i class="bi bi-box-seam"></i> Componentes del mantenimiento</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" id="contenedorMateriales" style="overflow-y: auto; max-height: 60vh;">

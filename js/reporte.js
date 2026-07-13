@@ -12,6 +12,7 @@ const config = {
     limit: 6
   }
 };
+const paginationLimitOptions = [3, 10, 20, 30, 40, 50, 60, 100];
 
 function renderPagination(tableId) {
   const state = config[tableId];
@@ -23,6 +24,7 @@ function renderPagination(tableId) {
   const allRows = getReportItems(table);
   const visibleRows = allRows.filter(row => row.dataset.visible !== "0");
   const total = visibleRows.length;
+  state.limit = normalizePaginationLimit(total, state.limit);
   const totalPages = Math.ceil(total / state.limit) || 1;
 
   if (state.page > totalPages) state.page = totalPages;
@@ -47,10 +49,21 @@ function renderPaginationButtons(tableId, totalPages, shownStart, shownEnd, tota
   if (!pag) return;
 
   pag.innerHTML = "";
+  const options = getPaginationLimitOptions(total, state.limit);
+  const itemLabel = getPaginationItemLabel(tableId);
 
   let html = `
-    <div class="w-100 text-center small text-muted mb-1">
-      Mostrando ${shownStart}-${shownEnd} de ${total}
+    <div class="pagination-toolbar">
+      <div class="pagination-summary">
+        ${shownEnd - shownStart + (total > 0 ? 1 : 0)} de ${total} ${itemLabel} &middot; Pagina ${state.page} de ${totalPages}
+        <span>Mostrando ${shownStart}-${shownEnd}</span>
+      </div>
+      <label class="pagination-limit">
+        <span>Mostrar</span>
+        <select class="form-select form-select-sm" onchange="changePageLimit('${tableId}', this.value)">
+          ${options.map(opt => `<option value="${opt}" ${opt === state.limit ? "selected" : ""}>${opt}</option>`).join("")}
+        </select>
+      </label>
     </div>
   `;
 
@@ -62,13 +75,18 @@ function renderPaginationButtons(tableId, totalPages, shownStart, shownEnd, tota
       </li>
     `;
 
-    for (let i = 1; i <= totalPages; i++) {
+    getPaginationPages(state.page, totalPages).forEach(item => {
+      if (item === "...") {
+        html += `<li class="page-item disabled"><span class="page-link pagination-ellipsis">...</span></li>`;
+        return;
+      }
+
       html += `
-        <li class="page-item ${i === state.page ? 'active' : ''}">
-          <button type="button" class="page-link" onclick="changePage('${tableId}', ${i})">${i}</button>
+        <li class="page-item ${item === state.page ? 'active' : ''}">
+          <button type="button" class="page-link" onclick="changePage('${tableId}', ${item})">${item}</button>
         </li>
       `;
-    }
+    });
 
     html += `
       <li class="page-item ${state.page === totalPages ? 'disabled' : ''}">
@@ -81,9 +99,66 @@ function renderPaginationButtons(tableId, totalPages, shownStart, shownEnd, tota
   pag.innerHTML = html;
 }
 
+function getPaginationPages(current, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const pages = new Set([1, totalPages, current, current - 1, current + 1]);
+  if (current <= 3) {
+    pages.add(2);
+    pages.add(3);
+    pages.add(4);
+  }
+  if (current >= totalPages - 2) {
+    pages.add(totalPages - 1);
+    pages.add(totalPages - 2);
+    pages.add(totalPages - 3);
+  }
+
+  const sorted = [...pages].filter(p => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+  return sorted.reduce((acc, page, index) => {
+    if (index > 0 && page - sorted[index - 1] > 1) acc.push("...");
+    acc.push(page);
+    return acc;
+  }, []);
+}
+
+function getPaginationLimitOptions(total, currentLimit) {
+  if (total <= 0) return [];
+  const maxOption = paginationLimitOptions.find(opt => opt >= total) || paginationLimitOptions[paginationLimitOptions.length - 1];
+  const currentOption = currentLimit <= maxOption ? [currentLimit] : [];
+  const options = [...paginationLimitOptions.filter(opt => opt <= maxOption), ...currentOption];
+  return [...new Set(options)]
+    .filter(opt => Number.isFinite(Number(opt)) && Number(opt) > 0)
+    .map(Number)
+    .sort((a, b) => a - b);
+}
+
+function normalizePaginationLimit(total, currentLimit) {
+  if (total <= 0) return currentLimit;
+  const maxOption = paginationLimitOptions.find(opt => opt >= total) || paginationLimitOptions[paginationLimitOptions.length - 1];
+  return currentLimit > maxOption ? maxOption : currentLimit;
+}
+
+function getPaginationItemLabel(tableId) {
+  if (tableId === "ubicacionesTable") return "ubicaciones";
+  if (tableId === "reportesTable") return "componentes";
+  return "arcos";
+}
+
 function changePage(tableId, page) {
   if (!config[tableId]) return;
   config[tableId].page = Math.max(1, page);
+  renderPagination(tableId);
+}
+
+function changePageLimit(tableId, limit) {
+  if (!config[tableId]) return;
+  const nextLimit = Number(limit);
+  if (!Number.isFinite(nextLimit) || nextLimit <= 0) return;
+  config[tableId].limit = nextLimit;
+  config[tableId].page = 1;
   renderPagination(tableId);
 }
 
@@ -408,7 +483,7 @@ function renderMantenimientosReporte(tipo, periodo = "actual") {
         <small class="text-muted">(${rows.length} / ${totalArcos}) * 100</small>
       </div>
       <div>
-        <span>Componentes cambiados</span>
+        <span>Componentes del mantenimiento</span>
         <strong>${rows.reduce((sum, row) => sum + (Number(row.componentes) || 0), 0)}</strong>
       </div>
     </div>
@@ -428,7 +503,7 @@ function renderMantenimientosReporte(tipo, periodo = "actual") {
             <div class="reporte-mantenimiento-meta">
               <span><i class="bi bi-calendar-event"></i> ${escapeReporte(fechaReporteTexto(row.fecha_mantenimiento))}</span>
               <span><i class="bi bi-person"></i> ${escapeReporte(row.tecnico_responsable || "Sin tecnico")}</span>
-              <span><i class="bi bi-box-seam"></i> ${Number(row.componentes) || 0} componentes cambiados</span>
+              <span><i class="bi bi-box-seam"></i> ${Number(row.componentes) || 0} componentes del mantenimiento</span>
               <span><i class="bi bi-tools"></i> ${Number(row.piezas) || 0} piezas</span>
             </div>
             ${row.observaciones ? `<div class="reporte-mantenimiento-observacion">${escapeReporte(row.observaciones)}</div>` : ""}
@@ -501,6 +576,71 @@ function renderCriticosReporte() {
   `;
 }
 
+function estadoArcoUbicacionClass(row) {
+  if (String(row.estado || "").toLowerCase() === "baja") return "bg-secondary";
+  const proximo = fechaReporteDate(row.proximo_mantenimiento);
+  if (proximo && proximo.getTime() < new Date().setHours(0, 0, 0, 0)) return "bg-danger";
+  if (!row.ultima_mantenimiento) return "bg-warning text-dark";
+  return "bg-success";
+}
+
+function estadoArcoUbicacionTexto(row) {
+  if (String(row.estado || "").toLowerCase() === "baja") return "Baja";
+  const proximo = fechaReporteDate(row.proximo_mantenimiento);
+  if (proximo && proximo.getTime() < new Date().setHours(0, 0, 0, 0)) return "Requiere mantenimiento";
+  if (!row.ultima_mantenimiento) return "Sin mantenimiento";
+  return "Activo";
+}
+
+function renderArcosUbicacion(key) {
+  const data = window.reporteArcosPorUbicacion?.[key] || { ubicacion: "Ubicacion", arcos: [] };
+  const rows = Array.isArray(data.arcos) ? data.arcos : [];
+  const titulo = document.getElementById("modalUbicacionTitulo");
+  const cont = document.getElementById("contenidoArcosUbicacion");
+
+  if (titulo) titulo.textContent = `${data.ubicacion || "Ubicacion"} (${rows.length} arco${rows.length === 1 ? "" : "s"})`;
+  if (!cont) return;
+
+  if (!rows.length) {
+    cont.innerHTML = '<div class="text-center text-muted py-4">No hay arcos registrados en esta ubicacion.</div>';
+    return;
+  }
+
+  cont.innerHTML = `
+    <div class="report-location-modal-grid">
+      ${rows.map(row => `
+        <article class="report-location-arc-card">
+          <div>
+            <div class="report-location-arc-title">
+              <span>#${escapeReporte(row.id)}</span>
+              <strong>${escapeReporte(row.nombre || "Sin nombre")}</strong>
+            </div>
+            <small class="text-muted">Instalacion: ${fechaReporteTexto(row.fecha_instalacion)}</small>
+          </div>
+          <span class="badge ${estadoArcoUbicacionClass(row)}">${estadoArcoUbicacionTexto(row)}</span>
+          <div class="report-location-arc-meta">
+            <div>
+              <span>Ultimo mantenimiento</span>
+              <strong>${fechaReporteTexto(row.ultima_mantenimiento)}</strong>
+            </div>
+            <div>
+              <span>Proximo</span>
+              <strong>${fechaReporteTexto(row.proximo_mantenimiento)}</strong>
+            </div>
+            <div>
+              <span>Componentes</span>
+              <strong>${Number(row.total_componentes || 0)}</strong>
+            </div>
+          </div>
+          <a class="btn btn-sm btn-outline-success" href="../views/arcos.php?search=${encodeURIComponent(row.nombre || "")}">
+            Ver en arcos
+          </a>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
 function initReportes() {
   renderGraficaMantenimientosReporte();
 
@@ -541,9 +681,14 @@ function initReportes() {
   document.querySelectorAll(".btnReporteCriticos").forEach(btn => {
     btn.addEventListener("click", renderCriticosReporte);
   });
+
+  document.querySelectorAll(".btnVerArcosUbicacion").forEach(btn => {
+    btn.addEventListener("click", () => renderArcosUbicacion(btn.dataset.ubicacionKey || ""));
+  });
 }
 
 window.changePage = changePage;
+window.changePageLimit = changePageLimit;
 window.filterTable = filterTable;
 
 document.addEventListener("DOMContentLoaded", initReportes);

@@ -1,5 +1,6 @@
 <?php
 include('../config/db.php');
+require_once '../config/tecnicos_schema.php';
 require_once '../libs/dompdf/autoload.inc.php';
 
 use Dompdf\Dompdf;
@@ -37,12 +38,14 @@ try {
 ========================= */
 function generarBitacora($pdo)
 {
+    asegurarRelacionTecnicos($pdo);
     $arco_id = $_POST['arco_id'] ?? $_GET['arco_id'] ?? null;
-    $encargado = trim($_POST['encargado'] ?? '');
+    $tecnicoId = (int)($_POST['encargado'] ?? $_POST['tecnico_id'] ?? 0);
+    $tecnico = obtenerTecnicoPorId($pdo, $tecnicoId);
     $observaciones = trim($_POST['observaciones'] ?? '');
     $checks = $_POST['checklist'] ?? [];
 
-    if (!$arco_id) {
+    if (!$arco_id || !$tecnico) {
         die("Arco no válido");
     }
 
@@ -65,7 +68,7 @@ function generarBitacora($pdo)
     $stmt = $pdo->prepare("
         INSERT INTO bitacoras_arco (
             arco_id,
-            encargado,
+            tecnico_id,
             observaciones
         ) VALUES (?, ?, ?)
         RETURNING id
@@ -73,7 +76,7 @@ function generarBitacora($pdo)
 
     $stmt->execute([
         $arco_id,
-        $encargado,
+        $tecnicoId,
         $observaciones
     ]);
 

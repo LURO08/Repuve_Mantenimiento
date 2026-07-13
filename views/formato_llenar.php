@@ -2,6 +2,7 @@
 include('../views/header.php');
 include('../config/db.php');
 require_once '../config/formatos_mantenimiento_schema.php';
+require_once '../config/tecnicos_schema.php';
 
 $formatos = require '../config/formatos_servicio.php';
 $type = $_GET['type'] ?? '';
@@ -14,12 +15,13 @@ if (!isset($formatos[$type])) {
 $formato = $formatos[$type];
 $localNow = new DateTimeImmutable('now', new DateTimeZone('America/Mexico_City'));
 asegurarTablaFormatosMantenimiento($pdo);
+asegurarRelacionTecnicos($pdo);
 $formatoId = (int)($_GET['formato_id'] ?? 0);
 $editData = [];
 $editRecord = null;
 if ($formatoId > 0) {
     $editStmt = $pdo->prepare("
-      SELECT id, arco_id, tipo, datos
+      SELECT id, arco_id, tipo, datos, tecnico_id
       FROM formatos_mantenimiento
       WHERE id = ?
     ");
@@ -34,39 +36,43 @@ if ($formatoId > 0) {
 }
 $selectedArcId = (int)($_GET['arco_id'] ?? 0);
 if ($editRecord) $selectedArcId = (int)$editRecord['arco_id'];
-$ubicaciones = $pdo->query("
+$ubicaciones = $type === 'checklist' ? $pdo->query("
   SELECT id, nombre
   FROM ubicaciones
   WHERE EXISTS (
-    SELECT 1 FROM arcos a
-    WHERE a.ubicacion_id = ubicaciones.id AND COALESCE(a.estado, 'Activo') <> 'Baja'
+    SELECT 1
+    FROM arcos a
+    WHERE a.ubicacion_id = ubicaciones.id
+      AND COALESCE(a.estado, 'Activo') <> 'Baja'
   )
   ORDER BY nombre
-")->fetchAll(PDO::FETCH_ASSOC);
+")->fetchAll(PDO::FETCH_ASSOC) : [];
 $arcos = $pdo->query("
-  SELECT a.id, a.nombre, a.ubicacion_id
+  SELECT a.id, a.nombre, a.ubicacion_id, COALESCE(u.nombre, '') AS ubicacion
   FROM arcos a
+  LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
   WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
-  ORDER BY a.nombre
+  ORDER BY u.nombre, a.nombre
 ")->fetchAll(PDO::FETCH_ASSOC);
 $tecnicos = $pdo->query("
-  SELECT nombre FROM tecnicos
+  SELECT id, nombre FROM tecnicos
   WHERE activo = 1 AND COALESCE(eliminado, 0) = 0
   ORDER BY nombre
-")->fetchAll(PDO::FETCH_COLUMN);
-$selectedArc = null;
+")->fetchAll(PDO::FETCH_ASSOC);
+$serviceTimestamp = strtotime($editData['fecha_servicio'] ?? '') ?: $localNow->getTimestamp();
+$selectedTechnicianId = (int)($editData['tecnico_id'] ?? ($editRecord['tecnico_id'] ?? 0));
+$selectedTechnician = $editData['tecnico'] ?? '';
+$selectedServiceType = $editData['tipo_mantenimiento'] ?? ($editData['tipo_servicio'] ?? 'Correctivo');
+$selectedLocationId = 0;
 foreach ($arcos as $arcOption) {
     if ((int)$arcOption['id'] === $selectedArcId) {
-        $selectedArc = $arcOption;
+        $selectedLocationId = (int)$arcOption['ubicacion_id'];
         break;
     }
 }
-$serviceTimestamp = strtotime($editData['fecha_servicio'] ?? '') ?: $localNow->getTimestamp();
-$selectedTechnician = $editData['tecnico'] ?? '';
-$selectedServiceType = $editData['tipo_mantenimiento'] ?? ($editData['tipo_servicio'] ?? 'Correctivo');
 ?>
 
-<link rel="stylesheet" href="../css/formatos.css">
+<link rel="stylesheet" href="../css/formatos.css?v=20260622-2">
 <script>document.body.classList.add('format-editor-page');</script>
 
 <main class="format-editor">
@@ -87,7 +93,7 @@ $selectedServiceType = $editData['tipo_mantenimiento'] ?? ($editData['tipo_servi
     <div class="alert alert-danger py-2"><?= htmlspecialchars($_GET['error']) ?></div>
   <?php endif; ?>
 
-  <form class="format-form js-stepped-form" action="../controllers/formatos_controller.php" method="post">
+  <form class="format-form js-stepped-form" action="../controllers/formatos_controller.php" method="post" target="_blank">
     <input type="hidden" name="action" value="generate">
     <input type="hidden" name="type" value="<?= htmlspecialchars($type) ?>">
     <input type="hidden" name="formato_id" value="<?= $formatoId ?>">
@@ -100,46 +106,64 @@ $selectedServiceType = $editData['tipo_mantenimiento'] ?? ($editData['tipo_servi
           <span>1</span>
           <div>
             <h2>Datos del servicio</h2>
-            <p>Selecciona ubicación, arco y técnico responsable.</p>
+            <p>Selecciona el arco con su ubicación y el técnico responsable.</p>
           </div>
         </div>
 
-        <div class="service-data-grid">
+        <div class="service-data-grid service-data-grid--primary <?= $type === 'checklist' ? 'service-data-grid--checklist' : '' ?>">
+          <?php if ($type === 'checklist'): ?>
+            <div>
+              <label class="form-label" for="formato_ubicacion">Ubicación</label>
+              <select class="form-select" id="formato_ubicacion" required>
+                <option value="">Selecciona...</option>
+                <?php foreach ($ubicaciones as $ubicacion): ?>
+                  <option value="<?= $ubicacion['id'] ?>" <?= (int)$ubicacion['id'] === $selectedLocationId ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($ubicacion['nombre']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+          <?php endif; ?>
           <div>
-            <label class="form-label" for="formato_ubicacion">Ubicación</label>
-            <select class="form-select" id="formato_ubicacion" required>
-              <option value="">Selecciona...</option>
-              <?php foreach ($ubicaciones as $ubicacion): ?>
-                <option value="<?= $ubicacion['id'] ?>" <?= $selectedArc && (int)$selectedArc['ubicacion_id'] === (int)$ubicacion['id'] ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($ubicacion['nombre']) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div>
-            <label class="form-label" for="formato_arco">Arco</label>
+            <label class="form-label" for="formato_arco"><?= $type === 'checklist' ? 'Arco' : 'Arco / Ubicación' ?></label>
             <select class="form-select" id="formato_arco" name="arco_id" required>
-              <option value="">Selecciona ubicación...</option>
+              <option value=""><?= $type === 'checklist' ? 'Selecciona una ubicación...' : 'Selecciona un arco...' ?></option>
               <?php foreach ($arcos as $arco): ?>
                 <option value="<?= $arco['id'] ?>"
                         data-location-id="<?= $arco['ubicacion_id'] ?>"
                         <?= (int)$arco['id'] === $selectedArcId ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($arco['nombre']) ?>
+                  <?= htmlspecialchars($type === 'checklist' ? $arco['nombre'] : $arco['nombre'] . ' - ' . $arco['ubicacion']) ?>
                 </option>
               <?php endforeach; ?>
             </select>
           </div>
           <div>
             <label class="form-label" for="formato_tecnico">Técnico</label>
-            <select class="form-select" id="formato_tecnico" name="tecnico" required>
+            <select class="form-select" id="formato_tecnico" name="tecnico_id" required>
               <option value="">Selecciona...</option>
               <?php foreach ($tecnicos as $tecnico): ?>
-                <option value="<?= htmlspecialchars($tecnico) ?>" <?= $tecnico === $selectedTechnician ? 'selected' : '' ?>><?= htmlspecialchars($tecnico) ?></option>
+                <option value="<?= htmlspecialchars((string)$tecnico['id'], ENT_QUOTES, 'UTF-8') ?>" <?= ((int)$tecnico['id'] === $selectedTechnicianId || (!$selectedTechnicianId && $tecnico['nombre'] === $selectedTechnician)) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($tecnico['nombre']) ?>
+                </option>
               <?php endforeach; ?>
             </select>
           </div>
+          <?php if ($type === 'quality'): ?>
+            <div class="service-type">
+              <span class="form-label mb-0">Servicio previsto</span>
+              <label><input type="radio" name="tipo_mantenimiento" value="Preventivo" <?= $selectedServiceType === 'Preventivo' ? 'checked' : '' ?> required> Preventivo</label>
+              <label><input type="radio" name="tipo_mantenimiento" value="Correctivo" <?= $selectedServiceType === 'Correctivo' ? 'checked' : '' ?> required> Correctivo</label>
+            </div>
+          <?php elseif ($type === 'tools'): ?>
+            <div class="service-type">
+              <span class="form-label mb-0">Tipo de servicio</span>
+              <label><input type="radio" name="tipo_servicio" value="Nueva Instalacion" <?= $selectedServiceType === 'Nueva Instalacion' ? 'checked' : '' ?> required> Nueva instalación</label>
+              <label><input type="radio" name="tipo_servicio" value="Preventivo" <?= $selectedServiceType === 'Preventivo' ? 'checked' : '' ?> required> Preventivo</label>
+              <label><input type="radio" name="tipo_servicio" value="Correctivo" <?= $selectedServiceType === 'Correctivo' ? 'checked' : '' ?> required> Correctivo</label>
+            </div>
+          <?php endif; ?>
         </div>
-        <div class="service-data-grid service-data-grid--secondary">
+        <div class="service-data-grid service-data-grid--secondary <?= $type === 'checklist' ? 'service-data-grid--secondary-checklist' : '' ?>">
           <div>
             <label class="form-label" for="formato_fecha">Fecha</label>
             <input class="form-control" id="formato_fecha" name="fecha" type="date" value="<?= date('Y-m-d', $serviceTimestamp) ?>" required>
@@ -148,31 +172,23 @@ $selectedServiceType = $editData['tipo_mantenimiento'] ?? ($editData['tipo_servi
             <label class="form-label" for="formato_hora">Hora</label>
             <input class="form-control" id="formato_hora" name="hora" type="time" value="<?= date('H:i', $serviceTimestamp) ?>" required>
           </div>
-
-        <?php if ($type === 'checklist' || $type === 'quality'): ?>
-          <div class="service-type">
-            <span class="form-label mb-0">Servicio previsto</span>
-            <label><input type="radio" name="tipo_mantenimiento" value="Preventivo" <?= $selectedServiceType === 'Preventivo' ? 'checked' : '' ?> required> Preventivo</label>
-            <label><input type="radio" name="tipo_mantenimiento" value="Correctivo" <?= $selectedServiceType === 'Correctivo' ? 'checked' : '' ?> required> Correctivo</label>
-          </div>
-        <?php else: ?>
-          <div class="service-type">
-            <span class="form-label mb-0">Tipo de servicio</span>
-            <label><input type="radio" name="tipo_servicio" value="Nueva Instalacion" <?= $selectedServiceType === 'Nueva Instalacion' ? 'checked' : '' ?> required> Nueva instalación</label>
-            <label><input type="radio" name="tipo_servicio" value="Preventivo" <?= $selectedServiceType === 'Preventivo' ? 'checked' : '' ?> required> Preventivo</label>
-            <label><input type="radio" name="tipo_servicio" value="Correctivo" <?= $selectedServiceType === 'Correctivo' ? 'checked' : '' ?> required> Correctivo</label>
-          </div>
-        <?php endif; ?>
+          <?php if ($type === 'checklist'): ?>
+            <div class="service-type">
+              <span class="form-label mb-0">Servicio previsto</span>
+              <label><input type="radio" name="tipo_mantenimiento" value="Preventivo" <?= $selectedServiceType === 'Preventivo' ? 'checked' : '' ?> required> Preventivo</label>
+              <label><input type="radio" name="tipo_mantenimiento" value="Correctivo" <?= $selectedServiceType === 'Correctivo' ? 'checked' : '' ?> required> Correctivo</label>
+            </div>
+          <?php endif; ?>
         </div>
       </section>
 
       <?php if ($type === 'checklist'): ?>
         <section class="form-section js-form-section" data-step-title="Diagnóstico">
           <div class="form-section__heading">
-            <span>2</span><div><h2>Material utilizado y diagnóstico</h2><p>Selecciona únicamente los componentes instalados que aplican al servicio.</p></div>
+            <span>2</span><div><h2>Material activo del arco</h2><p>Se muestran únicamente los componentes actualmente instalados, además de la estructura metálica.</p></div>
           </div>
           <div id="materialSelectorChecklist" class="checklist-material-selector">
-            <div class="text-muted text-center py-3">Selecciona un arco para cargar sus materiales.</div>
+            <div class="text-muted text-center py-3">Selecciona un arco para cargar sus materiales activos.</div>
           </div>
           <div class="checklist-table mt-2">
             <div class="checklist-table__head"><span>Componente</span><span>Estado</span><span>Observaciones</span><span>Cambiado</span></div>
@@ -186,6 +202,8 @@ $selectedServiceType = $editData['tipo_mantenimiento'] ?? ($editData['tipo_servi
                 <input type="hidden" class="checklist-relation">
                 <input type="hidden" class="checklist-name">
                 <input type="hidden" class="checklist-series">
+                <input type="hidden" class="checklist-quantity">
+                <input type="hidden" class="checklist-measure">
               </div>
               <div class="status-options">
                 <label class="status-option status-option--good"><input class="status-good" type="radio" value="Bueno" checked> Bueno</label>
@@ -215,7 +233,7 @@ $selectedServiceType = $editData['tipo_mantenimiento'] ?? ($editData['tipo_servi
             <div class="quality-result-panel">
               <strong class="d-block mb-2">Resultado general</strong>
               <div class="quality-summary">
-                <fieldset><legend>Energía operando</legend><label><input type="checkbox" name="energia_luz" value="1"> Luz 1+1</label><label><input type="checkbox" name="energia_solar" value="1"> Solar / baterías</label></fieldset>
+                <fieldset><legend>Energía operando</legend><label><input type="radio" name="energia_fuente" value="luz" required> Luz 1+1</label><label><input type="radio" name="energia_fuente" value="solar" required> Solar / baterías</label></fieldset>
                 <fieldset><legend>Enlace</legend><label><input type="radio" name="enlace" value="Si"> Sí</label><label><input type="radio" name="enlace" value="No"> No</label></fieldset>
                 <fieldset><legend>Monitoreo</legend><label><input type="radio" name="sistema_monitoreo" value="Si"> Sí</label><label><input type="radio" name="sistema_monitoreo" value="No"> No</label></fieldset>
                 <fieldset><legend>Resultado</legend><label><input type="radio" name="resultado" value="Exitosa"> Exitosa</label><label><input type="radio" name="resultado" value="Fallida"> Fallida</label></fieldset>
@@ -252,13 +270,22 @@ $selectedServiceType = $editData['tipo_mantenimiento'] ?? ($editData['tipo_servi
             <div class="selection-grid selection-grid--dense">
               <?php foreach ($group['items'] as $index => $pair): ?>
                 <?php foreach (['izq' => $pair[0], 'der' => $pair[1]] as $side => $label): ?>
-                  <label class="selection-item"><input type="checkbox" name="<?= $group['prefix'] ?>_<?= $index ?>_<?= $side ?>" value="1"><span><i class="bi bi-check2"></i><?= htmlspecialchars($label) ?></span></label>
+                  <?php $isQuantifiable = $group['prefix'] === 'cons' && in_array($label, $formato['quantifiable_consumables'] ?? [], true); ?>
+                  <div class="selection-item-wrap <?= $isQuantifiable ? 'is-quantifiable' : '' ?>">
+                    <label class="selection-item">
+                      <input type="checkbox" name="<?= $group['prefix'] ?>_<?= $index ?>_<?= $side ?>" value="1" data-item-label="<?= htmlspecialchars($label) ?>">
+                      <span><i class="bi bi-check2"></i><?= htmlspecialchars($label) ?></span>
+                    </label>
+                    <?php if ($isQuantifiable): ?>
+                      <label class="selection-quantity">
+                        <input class="form-control form-control-sm" type="number" name="<?= $group['prefix'] ?>_qty_<?= $index ?>_<?= $side ?>" min="1" value="1" disabled>
+                        <span>pza</span>
+                      </label>
+                    <?php endif; ?>
+                  </div>
                 <?php endforeach; ?>
               <?php endforeach; ?>
             </div>
-            <?php if ($group['prefix'] === 'cons'): ?>
-              <div class="yagi-quantity"><label class="form-label" for="yagi_cantidad">Cantidad de antenas Yagi</label><input class="form-control form-control-sm" id="yagi_cantidad" name="yagi_cantidad" type="number" min="0" value="0"></div>
-            <?php endif; ?>
           </section>
         <?php endforeach; ?>
       <?php endif; ?>
@@ -273,5 +300,5 @@ $selectedServiceType = $editData['tipo_mantenimiento'] ?? ($editData['tipo_servi
 </main>
 
 <script id="formatoEditData" type="application/json"><?= json_encode($editData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
-<script src="../js/formatos.js"></script>
+<script src="../js/formatos.js?v=20260622-2"></script>
 <?php include('../views/footer.php'); ?>

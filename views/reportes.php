@@ -50,6 +50,7 @@ function nivelMaterialReporte($m)
     todos: <?= json_encode($mantenimientosReporte, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) ?>
   };
   window.reporteCriticosMantenimiento = <?= json_encode($arcosCriticosMantenimiento, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) ?>;
+  window.reporteArcosPorUbicacion = <?= json_encode($arcosPorUbicacion, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) ?>;
   window.reporteTotalArcos = <?= (int)$kpis['total_arcos'] ?>;
 </script>
 
@@ -185,7 +186,10 @@ function nivelMaterialReporte($m)
           </div>
           <div id="ubicacionesTable" class="report-location-grid">
             <?php foreach ($topUbicaciones as $idx => $u): ?>
-              <article class="report-location-card report-page-item">
+              <?php $ubicacionKey = $u['ubicacion_id'] === null ? 'sin_ubicacion' : 'u_' . (int)$u['ubicacion_id']; ?>
+              <button type="button" class="report-location-card report-page-item btnVerArcosUbicacion"
+                data-ubicacion-key="<?= htmlspecialchars($ubicacionKey, ENT_QUOTES, 'UTF-8') ?>"
+                data-bs-toggle="modal" data-bs-target="#modalArcosUbicacion">
                 <div class="report-location-card-top">
                   <span class="report-location-rank"><?= $idx + 1 ?></span>
                   <i class="bi bi-geo-alt-fill"></i>
@@ -195,7 +199,7 @@ function nivelMaterialReporte($m)
                   <span><?= number_format((int)$u['arcos'], 0) ?></span>
                   <small>arco(s)</small>
                 </div>
-              </article>
+              </button>
             <?php endforeach; ?>
           </div>
           <div id="pagination-ubicaciones" class="d-flex justify-content-center mt-2"></div>
@@ -342,6 +346,26 @@ function nivelMaterialReporte($m)
       </div>
       <div class="modal-body">
         <div id="contenidoArcos"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalArcosUbicacion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-geo-alt-fill me-2"></i>
+          <span id="modalUbicacionTitulo">Arcos por ubicacion</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="contenidoArcosUbicacion"></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>

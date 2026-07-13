@@ -15,10 +15,12 @@ $stmt = $pdo->prepare("
         a.lat,
         a.lng,
         a.estado,
-        u.nombre AS ubicacion
+        u.nombre AS ubicacion,
+        t.nombre AS tecnico_responsable
     FROM arcos_bajas b
     JOIN arcos a ON a.id = b.arco_id
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
+    LEFT JOIN tecnicos t ON t.id = b.tecnico_id
     WHERE b.id = ?
 ");
 $stmt->execute([$id]);

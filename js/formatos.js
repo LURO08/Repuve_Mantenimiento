@@ -1,35 +1,41 @@
 document.addEventListener('DOMContentLoaded', () => {
   const editNode = document.getElementById('formatoEditData');
   const editData = editNode ? JSON.parse(editNode.textContent || '{}') : {};
-  const locationSelect = document.getElementById('formato_ubicacion');
   const arcSelect = document.getElementById('formato_arco');
+  const locationSelect = document.getElementById('formato_ubicacion');
   const arcOptions = arcSelect
     ? [...arcSelect.querySelectorAll('option[data-location-id]')].map((option) => option.cloneNode(true))
     : [];
 
-  const filterArcs = () => {
+  const filterArcsByLocation = () => {
     if (!locationSelect || !arcSelect) return;
     const locationId = locationSelect.value;
-    const selectedArc = arcSelect.value;
-    arcSelect.innerHTML = `<option value="">${locationId ? 'Selecciona un arco...' : 'Selecciona ubicación...'}</option>`;
+    const selectedArcId = arcSelect.value;
+    arcSelect.innerHTML = `<option value="">${locationId ? 'Selecciona un arco...' : 'Selecciona una ubicación...'}</option>`;
     arcOptions
       .filter((option) => option.dataset.locationId === locationId)
       .forEach((option) => arcSelect.appendChild(option.cloneNode(true)));
-    if ([...arcSelect.options].some((option) => option.value === selectedArc)) arcSelect.value = selectedArc;
+    if ([...arcSelect.options].some((option) => option.value === selectedArcId)) {
+      arcSelect.value = selectedArcId;
+    }
   };
 
-  locationSelect?.addEventListener('change', () => {
-    filterArcs();
-    loadChecklistMaterials();
-  });
-  arcSelect?.addEventListener('change', loadChecklistMaterials);
-  filterArcs();
+  if (locationSelect) {
+    locationSelect.addEventListener('change', () => {
+      filterArcsByLocation();
+      loadChecklistMaterials();
+    });
+    filterArcsByLocation();
+  }
 
   document.querySelectorAll('.js-toggle-group').forEach((button) => {
     button.addEventListener('click', () => {
-      const checkboxes = [...button.closest('.form-section').querySelectorAll('.selection-item input')];
+      const checkboxes = [...button.closest('.form-section').querySelectorAll('.selection-item input[type="checkbox"]')];
       const selectAll = checkboxes.some((checkbox) => !checkbox.checked);
-      checkboxes.forEach((checkbox) => { checkbox.checked = selectAll; });
+      checkboxes.forEach((checkbox) => {
+        checkbox.checked = selectAll;
+        checkbox.dispatchEvent(new Event('change'));
+      });
       button.textContent = selectAll ? 'Quitar selección' : 'Seleccionar todo';
     });
   });
@@ -37,11 +43,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const checklistSelector = document.getElementById('materialSelectorChecklist');
   const checklistRows = document.getElementById('checklistRows');
   const checklistTemplate = document.getElementById('checklistRowTemplate');
+  let currentChecklistMaterials = [];
 
-  const selectedEditComponent = (material) => {
+  const normalizeText = (value) => String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  const getSavedComponent = (material) => {
     const components = editData.componentes || [];
-    return components.find((component) => Number(component.relacion_id) === Number(material.relacion_id))
-      || components.find((component) => component.nombre === material.material && !component.__matched);
+    return components.find((component) => (
+      Number(component.relacion_id) > 0
+      && Number(component.relacion_id) === Number(material.relacion_id)
+    )) || components.find((component) => (
+      normalizeText(component.nombre) === normalizeText(material.material)
+    ));
   };
 
   const renumberChecklist = () => {
@@ -50,6 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
       row.querySelector('.checklist-relation').name = `componente[${index}][relacion_id]`;
       row.querySelector('.checklist-name').name = `componente[${index}][nombre]`;
       row.querySelector('.checklist-series').name = `componente[${index}][serie]`;
+      row.querySelector('.checklist-quantity').name = `componente[${index}][cantidad]`;
+      row.querySelector('.checklist-measure').name = `componente[${index}][medida]`;
       row.querySelector('.status-good').name = `componente[${index}][estado]`;
       row.querySelector('.status-bad').name = `componente[${index}][estado]`;
       row.querySelector('.checklist-observation').name = `componente[${index}][observacion]`;
@@ -67,6 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
     row.querySelector('.checklist-relation').value = material.relacion_id;
     row.querySelector('.checklist-name').value = material.material;
     row.querySelector('.checklist-series').value = documentedSeries;
+    row.querySelector('.checklist-quantity').value = material.cantidad || 1;
+    row.querySelector('.checklist-measure').value = material.medida || 'pz';
     row.querySelector('.status-good').checked = saved.estado !== 'Malo';
     row.querySelector('.status-bad').checked = saved.estado === 'Malo';
     row.querySelector('.checklist-observation').value = saved.observacion || '';
@@ -75,14 +95,51 @@ document.addEventListener('DOMContentLoaded', () => {
     renumberChecklist();
   };
 
-  const removeChecklistRow = (relationId) => {
-    checklistRows?.querySelector(`[data-relation-id="${CSS.escape(String(relationId))}"]`)?.remove();
-    renumberChecklist();
+  const virtualMaterial = (key, material, medida = 'pz') => ({
+    relacion_id: `virtual-${key}`,
+    material,
+    serie: '',
+    cantidad: 1,
+    medida
+  });
+
+  const renderChecklistMaterials = () => {
+    if (!checklistSelector || !checklistRows) return;
+    const currentRows = new Map();
+    [...checklistRows.children].forEach((row) => {
+      currentRows.set(row.dataset.relationId, {
+        estado: row.querySelector('.status-bad').checked ? 'Malo' : 'Bueno',
+        observacion: row.querySelector('.checklist-observation').value,
+        cambiado: row.querySelector('.checklist-changed').checked,
+        serie: row.querySelector('.checklist-series').value
+      });
+    });
+    checklistRows.innerHTML = '';
+
+    const selected = [...currentChecklistMaterials];
+    const hasStructure = selected.some((material) => normalizeText(material.material).includes('estructura'));
+    if (!hasStructure) selected.push(virtualMaterial('structure', 'Estructura metálica'));
+
+    checklistSelector.innerHTML = '';
+    selected.forEach((material) => {
+      const card = document.createElement('div');
+      card.className = 'checklist-material-option is-included';
+      card.innerHTML = '<span><i class="bi bi-check2"></i><strong></strong><small></small></span>';
+      card.querySelector('strong').textContent = material.material;
+      card.querySelector('small').textContent = material.serie
+        ? `Serie: ${material.serie}`
+        : `${material.cantidad || 1} ${material.medida === 'm' ? 'm' : 'pz'}`;
+      checklistSelector.appendChild(card);
+
+      const saved = currentRows.get(String(material.relacion_id)) || getSavedComponent(material) || {};
+      addChecklistRow(material, saved);
+    });
   };
 
   async function loadChecklistMaterials() {
     if (!checklistSelector || !arcSelect) return;
     const arcId = arcSelect.value;
+    currentChecklistMaterials = [];
     checklistRows.innerHTML = '';
     if (!arcId) {
       checklistSelector.innerHTML = '<div class="text-muted text-center py-3">Selecciona un arco para cargar sus materiales.</div>';
@@ -94,34 +151,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch(`../controllers/formatos_ajax.php?action=materials&arco_id=${encodeURIComponent(arcId)}`);
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || 'No se pudieron cargar los materiales.');
-      if (!data.materials.length) {
-        checklistSelector.innerHTML = '<div class="alert alert-warning py-2 mb-0">Este arco no tiene materiales activos registrados.</div>';
-        return;
-      }
-
-      checklistSelector.innerHTML = '';
-      data.materials.forEach((material) => {
-        const saved = selectedEditComponent(material);
-        if (saved) saved.__matched = true;
-        const label = document.createElement('label');
-        label.className = 'checklist-material-option';
-        label.innerHTML = `
-          <input type="checkbox" ${saved ? 'checked' : ''}>
-          <span><i class="bi bi-check2"></i><strong></strong><small></small></span>
-        `;
-        label.querySelector('strong').textContent = material.material;
-        label.querySelector('small').textContent = material.serie ? `Serie: ${material.serie}` : `${material.cantidad || 1} ${material.medida === 'm' ? 'm' : 'pz'}`;
-        label.querySelector('input').addEventListener('change', (event) => {
-          if (event.target.checked) addChecklistRow(material);
-          else removeChecklistRow(material.relacion_id);
-        });
-        checklistSelector.appendChild(label);
-        if (saved) addChecklistRow(material, saved);
-      });
+      currentChecklistMaterials = data.materials || [];
+      renderChecklistMaterials();
     } catch (error) {
       checklistSelector.innerHTML = `<div class="alert alert-danger py-2 mb-0">${error.message}</div>`;
     }
   }
+
+  arcSelect?.addEventListener('change', loadChecklistMaterials);
 
   const lanesContainer = document.getElementById('carrilesContainer');
   const laneTemplate = document.getElementById('carrilTemplate');
@@ -165,10 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const input = document.querySelector(`[name="${name}"][value="${value}"]`);
     if (input) input.checked = true;
   };
-  const energyLight = document.querySelector('[name="energia_luz"]');
-  const energySolar = document.querySelector('[name="energia_solar"]');
-  if (energyLight) energyLight.checked = Boolean(editData.energia_luz);
-  if (energySolar) energySolar.checked = Boolean(editData.energia_solar);
+  const qualityEnergy = editData.energia_fuente
+    || (editData.energia_solar ? 'solar' : (editData.energia_luz ? 'luz' : ''));
+  setChecked('energia_fuente', qualityEnergy);
   setChecked('enlace', editData.enlace);
   setChecked('sistema_monitoreo', editData.sistema_monitoreo);
   setChecked('resultado', editData.resultado);
@@ -180,12 +216,24 @@ document.addEventListener('DOMContentLoaded', () => {
     ...(editData.consumibles || []),
     ...(editData.epp || [])
   ];
+  const selectedGroupNames = selectedGroups.map((item) => typeof item === 'string' ? item : item.nombre);
   document.querySelectorAll('.selection-item').forEach((label) => {
     const text = label.querySelector('span')?.textContent.trim();
-    if (selectedGroups.includes(text)) label.querySelector('input').checked = true;
+    const checkbox = label.querySelector('input[type="checkbox"]');
+    const wrapper = label.closest('.selection-item-wrap');
+    const quantityInput = wrapper?.querySelector('.selection-quantity input');
+    const savedItem = selectedGroups.find((item) => typeof item === 'object' && item.nombre === text);
+    checkbox.checked = selectedGroupNames.includes(text);
+    if (quantityInput) {
+      quantityInput.disabled = !checkbox.checked;
+      quantityInput.value = savedItem?.cantidad || 1;
+    }
+    checkbox.addEventListener('change', () => {
+      if (!quantityInput) return;
+      quantityInput.disabled = !checkbox.checked;
+      if (checkbox.checked && Number(quantityInput.value) < 1) quantityInput.value = 1;
+    });
   });
-  const yagiQuantity = document.getElementById('yagi_cantidad');
-  if (yagiQuantity && editData.yagi_cantidad != null) yagiQuantity.value = editData.yagi_cantidad;
 
   if (checklistSelector && arcSelect?.value) loadChecklistMaterials();
 

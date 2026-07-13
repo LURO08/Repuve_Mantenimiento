@@ -92,6 +92,10 @@
     if (!tbody) return;
     Array.from(tbody.querySelectorAll('tr')).forEach(row => {
       const text = row.textContent.toLowerCase();
-      row.style.display = q === '' || text.indexOf(q) !== -1 ? '' : 'none';
+      row.dataset.visible = q === '' || text.indexOf(q) !== -1 ? '1' : '0';
     });
+    if (config[tableId]) {
+      config[tableId].page = 1;
+      renderPagination(tableId);
+    }
   }

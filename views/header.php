@@ -91,11 +91,8 @@ $currentRole = $_SESSION['role'] ?? '';
           <a class="nav-link" href="formatos.php"><i class="bi bi-speedometer2"></i> Formatos</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="tecnicos.php"><i class="bi bi-person-badge"></i> Tecnicos</a>
-        </li>
-        <li class="nav-item">
           <?php if ($currentRole === 'admin'): ?>
-          <a href="usuarios.php" class="nav-link"><i class="bi bi-person-circle"></i>  Usuario</a>
+          <a href="usuarios.php" class="nav-link"><i class="bi bi-person-circle"></i> Usuarios / Tecnicos</a>
           <?php endif; ?>
         </li>
       </ul>

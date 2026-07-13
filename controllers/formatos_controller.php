@@ -12,7 +12,9 @@ $rootDir = dirname(__DIR__);
 $formatos = require $rootDir . '/config/formatos_servicio.php';
 require $rootDir . '/config/db.php';
 require_once $rootDir . '/config/formatos_mantenimiento_schema.php';
+require_once $rootDir . '/config/tecnicos_schema.php';
 asegurarTablaFormatosMantenimiento($pdo);
+asegurarRelacionTecnicos($pdo);
 $type = $_REQUEST['type'] ?? '';
 
 if (!isset($formatos[$type])) {
@@ -67,10 +69,12 @@ if ($action !== 'generate' || $_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $arcoId = (int)($_POST['arco_id'] ?? 0);
 $formatoId = (int)($_POST['formato_id'] ?? 0);
-$tecnico = cleanValue($_POST['tecnico'] ?? '');
+$tecnicoId = (int)($_POST['tecnico_id'] ?? $_POST['tecnico'] ?? 0);
+$tecnicoRow = obtenerTecnicoPorId($pdo, $tecnicoId);
+$tecnico = $tecnicoRow['nombre'] ?? '';
 $fecha = cleanValue($_POST['fecha'] ?? '');
 $hora = cleanValue($_POST['hora'] ?? '');
-if ($arcoId <= 0 || $tecnico === '' || $fecha === '' || $hora === '') {
+if ($arcoId <= 0 || !$tecnicoRow || $fecha === '' || $hora === '') {
     $message = urlencode('Selecciona ubicación, arco, técnico, fecha y hora.');
     header("Location: ../views/formato_llenar.php?type={$type}&error={$message}");
     exit;
@@ -97,6 +101,7 @@ $fechaServicio = $fecha . ' ' . $hora . ':00';
 $datos = [
     'arco' => $arco['arco'],
     'ubicacion' => $arco['ubicacion'],
+    'tecnico_id' => $tecnicoId,
     'tecnico' => $tecnico,
     'fecha_servicio' => $fechaServicio,
     'tipo_mantenimiento' => cleanValue($_POST['tipo_mantenimiento'] ?? 'Correctivo'),
@@ -111,6 +116,8 @@ if ($type === 'checklist') {
             'relacion_id' => (int)($component['relacion_id'] ?? 0),
             'nombre' => $nombre,
             'serie' => cleanValue($component['serie'] ?? ''),
+            'cantidad' => max(0, (float)($component['cantidad'] ?? 1)),
+            'medida' => cleanValue($component['medida'] ?? 'pz'),
             'estado' => cleanValue($component['estado'] ?? '') === 'Malo' ? 'Malo' : 'Bueno',
             'observacion' => cleanValue($component['observacion'] ?? ''),
             'cambiado' => !empty($component['cambiado']),
@@ -129,8 +136,9 @@ if ($type === 'quality') {
             'observacion' => cleanValue($lane['observacion'] ?? ''),
         ];
     }
-    $datos['energia_luz'] = isset($_POST['energia_luz']);
-    $datos['energia_solar'] = isset($_POST['energia_solar']);
+    $datos['energia_fuente'] = cleanValue($_POST['energia_fuente'] ?? '');
+    $datos['energia_luz'] = $datos['energia_fuente'] === 'luz';
+    $datos['energia_solar'] = $datos['energia_fuente'] === 'solar';
     $datos['enlace'] = cleanValue($_POST['enlace'] ?? '');
     $datos['sistema_monitoreo'] = cleanValue($_POST['sistema_monitoreo'] ?? '');
     $datos['resultado'] = cleanValue($_POST['resultado'] ?? '');
@@ -140,7 +148,6 @@ if ($type === 'quality') {
 if ($type === 'tools') {
     $datos['tipo_servicio'] = cleanValue($_POST['tipo_servicio'] ?? 'Correctivo');
     $datos['tipo_mantenimiento'] = $datos['tipo_servicio'];
-    $datos['yagi_cantidad'] = max(0, (int)($_POST['yagi_cantidad'] ?? 0));
     $datos['herramientas'] = [];
     $datos['consumibles'] = [];
     $datos['epp'] = [];
@@ -150,8 +157,17 @@ if ($type === 'tools') {
         if (isset($_POST["herr_{$index}_der"])) $datos['herramientas'][] = $pair[1];
     }
     foreach ($config['consumables'] as $index => $pair) {
-        if (isset($_POST["cons_{$index}_izq"])) $datos['consumibles'][] = $pair[0];
-        if (isset($_POST["cons_{$index}_der"])) $datos['consumibles'][] = $pair[1];
+        foreach (['izq' => $pair[0], 'der' => $pair[1]] as $side => $label) {
+            if (!isset($_POST["cons_{$index}_{$side}"])) continue;
+            $isQuantifiable = in_array($label, $config['quantifiable_consumables'] ?? [], true);
+            $datos['consumibles'][] = [
+                'nombre' => $label,
+                'cantidad' => $isQuantifiable
+                    ? max(1, (int)($_POST["cons_qty_{$index}_{$side}"] ?? 1))
+                    : null,
+                'unidad' => $isQuantifiable ? 'pza' : '',
+            ];
+        }
     }
     foreach ($config['epp'] as $index => $pair) {
         if (isset($_POST["epp_{$index}_izq"])) $datos['epp'][] = $pair[0];
@@ -164,20 +180,20 @@ try {
     if ($formatoId > 0) {
         $update = $pdo->prepare("
             UPDATE formatos_mantenimiento
-            SET arco_id = ?, tipo = ?, datos = CAST(? AS JSONB), creado_por = ?, created_at = CURRENT_TIMESTAMP
+            SET arco_id = ?, tipo = ?, datos = CAST(? AS JSONB), tecnico_id = ?, creado_por = ?, created_at = CURRENT_TIMESTAMP
             WHERE id = ? AND tipo = ?
         ");
-        $update->execute([$arcoId, $type, $json, $_SESSION['user'] ?? null, $formatoId, $type]);
+        $update->execute([$arcoId, $type, $json, $tecnicoId, $_SESSION['user'] ?? null, $formatoId, $type]);
         if ($update->rowCount() === 0) {
             throw new RuntimeException('El formato no existe.');
         }
     } else {
         $insert = $pdo->prepare("
-            INSERT INTO formatos_mantenimiento (arco_id, tipo, datos, creado_por)
-            VALUES (?, ?, CAST(? AS JSONB), ?)
+            INSERT INTO formatos_mantenimiento (arco_id, tipo, datos, tecnico_id, creado_por)
+            VALUES (?, ?, CAST(? AS JSONB), ?, ?)
             RETURNING id
         ");
-        $insert->execute([$arcoId, $type, $json, $_SESSION['user'] ?? null]);
+        $insert->execute([$arcoId, $type, $json, $tecnicoId, $_SESSION['user'] ?? null]);
         $formatoId = (int)$insert->fetchColumn();
     }
     header("Location: formato_servicio_pdf.php?id={$formatoId}");

@@ -1,5 +1,7 @@
 <?php
 include('../config/db.php');
+require_once '../config/tecnicos_schema.php';
+asegurarRelacionTecnicos($pdo);
 
 $action = $_REQUEST['action'] ?? '';
 
@@ -149,7 +151,7 @@ case 'get_infra_materiales':
     $infraestructura_id = intval($_GET['infraestructura_id'] ?? 0);
 
     $stmt = $pdo->prepare("
-        SELECT im.material_id AS id, m.medida AS medida, m.nombre AS material, im.cantidad, im.serie, m.foto
+        SELECT im.id AS relacion_id, im.material_id AS id, m.medida AS medida, m.nombre AS material, im.cantidad, im.serie, m.foto
         FROM infraestructura_material im
         JOIN materiales m ON im.material_id = m.id
         WHERE im.infraestructura_id = ?
@@ -184,7 +186,12 @@ case 'add_infra':
         $fecha = $_POST['fecha_mantenimiento'] ?? date('Y-m-d H:i:s');
         $tipo_mantenimiento = $_POST['tipo_mantenimiento'] ?? 'Correctivo';
         $observaciones = $_POST['observaciones'] ?? '';
-        $tecnicoresponsable = $_POST['tecnicoresponsable'] ?? '';
+        $tecnicoId = (int)($_POST['tecnicoresponsable'] ?? $_POST['tecnico_id'] ?? 0);
+        $tecnico = obtenerTecnicoPorId($pdo, $tecnicoId);
+        if (!$tecnico) {
+            header("Location: ../views/revisiones.php?error=" . urlencode("Debes seleccionar un técnico válido."));
+            exit;
+        }
         $materiales = $_POST['infra_material_id'] ?? [];
         $cantidades = $_POST['infra_cantidad'] ?? [];
         $series = $_POST['infra_serie'] ?? [];
@@ -208,11 +215,11 @@ case 'add_infra':
         $pdo->beginTransaction();
 
         $stmt = $pdo->prepare("
-            INSERT INTO infraestructura_revisiones (infraestructura_id, fecha_mantenimiento, tipo_mantenimiento, observaciones, tecnico_responsable)
+            INSERT INTO infraestructura_revisiones (infraestructura_id, fecha_mantenimiento, tipo_mantenimiento, observaciones, tecnico_id)
             VALUES (?, ?, ?, ?, ?)
             RETURNING id
         ");
-        $stmt->execute([$infraestructura_id, $fecha, $tipo_mantenimiento, $observaciones, $tecnicoresponsable]);
+        $stmt->execute([$infraestructura_id, $fecha, $tipo_mantenimiento, $observaciones, $tecnicoId]);
         $revision_id = (int)$stmt->fetchColumn();
 
         $stmtMat = $pdo->prepare("
@@ -259,7 +266,12 @@ case 'add':
         $tipo_mantenimiento = $_POST['tipo_mantenimiento'] ?? 'Correctivo';
         $observaciones = $_POST['observaciones'] ?? '';
         $materiales = $_POST['materiales'] ?? [];
-        $tecnicoresponsable = $_POST['tecnicoresponsable'] ?? '';
+        $tecnicoId = (int)($_POST['tecnicoresponsable'] ?? $_POST['tecnico_id'] ?? 0);
+        $tecnico = obtenerTecnicoPorId($pdo, $tecnicoId);
+        if (!$tecnico) {
+            header("Location: ../views/revisiones.php?error=" . urlencode("Debes seleccionar un técnico válido."));
+            exit;
+        }
 
         if (!in_array($tipo_mantenimiento, ['Preventivo', 'Correctivo'], true)) {
             $tipo_mantenimiento = 'Correctivo';
@@ -286,11 +298,11 @@ case 'add':
             $pdo->beginTransaction();
 
             $stmt = $pdo->prepare("
-                INSERT INTO infraestructura_revisiones (infraestructura_id, fecha_mantenimiento, tipo_mantenimiento, observaciones, tecnico_responsable)
+                INSERT INTO infraestructura_revisiones (infraestructura_id, fecha_mantenimiento, tipo_mantenimiento, observaciones, tecnico_id)
                 VALUES (?, ?, ?, ?, ?)
                 RETURNING id
             ");
-            $stmt->execute([$infraestructura_id, $fecha, $tipo_mantenimiento, $observaciones, $tecnicoresponsable]);
+            $stmt->execute([$infraestructura_id, $fecha, $tipo_mantenimiento, $observaciones, $tecnicoId]);
             $revision_id = (int)$stmt->fetchColumn();
 
             $stmtMat = $pdo->prepare("
@@ -373,11 +385,11 @@ case 'add':
 
         // Insertar revisión
         $stmt = $pdo->prepare("
-            INSERT INTO revisiones (arco_id, fecha_mantenimiento, tipo_mantenimiento, observaciones, tecnico_responsable)
+            INSERT INTO revisiones (arco_id, fecha_mantenimiento, tipo_mantenimiento, observaciones, tecnico_id)
             VALUES (?, ?, ?, ?, ?)
             RETURNING id
         ");
-        $stmt->execute([$arco_id, $fecha, $tipo_mantenimiento, $observaciones, $tecnicoresponsable]);
+        $stmt->execute([$arco_id, $fecha, $tipo_mantenimiento, $observaciones, $tecnicoId]);
 
         $revision_id = (int)$stmt->fetchColumn();
 
@@ -391,6 +403,19 @@ case 'add':
             INSERT INTO revision_material (revision_id, arco_material_id, material_id, cantidad, serie, accion)
             VALUES (?, ?, ?, ?, ?, ?)
         ");
+        $stmtValidarMaterialArco = $pdo->prepare("
+            SELECT 1
+            FROM arco_material
+            WHERE id = ?
+              AND arco_id = ?
+            LIMIT 1
+        ");
+        $stmtNuevoMaterialArco = $pdo->prepare("
+            INSERT INTO arco_material (arco_id, material_id, cantidad, serie)
+            VALUES (?, ?, ?, ?)
+            RETURNING id
+        ");
+        $relacionesUsadasRevision = [];
 
         foreach ($materiales as $mat) {
             $material_id = $mat['material_id'] ?? null;
@@ -405,8 +430,33 @@ case 'add':
             }
             $serie = trim($mat['serie'] ?? '');
             $accion = $mat['accion'] ?? 'cambio';
-            if (!in_array($accion, ['cambio', 'retiro'], true)) {
+            if (!in_array($accion, ['cambio', 'retiro', 'agregado'], true)) {
                 $accion = 'cambio';
+            }
+
+            if ($accion === 'agregado') {
+                $stmtNuevoMaterialArco->execute([
+                    $arco_id,
+                    $material_id,
+                    $cantidad,
+                    $serie !== '' ? $serie : null
+                ]);
+                $arco_material_id = (int)$stmtNuevoMaterialArco->fetchColumn();
+            } else {
+                if ($arco_material_id <= 0) {
+                    throw new Exception('El material cambiado o retirado debe estar vinculado a un componente instalado del arco.');
+                }
+
+                $stmtValidarMaterialArco->execute([$arco_material_id, $arco_id]);
+                if (!$stmtValidarMaterialArco->fetchColumn()) {
+                    throw new Exception('La relacion del material no pertenece al arco seleccionado.');
+                }
+
+                $relacionKey = (string)$arco_material_id . ':' . $accion;
+                if (isset($relacionesUsadasRevision[$relacionKey])) {
+                    throw new Exception('El mismo componente fue seleccionado mas de una vez en este mantenimiento.');
+                }
+                $relacionesUsadasRevision[$relacionKey] = true;
             }
 
             $stmt->execute([

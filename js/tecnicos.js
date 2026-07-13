@@ -113,4 +113,8 @@ document.addEventListener("DOMContentLoaded", () => {
     row.dataset.visible = "1";
   });
   renderTecnicos();
+
+  if (new URLSearchParams(window.location.search).get("tab") === "tecnicos") {
+    document.getElementById("seccionTecnicos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 });

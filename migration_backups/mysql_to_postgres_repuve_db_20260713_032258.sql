@@ -1,3 +1,10 @@
+-- Conversion MySQL a PostgreSQL para Panel REPuve
+-- Generado: 2026-07-13 03:22:59
+-- Origen MySQL: repuve_db
+
+BEGIN;
+
+-- Estructura PostgreSQL
 -- Esquema PostgreSQL para Panel REPuve Mantenimientos
 -- Ejecutar dentro de la base de datos remota ya creada.
 
@@ -237,3 +244,49 @@ CREATE INDEX IF NOT EXISTS idx_infra_revision_evidencias_revision_id ON infraest
 CREATE INDEX IF NOT EXISTS idx_bitacoras_arco_id ON bitacoras_arco (arco_id);
 CREATE INDEX IF NOT EXISTS idx_bitacoras_arco_tecnico_id ON bitacoras_arco (tecnico_id);
 CREATE INDEX IF NOT EXISTS idx_bitacoras_arco_fecha ON bitacoras_arco (arco_id, fecha_registro DESC);
+
+
+-- Limpieza de tablas importadas
+TRUNCATE TABLE "bitacora_checklist", "checklist_conceptos", "bitacoras_arco", "infraestructura_revision_evidencias", "infraestructura_revision_material", "infraestructura_revisiones", "infraestructura_material", "arco_infraestructura", "infraestructura_nodos", "revision_evidencias", "revision_material", "revisiones", "arco_material", "arcos", "tecnicos", "materiales", "ubicaciones", "users" RESTART IDENTITY CASCADE;
+
+-- Datos convertidos
+-- users: 1 registro(s)
+INSERT INTO "users" ("id", "username", "password", "role") VALUES ('3', 'jlromero', '$2y$10$CXwyF7DhaIufmCM6HOGqNeet4lRAkugpdXrdMfivyyIV6.FmUY9a2', 'admin');
+
+-- ubicaciones: 8 registro(s)
+INSERT INTO "ubicaciones" ("id", "nombre", "lat", "lng") VALUES ('3', 'Chilpancingo', '17.460713', '-99.497681');
+INSERT INTO "ubicaciones" ("id", "nombre", "lat", "lng") VALUES ('4', 'Acapulco', '16.851862', '-99.821777');
+INSERT INTO "ubicaciones" ("id", "nombre", "lat", "lng") VALUES ('5', 'Taxco', NULL, NULL);
+INSERT INTO "ubicaciones" ("id", "nombre", "lat", "lng") VALUES ('6', 'Iguala', NULL, NULL);
+INSERT INTO "ubicaciones" ("id", "nombre", "lat", "lng") VALUES ('7', 'Zihuatanejo', NULL, NULL);
+INSERT INTO "ubicaciones" ("id", "nombre", "lat", "lng") VALUES ('8', 'San Marcos', NULL, NULL);
+INSERT INTO "ubicaciones" ("id", "nombre", "lat", "lng") VALUES ('9', 'Ometepec', NULL, NULL);
+INSERT INTO "ubicaciones" ("id", "nombre", "lat", "lng") VALUES ('10', 'Coyuca', '17.007186', '-100084279');
+
+-- materiales: 25 registro(s)
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('7', 'Camara LPR', 'pz', '1764729971_camara lpr.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('8', 'Enlace Ubiquiti M5', 'pz', '1779659842_Enlace Ubiquiti M5.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('9', 'Switch 5 Puertos Controntolador Solar Wiltek', 'pz', '1764729996_switch 5 puertos panel solar.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('10', 'SpeedWay 4 Conectores', 'pz', '1764730013_speedway.jpg', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('11', 'Antena Yagi RFID 5 Elementos', 'pz', '1780038784_Antena Yagi de 5 Elementos.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('12', 'Panel Solar Epcom 19V 150W', 'pz', '1764730052_PANEL SOLAR.PNG', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('13', 'Bateria Solar', 'pz', '1764730062_bateria.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('14', 'Cable FotoVoltaico Positivo', 'm', '1764730460_cable fotovoltaico positivo.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('15', 'Cable FotoVoltaico Negativo', 'm', '1764730481_cable fotovoltaico negativo.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('16', 'Cable TNC', 'm', '1764731117_Cable TNC.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('17', 'Gabinete Doble Cerradura', 'pz', '1772599896_Gabinete doble Cerradura.jpg', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('18', 'Cable 1+1', 'm', '1772600756_cable 1+1.jpg', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('19', 'Gabinete 1 nivel', 'pz', '1779087212_gabinete 1 nivel.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('20', 'Gabinete con soporte en forma L', 'pz', '1779658323_Gabinete con soporte en forma de L.jpg', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('21', 'Enlace Ubiquiti AC', 'pz', '1779659869_Enlace Ubiquiti AC.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('22', 'Switch 8 Puetos Controlador Solar Wiltek', 'pz', '1779659937_switch 8 puertos.jpg', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('23', 'Switch 16 Puertos Wiltek', 'pz', '1779659957_switch 16 puertos.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('24', 'Switch 5 Puertos TP Link', 'pz', '1779661807_switch 5 puertos TP Link.jpg', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('25', 'Controlador Solar POE', 'pz', '1779663102_Controlador Solar POE.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('26', 'SpeedWay 2 Conectores', 'pz', '1779663580_Speedway 2 Conectores .jpg', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('27', 'Switch 24 Puertos cisco', 'pz', '1780024851_switch 24 puertos cisco.jpg', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('28', 'Swich 5 puertos HikVision', 'pz', '1780203061_switch 5 puertos Hikvision.jpg', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('29', 'Enlace Ubiquiti AC ISO', 'pz', '1780217319_enlace Ubiquiti AC ISO.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('30', 'UTP Cat 5e Exterior', 'm', '1780217657_Cable UTP Cat 5e Exterior.png', NULL);
+INSERT INTO "materiales" ("id", "nombre", "medida", "foto", "serie") VALUES ('31', 'Cambium Force 300', 'pz', '1780271136_Enlace Cambium force 300.png', NULL);
+

@@ -239,7 +239,7 @@ $preventivosRecientes = $pdo->query("
         r.id,
         r.arco_id,
         r.fecha_mantenimiento,
-        r.tecnico_responsable,
+        t.nombre AS tecnico_responsable,
         r.observaciones,
         a.nombre AS arco,
         COALESCE(u.nombre, 'Sin ubicacion') AS ubicacion,
@@ -248,6 +248,7 @@ $preventivosRecientes = $pdo->query("
         COALESCE(mat.metros, 0) AS metros
     FROM revisiones r
     JOIN arcos a ON a.id = r.arco_id
+    LEFT JOIN tecnicos t ON t.id = r.tecnico_id
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
     LEFT JOIN (
         SELECT
@@ -272,7 +273,7 @@ $mantenimientosReporte = $pdo->query("
         r.arco_id,
         r.fecha_mantenimiento,
         r.tipo_mantenimiento,
-        r.tecnico_responsable,
+        t.nombre AS tecnico_responsable,
         r.observaciones,
         a.nombre AS arco,
         COALESCE(u.nombre, 'Sin ubicacion') AS ubicacion,
@@ -280,6 +281,7 @@ $mantenimientosReporte = $pdo->query("
         COALESCE(mat.piezas, 0) AS piezas
     FROM revisiones r
     JOIN arcos a ON a.id = r.arco_id
+    LEFT JOIN tecnicos t ON t.id = r.tecnico_id
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
     LEFT JOIN (
         SELECT
@@ -374,6 +376,7 @@ $materiales = $pdo->query("
 
 $topUbicaciones = $pdo->query("
     SELECT
+        u.id AS ubicacion_id,
         COALESCE(u.nombre, 'Sin ubicacion') AS ubicacion,
         COUNT(a.id) AS arcos
     FROM arcos a
@@ -386,3 +389,56 @@ $topUbicaciones = $pdo->query("
 
 $totalArcosTopUbicaciones = array_sum(array_map(static fn($u) => (int)($u['arcos'] ?? 0), $topUbicaciones));
 $totalUbicacionesConArcos = count($topUbicaciones);
+
+$arcosUbicacionRows = $pdo->query("
+    WITH ultimo_mantenimiento AS (
+        SELECT
+            r.arco_id,
+            MAX(r.fecha_mantenimiento) AS ultima_mantenimiento
+        FROM revisiones r
+        GROUP BY r.arco_id
+    )
+    SELECT
+        CASE WHEN u.id IS NULL THEN 'sin_ubicacion' ELSE CONCAT('u_', u.id) END AS ubicacion_key,
+        COALESCE(u.nombre, 'Sin ubicacion') AS ubicacion,
+        a.id,
+        a.nombre,
+        a.fecha_instalacion,
+        um.ultima_mantenimiento,
+        CASE
+            WHEN um.ultima_mantenimiento IS NULL THEN (a.fecha_instalacion::date + INTERVAL '1 year')::date
+            ELSE (um.ultima_mantenimiento::date + INTERVAL '1 year')::date
+        END AS proximo_mantenimiento,
+        COALESCE(a.estado, 'Activo') AS estado,
+        COALESCE(materiales.total_componentes, 0) AS total_componentes
+    FROM arcos a
+    LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
+    LEFT JOIN ultimo_mantenimiento um ON um.arco_id = a.id
+    LEFT JOIN (
+        SELECT arco_id, COUNT(*) AS total_componentes
+        FROM arco_material
+        GROUP BY arco_id
+    ) materiales ON materiales.arco_id = a.id
+    WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
+    ORDER BY COALESCE(u.nombre, 'Sin ubicacion') ASC, a.nombre ASC
+")->fetchAll(PDO::FETCH_ASSOC);
+
+$arcosPorUbicacion = [];
+foreach ($arcosUbicacionRows as $row) {
+    $key = $row['ubicacion_key'];
+    if (!isset($arcosPorUbicacion[$key])) {
+        $arcosPorUbicacion[$key] = [
+            'ubicacion' => $row['ubicacion'],
+            'arcos' => [],
+        ];
+    }
+    $arcosPorUbicacion[$key]['arcos'][] = [
+        'id' => (int)$row['id'],
+        'nombre' => $row['nombre'],
+        'fecha_instalacion' => $row['fecha_instalacion'],
+        'ultima_mantenimiento' => $row['ultima_mantenimiento'],
+        'proximo_mantenimiento' => $row['proximo_mantenimiento'],
+        'estado' => $row['estado'],
+        'total_componentes' => (int)$row['total_componentes'],
+    ];
+}

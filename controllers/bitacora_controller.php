@@ -1,10 +1,17 @@
 <?php
 include('../config/db.php');
+require_once '../config/tecnicos_schema.php';
+asegurarRelacionTecnicos($pdo);
 
 $arco_id = $_POST['arco_id'];
-$encargado = trim($_POST['encargado']);
+$tecnicoId = (int)($_POST['encargado'] ?? $_POST['tecnico_id'] ?? 0);
+$tecnico = obtenerTecnicoPorId($pdo, $tecnicoId);
 $observaciones = trim($_POST['observaciones']);
 $checks = $_POST['checklist'] ?? [];
+
+if (!$tecnico) {
+    die("Debes seleccionar un técnico válido.");
+}
 
 try {
     /* verificar si ya existe */
@@ -29,7 +36,7 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO bitacoras_arco (
             arco_id,
-            encargado,
+            tecnico_id,
             observaciones
         ) VALUES (?, ?, ?)
         RETURNING id
@@ -37,7 +44,7 @@ try {
 
     $stmt->execute([
         $arco_id,
-        $encargado,
+        $tecnicoId,
         $observaciones
     ]);
 

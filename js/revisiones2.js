@@ -9,6 +9,7 @@ const config = {
     limit: 3
   }
 };
+const paginationLimitOptions = [3, 10, 20, 30, 40, 50, 60, 100];
 
 
 function renderPagination(tableId) {
@@ -19,6 +20,7 @@ function renderPagination(tableId) {
     const visibleRows = allRows.filter(row => row.dataset.visible !== "0");
 
     const total = visibleRows.length;
+    state.limit = normalizePaginationLimit(total, state.limit);
     const totalPages = Math.ceil(total / state.limit) || 1;
 
     // corregir página si se pasa
@@ -67,12 +69,29 @@ function renderPaginationButtons(tableId, totalPages, shownStart = 0, shownEnd =
     if (!pag) return;
     pag.innerHTML = "";
 
-    if (totalPages <= 1) return;
+    const options = getPaginationLimitOptions(total, state.limit);
 
     let html = `
-      <div class="w-100 text-center small text-muted mb-1">
-        Mostrando ${shownStart}-${shownEnd} de ${total}
+      <div class="pagination-toolbar">
+        <div class="pagination-summary">
+          ${shownEnd - shownStart + (total > 0 ? 1 : 0)} de ${total} registros &middot; Pagina ${state.page} de ${totalPages}
+          <span>Mostrando ${shownStart}-${shownEnd}</span>
+        </div>
+        <label class="pagination-limit">
+          <span>Mostrar</span>
+          <select class="form-select form-select-sm" onchange="changePageLimit('${tableId}', this.value)">
+            ${options.map(opt => `<option value="${opt}" ${opt === state.limit ? "selected" : ""}>${opt}</option>`).join("")}
+          </select>
+        </label>
       </div>
+    `;
+
+    if (totalPages <= 1) {
+      pag.innerHTML = html;
+      return;
+    }
+
+    html += `
       <nav><ul class="pagination pagination-sm mb-0">
     `;
 
@@ -84,15 +103,18 @@ function renderPaginationButtons(tableId, totalPages, shownStart = 0, shownEnd =
         </li>
     `;
 
-    for (let i = 1; i <= totalPages; i++) {
+    getPaginationPages(state.page, totalPages).forEach(item => {
+        if (item === "...") {
+            html += `<li class="page-item disabled"><span class="page-link pagination-ellipsis">...</span></li>`;
+            return;
+        }
+
         html += `
-            <li class="page-item ${i === state.page ? 'active' : ''}">
-                <button type="button" class="page-link" onclick="changePage('${tableId}', ${i})">
-                    ${i}
-                </button>
+            <li class="page-item ${item === state.page ? 'active' : ''}">
+                <button type="button" class="page-link" onclick="changePage('${tableId}', ${item})">${item}</button>
             </li>
         `;
-    }
+    });
 
     html += `
         <li class="page-item ${state.page === totalPages ? 'disabled' : ''}">
@@ -104,6 +126,48 @@ function renderPaginationButtons(tableId, totalPages, shownStart = 0, shownEnd =
 
     html += `</ul></nav>`;
     pag.innerHTML = html;
+}
+
+function getPaginationPages(current, totalPages) {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const pages = new Set([1, totalPages, current, current - 1, current + 1]);
+    if (current <= 3) {
+        pages.add(2);
+        pages.add(3);
+        pages.add(4);
+    }
+    if (current >= totalPages - 2) {
+        pages.add(totalPages - 1);
+        pages.add(totalPages - 2);
+        pages.add(totalPages - 3);
+    }
+
+    const sorted = [...pages].filter(p => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+    return sorted.reduce((acc, page, index) => {
+        if (index > 0 && page - sorted[index - 1] > 1) acc.push("...");
+        acc.push(page);
+        return acc;
+    }, []);
+}
+
+function getPaginationLimitOptions(total, currentLimit) {
+    if (total <= 0) return [];
+    const maxOption = paginationLimitOptions.find(opt => opt >= total) || paginationLimitOptions[paginationLimitOptions.length - 1];
+    const currentOption = currentLimit <= maxOption ? [currentLimit] : [];
+    const options = [...paginationLimitOptions.filter(opt => opt <= maxOption), ...currentOption];
+    return [...new Set(options)]
+        .filter(opt => Number.isFinite(Number(opt)) && Number(opt) > 0)
+        .map(Number)
+        .sort((a, b) => a - b);
+}
+
+function normalizePaginationLimit(total, currentLimit) {
+    if (total <= 0) return currentLimit;
+    const maxOption = paginationLimitOptions.find(opt => opt >= total) || paginationLimitOptions[paginationLimitOptions.length - 1];
+    return currentLimit > maxOption ? maxOption : currentLimit;
 }
 
 function filterTable(inputId, tableId) {
@@ -133,7 +197,17 @@ function changePage(tableId, page) {
   renderPagination(tableId);
 }
 
+function changePageLimit(tableId, limit) {
+  if (!config[tableId]) return;
+  const nextLimit = Number(limit);
+  if (!Number.isFinite(nextLimit) || nextLimit <= 0) return;
+  config[tableId].limit = nextLimit;
+  config[tableId].page = 1;
+  renderPagination(tableId);
+}
+
 window.changePage = changePage;
+window.changePageLimit = changePageLimit;
 window.filterTable = filterTable;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -200,6 +274,7 @@ function actualizarModoMantenimiento() {
   const titulo = document.getElementById('tituloMaterialesMantenimiento');
   const cont = document.getElementById('materialesContainer');
   const hidden = document.getElementById('materialesHidden');
+  const btnAgregar = document.getElementById('btnAgregarMaterialMantenimiento');
 
   if (select) {
     select.name = esInfra ? 'infraestructura_id' : 'arco_id';
@@ -208,8 +283,9 @@ function actualizarModoMantenimiento() {
     label.textContent = esInfra ? 'Puente/Sitio' : 'Arco';
   }
   if (titulo) {
-    titulo.textContent = esInfra ? 'Material(es) cambiados del Puente/Sitio' : 'Material(es) cambiados';
+    titulo.textContent = esInfra ? 'Material(es) cambiados del Puente/Sitio' : 'Material(es) cambiados / agregados';
   }
+  btnAgregar?.classList.add('d-none');
   if (hidden) {
     hidden.innerHTML = '';
   }
@@ -257,8 +333,10 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
     const cont = document.getElementById('materialesContainer');
     const hidden = document.getElementById('materialesHidden');
     const esInfra = esMantenimientoInfraestructura();
+    const btnAgregar = document.getElementById('btnAgregarMaterialMantenimiento');
 
     hidden.innerHTML = '';
+    btnAgregar?.classList.toggle('d-none', !objetivoId || esInfra);
 
     if (!objetivoId) {
       cont.innerHTML = esInfra
@@ -280,16 +358,25 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
     fetch(url)
         .then(res => res.json())
         .then(data => {
+            const botonAgregarHtml = `
+              <div class="materiales-maintenance-toolbar">
+                <span class="text-muted small">${esInfra ? 'Materiales instalados' : 'Selecciona, cambia, retira o agrega material al arco.'}</span>
+              </div>
+            `;
+
             if (!data.length) {
                 cont.innerHTML = `
-                    <p class="text-danger">
-                        ${esInfra ? 'Este puente/sitio' : 'Este arco'} no tiene materiales registrados.
-                    </p>
+                    ${botonAgregarHtml}
+                    <div class="alert alert-warning py-2 mb-3">
+                      ${esInfra ? 'Este puente/sitio' : 'Este arco'} no tiene materiales registrados.
+                    </div>
+                    <div class="contenedor-materiales"></div>
                 `;
+                bindAddMaterialButton();
                 return;
             }
 
-            let html = `<div class="contenedor-materiales">`;
+            let html = `${botonAgregarHtml}<div class="contenedor-materiales">`;
 
             data.forEach((m,index) => {
                 const medidaLabel = m.medida === 'm' ? 'metros' : (m.medida === 'pz' ? 'piezas' : m.medida);
@@ -365,6 +452,7 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
             bindMaterialCards();
             bindEditButtons();
             bindRetireButtons();
+            bindAddMaterialButton();
         });
 });
 
@@ -372,15 +460,22 @@ function bindMaterialCards() {
     const hidden = document.getElementById('materialesHidden');
 
     document.querySelectorAll('#materialesContainer .material-card').forEach(card => {
+        if (card.dataset.cardBound === '1') return;
+        card.dataset.cardBound = '1';
         card.addEventListener('click', function (e) {
             if (e.target.closest('.btn-edit-material, .btn-retire-material')) return;
             if (this.classList.contains('material-retirado')) return;
+            if (this.classList.contains('material-agregado')) return;
 
             const uid = this.dataset.uid;
             const materialId = this.dataset.materialId || this.dataset.material_id;
             const arcoMaterialId = obtenerRelacionOriginalMaterial(this);
             const serie = this.dataset.serie || '';
             const cantidad = this.dataset.cantidad || 1;
+            if (!arcoMaterialId) {
+                alert('Este material no tiene una relacion valida con el arco o sitio. Recarga la pagina antes de registrarlo como cambio.');
+                return;
+            }
 
             let bloque = hidden.querySelector(`.material-${uid}`);
 
@@ -410,6 +505,7 @@ function bindMaterialCards() {
 }
 
 let materialesRevisionModalCache = null;
+let contadorMaterialAgregadoRevision = 0;
 
 function normalizarSerieRevision(value) {
   const serie = String(value ?? '').trim();
@@ -538,6 +634,8 @@ function bindEditButtons() {
     const modal = new bootstrap.Modal(document.getElementById('modalSerie'));
 
     document.querySelectorAll('#materialesContainer .btn-edit-material').forEach(btn => {
+        if (btn.dataset.editBound === '1') return;
+        btn.dataset.editBound = '1';
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
 
@@ -545,6 +643,10 @@ function bindEditButtons() {
             const medida = btn.dataset.medida;
 
             const card = this.closest('.material-card');
+            document.getElementById('modalSerie').dataset.mode = card?.classList.contains('material-agregado') ? 'agregado' : 'cambio';
+            document.querySelector('#modalSerie .modal-title').innerHTML = card?.classList.contains('material-agregado')
+              ? '<i class="bi bi-plus-circle"></i> Editar material agregado'
+              : '<i class="bi bi-pencil"></i> Editar material cambiado';
 
             actualizarCamposModalSeriePorMedida(medida);
 
@@ -563,6 +665,39 @@ function bindEditButtons() {
             modal.show();
         });
     });
+}
+
+function bindAddMaterialButton() {
+  const btn = document.getElementById('btnAgregarMaterialMantenimiento');
+  if (!btn || btn.dataset.addBound === '1') return;
+  btn.dataset.addBound = '1';
+
+  btn.addEventListener('click', () => {
+    if (esMantenimientoInfraestructura()) return;
+    const arcoId = document.getElementById('arcoSelect')?.value || '';
+    if (!arcoId) {
+      alert('Seleccione un arco antes de agregar material.');
+      return;
+    }
+
+    const modalEl = document.getElementById('modalSerie');
+    modalEl.dataset.mode = 'agregado';
+    document.querySelector('#modalSerie .modal-title').innerHTML = '<i class="bi bi-plus-circle"></i> Agregar material al arco';
+
+    const uid = `agregado_${Date.now()}_${++contadorMaterialAgregadoRevision}`;
+    document.getElementById('modalMaterialId').value = uid;
+    document.getElementById('modalSerieInput').value = '';
+    document.getElementById('modalCantidadInput').value = '1';
+    aplicarEstadoSerieModal(false);
+
+    cargarMaterialesModalMantenimiento('').then(() => {
+      document.getElementById('modalSerieInput').value = '';
+      document.getElementById('modalCantidadInput').value = '1';
+      aplicarEstadoSerieModal(false);
+    });
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  });
 }
 
 function medidaEsMetro(medida) {
@@ -618,7 +753,12 @@ function asegurarInputMaterial(bloque, uid, campo, valor) {
 
 function sincronizarMaterialHidden(uid, materialId, cantidad, serie, arcoMaterialId = '', accion = 'cambio') {
   const hidden = document.getElementById('materialesHidden');
-  if (!hidden) return;
+  if (!hidden) return false;
+
+  if (accion !== 'agregado' && !arcoMaterialId) {
+    alert('Este material no tiene una relacion valida con el arco o sitio. Recarga la pagina antes de registrar el mantenimiento.');
+    return false;
+  }
 
   let bloque = hidden.querySelector(`.material-${uid}`);
   if (!bloque) {
@@ -634,6 +774,7 @@ function sincronizarMaterialHidden(uid, materialId, cantidad, serie, arcoMateria
   asegurarInputMaterial(bloque, uid, 'serie', serie);
   asegurarInputMaterial(bloque, uid, 'accion', accion);
   asegurarInputMaterial(bloque, uid, 'cambiado', '1');
+  return true;
 }
 
 function quitarMaterialHidden(uid) {
@@ -646,6 +787,10 @@ function marcarMaterialRetirado(card) {
 
   const arcoMaterialId = obtenerRelacionOriginalMaterial(card);
   const original = obtenerMaterialOriginal(card);
+  if (!arcoMaterialId) {
+    alert('Este material no tiene una relacion valida con el arco o sitio. Recarga la pagina antes de retirarlo.');
+    return;
+  }
 
   card.classList.remove('border-success');
   card.classList.add('border-danger', 'border-3', 'material-retirado');
@@ -685,22 +830,126 @@ function cancelarRetiroMaterial(card) {
 
 function bindRetireButtons() {
   document.querySelectorAll('#materialesContainer .btn-retire-material').forEach(btn => {
+    if (btn.dataset.retireBound === '1') return;
+    btn.dataset.retireBound = '1';
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
       const card = this.closest('.material-card');
       if (!card) return;
 
+      if (card.classList.contains('material-agregado')) {
+        const nombre = card.querySelector('.fw-semibold')?.textContent?.trim() || 'este material agregado';
+        const confirmar = window.confirm(`Seguro que quieres quitar ${nombre} de este mantenimiento?`);
+        if (!confirmar) return;
+        const uid = card.dataset.uid || '';
+        quitarMaterialHidden(uid);
+        card.closest('.contenedor-material')?.remove();
+        return;
+      }
+
       if (card.classList.contains('material-retirado')) {
         cancelarRetiroMaterial(card);
       } else {
         const nombre = card.querySelector('.fw-semibold')?.textContent?.trim() || 'este material';
-        const confirmar = window.confirm(`Seguro que quieres retirar ${nombre} de este arco?`);
+        const objetivo = esMantenimientoInfraestructura() ? 'sitio' : 'arco';
+        const confirmar = window.confirm(`Seguro que quieres retirar ${nombre} de este ${objetivo}?`);
         if (!confirmar) return;
 
         marcarMaterialRetirado(card);
       }
     });
   });
+}
+
+function asegurarGridMaterialesMantenimiento() {
+  const cont = document.getElementById('materialesContainer');
+  if (!cont) return null;
+
+  let grid = cont.querySelector('.contenedor-materiales');
+  if (!grid) {
+    grid = document.createElement('div');
+    grid.className = 'contenedor-materiales';
+    cont.appendChild(grid);
+  }
+
+  return grid;
+}
+
+function crearTarjetaMaterialAgregado(uid, materialId, nombre, medida, foto, cantidad, serie) {
+  const grid = asegurarGridMaterialesMantenimiento();
+  if (!grid) return null;
+
+  const medidaLabel = etiquetaMedidaModal(medida);
+  const fotoFinal = foto && foto !== 'null' ? foto : 'default.png';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'contenedor-material material-agregado-wrapper';
+  wrapper.innerHTML = `
+    <div class="card material-card material-agregado shadow-sm border-success border-3"
+      data-uid="${escapeHtmlRevision(uid)}"
+      data-material_id="${escapeHtmlRevision(materialId)}"
+      data-material-id="${escapeHtmlRevision(materialId)}"
+      data-original-material-id="${escapeHtmlRevision(materialId)}"
+      data-arco-material-id=""
+      data-relacion_id=""
+      data-serie="${escapeHtmlRevision(serie || '')}"
+      data-original-serie="${escapeHtmlRevision(serie || '')}"
+      data-cantidad="${escapeHtmlRevision(cantidad || '1')}"
+      data-original-cantidad="${escapeHtmlRevision(cantidad || '1')}"
+      title="${escapeHtmlRevision(nombre || '')}">
+
+      <button type="button"
+              class="btn btn-sm btn-danger btn-retire-material material-retire-x"
+              data-uid="${escapeHtmlRevision(uid)}"
+              title="Quitar material agregado">
+        &times;
+      </button>
+
+      <span class="badge bg-success material-added-badge">Agregado</span>
+
+      <img src="../uploads/materiales/${escapeHtmlRevision(fotoFinal)}"
+        class="card-img-top"
+        style="height:80px; width:100%; object-fit:contain; padding:5px;"
+        onerror="this.src='../uploads/materiales/default.png'">
+
+      <div class="card-body text-center">
+        <div class="fw-semibold mb-1">${escapeHtmlRevision(nombre || 'Material')}</div>
+        <small class="text-muted d-block mb-1">${escapeHtmlRevision(medidaLabel)}</small>
+
+        ${medidaEsMetro(medida) ? `
+          <small class="text-muted d-block">${escapeHtmlRevision(cantidad)} metros</small>
+        ` : ''}
+
+        ${serie ? `
+          <span class="serie-label">Serie:</span>
+          <small class="text-muted d-block serie-container">
+            <span class="serie-value">${escapeHtmlRevision(serie)}</span>
+          </small>
+        ` : ''}
+
+        <div class="material-actions mt-auto">
+          <button type="button"
+                  class="btn btn-sm btn-outline-primary btn-edit-material"
+                  data-uid="${escapeHtmlRevision(uid)}"
+                  data-material_id="${escapeHtmlRevision(materialId)}"
+                  data-material-id="${escapeHtmlRevision(materialId)}"
+                  data-arco-material-id=""
+                  data-relacion_id=""
+                  data-material="${escapeHtmlRevision(nombre || '')}"
+                  data-medida="${escapeHtmlRevision(medidaLabel)}"
+                  data-serie="${escapeHtmlRevision(serie || '')}"
+                  data-cantidad="${escapeHtmlRevision(cantidad || '1')}">
+               Editar
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  grid.prepend(wrapper);
+  const card = wrapper.querySelector('.material-card');
+  bindEditButtons();
+  bindRetireButtons();
+  return card;
 }
 
 function guardarCambiosMaterialMantenimiento() {
@@ -710,6 +959,7 @@ function guardarCambiosMaterialMantenimiento() {
   const medida = inputMaterial?.dataset?.medida || '';
   const nombre = inputMaterial?.dataset?.nombre || '';
   const foto = inputMaterial?.dataset?.foto || '';
+  const modo = document.getElementById('modalSerie')?.dataset?.mode || 'cambio';
   const esMetro = medidaEsMetro(medida);
   const cantidad = esMetro ? (document.getElementById('modalCantidadInput')?.value || '1') : '1';
   const tieneSerie = !esMetro && Boolean(document.getElementById('modalCheckSerie')?.checked);
@@ -717,13 +967,27 @@ function guardarCambiosMaterialMantenimiento() {
   const card = Array.from(document.querySelectorAll('#materialesContainer .material-card'))
     .find(item => item.dataset.uid === uid);
 
-  if (!uid || !materialId || !card) return;
+  if (!uid || !materialId) return;
   if (tieneSerie && !serie) {
     alert('Ingrese la serie');
     return;
   }
 
+  if (modo === 'agregado' && !card) {
+    crearTarjetaMaterialAgregado(uid, materialId, nombre, medida, foto, cantidad, serie);
+    sincronizarMaterialHidden(uid, materialId, cantidad, serie, '', 'agregado');
+    bootstrap.Modal.getInstance(document.getElementById('modalSerie'))?.hide();
+    return;
+  }
+
+  if (!card) return;
+
   const arcoMaterialId = obtenerRelacionOriginalMaterial(card);
+  const accionMaterial = card.classList.contains('material-agregado') ? 'agregado' : 'cambio';
+  if (accionMaterial !== 'agregado' && !arcoMaterialId) {
+    alert('Este material no tiene una relacion valida con el arco o sitio. Recarga la pagina antes de editarlo.');
+    return;
+  }
 
   card.dataset.material_id = materialId;
   card.dataset.materialId = materialId;
@@ -785,7 +1049,9 @@ function guardarCambiosMaterialMantenimiento() {
     serieContainer?.remove();
   }
 
-  sincronizarMaterialHidden(uid, materialId, cantidad, serie, arcoMaterialId, 'cambio');
+  if (!sincronizarMaterialHidden(uid, materialId, cantidad, serie, arcoMaterialId, accionMaterial)) {
+    return;
+  }
   bootstrap.Modal.getInstance(document.getElementById('modalSerie'))?.hide();
 }
 
@@ -1165,7 +1431,7 @@ function renderComponentesMantenimiento(btn) {
       <div class="revision-material-date-group">
         <div class="revision-material-date-title">
           <i class="bi bi-calendar-event"></i>
-          Fecha de cambio: ${escapeHtmlRevision(fechaTexto)}
+          Fecha de mantenimiento: ${escapeHtmlRevision(fechaTexto)}
         </div>
         <div class="material-grid revision-material-grid">
           ${items.map((m, index) => {
@@ -1175,7 +1441,14 @@ function renderComponentesMantenimiento(btn) {
               ? `<div class="d-flex align-items-center justify-content-center bg-secondary text-white material-img">Sin foto</div>`
               : `<img src="../uploads/materiales/${escapeHtmlRevision(foto)}" class="material-img" alt="${escapeHtmlRevision(m.material)}">`;
             const medidaTexto = textoMedidaRevision(m.medida, m.cantidad);
-            const esRetiro = String(m.accion || "").toLowerCase() === "retiro";
+            const accion = String(m.accion || "").toLowerCase();
+            const esRetiro = accion === "retiro";
+            const esAgregado = accion === "agregado";
+            const accionIcon = esRetiro ? 'bi-box-arrow-up' : (esAgregado ? 'bi-plus-circle' : 'bi-tools');
+            const accionTexto = esRetiro
+              ? 'Retirado por mantenimiento'
+              : (esAgregado ? 'Agregado por mantenimiento' : 'Cambiado por mantenimiento');
+            const badgeClass = esRetiro ? 'bg-danger' : (esAgregado ? 'bg-primary' : 'bg-success');
 
             return `
               <div class="revision-material-card material-card">
@@ -1185,13 +1458,13 @@ function renderComponentesMantenimiento(btn) {
                     <div class="min-w-0">
                       <div class="fw-bold text-capitalize revision-material-name">${escapeHtmlRevision(m.material)}</div>
                       <div class="text-muted small">
-                        <i class="bi ${esRetiro ? 'bi-box-arrow-up' : 'bi-tools'}"></i>
-                        ${esRetiro ? 'Retirado por mantenimiento' : 'Cambiado por mantenimiento'}
+                        <i class="bi ${accionIcon}"></i>
+                        ${accionTexto}
                       </div>
                     </div>
                   </div>
                   <div class="revision-material-qty text-end">
-                    <span class="badge ${esRetiro ? 'bg-danger' : 'bg-success'} fs-6 px-3 py-2">${escapeHtmlRevision(m.cantidad)}</span>
+                    <span class="badge ${badgeClass} fs-6 px-3 py-2">${escapeHtmlRevision(m.cantidad)}</span>
                     <div class="text-muted small mt-1">${escapeHtmlRevision(medidaTexto)}</div>
                   </div>
                 </div>

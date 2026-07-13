@@ -11,12 +11,14 @@ if (empty($_SESSION['user'])) {
 $rootDir = dirname(__DIR__);
 require $rootDir . '/config/db.php';
 require_once $rootDir . '/config/formatos_mantenimiento_schema.php';
+require_once $rootDir . '/config/tecnicos_schema.php';
 require_once $rootDir . '/libs/dompdf/autoload.inc.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
 asegurarTablaFormatosMantenimiento($pdo);
+asegurarRelacionTecnicos($pdo);
 $id = (int)($_GET['id'] ?? 0);
 
 $stmt = $pdo->prepare("
@@ -24,11 +26,13 @@ $stmt = $pdo->prepare("
         fm.*,
         r.fecha_mantenimiento,
         r.tipo_mantenimiento,
-        r.tecnico_responsable,
+        COALESCE(tf.nombre, tr.nombre) AS tecnico_nombre,
         a.nombre AS arco,
         COALESCE(u.nombre, '') AS ubicacion
     FROM formatos_mantenimiento fm
     LEFT JOIN revisiones r ON r.id = fm.revision_id
+    LEFT JOIN tecnicos tf ON tf.id = fm.tecnico_id
+    LEFT JOIN tecnicos tr ON tr.id = r.tecnico_id
     JOIN arcos a ON a.id = COALESCE(fm.arco_id, r.arco_id)
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
     WHERE fm.id = ?
@@ -51,7 +55,7 @@ $config = $formatos[$registro['tipo']];
 $datos = json_decode($registro['datos'], true) ?: [];
 $registro['fecha_mantenimiento'] = $datos['fecha_servicio'] ?? $registro['fecha_mantenimiento'];
 $registro['tipo_mantenimiento'] = $datos['tipo_mantenimiento'] ?? $registro['tipo_mantenimiento'] ?? 'Correctivo';
-$registro['tecnico_responsable'] = $datos['tecnico'] ?? $registro['tecnico_responsable'] ?? '';
+$registro['tecnico_responsable'] = $registro['tecnico_nombre'] ?? $datos['tecnico'] ?? '';
 $logoPath = $rootDir . '/assets/LOGO INNOVATEC PDF.jpg';
 $logoData = is_file($logoPath)
     ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath))
