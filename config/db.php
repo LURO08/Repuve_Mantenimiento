@@ -5,7 +5,8 @@ $user = getenv('PGUSER') ?: 'jlromero';
 $pass = getenv('PGPASSWORD') ?: '2G3XIajD62KAaUGIKysn1rfIypQ2FI2U';
 $dbname = getenv('PGDATABASE') ?: 'repuve_mantenimiento';
 $port = getenv('PGPORT') ?: '5432';
-$sslmode = getenv('PGSSLMODE') ?: 'disable';
+$sslmode = getenv('PGSSLMODE') ?: 'require';
+
 
 try {
     $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode={$sslmode}";
