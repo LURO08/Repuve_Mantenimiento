@@ -139,6 +139,8 @@ function guardarInfraestructuraArco($pdo, $arco_id, $fecha_instalacion, $post)
   $materiales = $post['infra_material_id'] ?? [];
   $cantidades = $post['infra_cantidad'] ?? [];
   $series = $post['infra_serie'] ?? [];
+  $ips = $post['infra_ip'] ?? [];
+  $macs = $post['infra_mac'] ?? [];
 
   if (!is_array($tipos)) {
     return;
@@ -150,8 +152,8 @@ function guardarInfraestructuraArco($pdo, $arco_id, $fecha_instalacion, $post)
     ON CONFLICT (arco_id, infraestructura_id) DO NOTHING
   ");
   $stmtMat = $pdo->prepare("
-    INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, fecha_instalacion)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, ip, mac, fecha_instalacion)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   ");
 
   foreach ($tipos as $i => $tipoRaw) {
@@ -184,20 +186,24 @@ function guardarInfraestructuraArco($pdo, $arco_id, $fecha_instalacion, $post)
       }
 
       $serie = trim($series[$i][$j] ?? '');
-      $stmtMat->execute([$infra_id, $mat_id, $cant, $serie !== '' ? $serie : null, $fecha_instalacion ?: null]);
+      $ip = trim($ips[$i][$j] ?? '');
+      $ip = $ip !== '' ? $ip : null;
+      $mac = trim($macs[$i][$j] ?? '');
+      $mac = $mac !== '' ? $mac : null;
+      $stmtMat->execute([$infra_id, $mat_id, $cant, $serie !== '' ? $serie : null, $ip, $mac, $fecha_instalacion ?: null]);
     }
   }
 }
 
-function guardarMaterialesInfraestructura($pdo, $infra_id, $fecha_instalacion, $materiales, $cantidades, $series)
+function guardarMaterialesInfraestructura($pdo, $infra_id, $fecha_instalacion, $materiales, $cantidades, $series, $ips, $macs)
 {
   if (empty($materiales) || !is_array($materiales)) {
     return;
   }
 
   $stmtMat = $pdo->prepare("
-    INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, fecha_instalacion)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, ip, mac, fecha_instalacion)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   ");
 
   foreach ($materiales as $i => $mat_id) {
@@ -211,7 +217,11 @@ function guardarMaterialesInfraestructura($pdo, $infra_id, $fecha_instalacion, $
     }
 
     $serie = trim($series[$i] ?? '');
-    $stmtMat->execute([$infra_id, $mat_id, $cant, $serie !== '' ? $serie : null, $fecha_instalacion ?: null]);
+    $ip = trim($ips[$i] ?? '');
+    $ip = $ip !== '' ? $ip : null;
+    $mac = trim($macs[$i] ?? '');
+    $mac = $mac !== '' ? $mac : null;
+    $stmtMat->execute([$infra_id, $mat_id, $cant, $serie !== '' ? $serie : null, $ip, $mac, $fecha_instalacion ?: null]);
   }
 }
 
@@ -245,7 +255,7 @@ try {
         }
 
         $stmt = $pdo->prepare("
-          SELECT im.id AS relacion_id, im.material_id, im.cantidad, im.serie, im.fecha_instalacion,
+          SELECT im.id AS relacion_id, im.material_id, im.cantidad, im.serie, im.ip, im.mac, im.fecha_instalacion,
                  m.nombre, m.medida, m.foto
           FROM infraestructura_material im
           JOIN materiales m ON m.id = im.material_id
@@ -289,6 +299,9 @@ try {
         $material_ids = $_POST['material_id'] ?? [];
         $cantidades = $_POST['cantidad'] ?? [];
         $series = $_POST['serie'] ?? [];
+        $ips = $_POST['ip'] ?? [];
+        $macs = $_POST['mac'] ?? [];
+
 
         if ($id <= 0 || $nombre === '' || empty($ubicacion_id)) {
           header("Location: ../views/arcos.php?error=Datos incompletos del puente/sitio&type=error");
@@ -322,8 +335,8 @@ try {
 
         $pdo->prepare("DELETE FROM infraestructura_material WHERE infraestructura_id = ?")->execute([$id]);
         $stmtMat = $pdo->prepare("
-          INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, fecha_instalacion)
-          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+          INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, ip, mac, fecha_instalacion)
+          VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ");
         if (is_array($material_ids)) {
           foreach ($material_ids as $i => $material_id) {
@@ -335,7 +348,11 @@ try {
               $cant = 1;
             }
             $serie = trim($series[$i] ?? '');
-            $stmtMat->execute([$id, $material_id, $cant, $serie !== '' ? $serie : null]);
+            $ip = trim($ips[$i] ?? '');
+            $ip = $ip !== '' ? $ip : null;
+            $mac = trim($macs[$i] ?? '');
+            $mac = $mac !== '' ? $mac : null;
+            $stmtMat->execute([$id, $material_id, $cant, $serie !== '' ? $serie : null, $ip, $mac, $fecha_instalacion ?: null]);
           }
         }
 
@@ -380,6 +397,8 @@ try {
       $materiales      = $_POST['material_id'] ?? [];
       $cantidades        = $_POST['cantidad'] ?? [];
       $series           = $_POST['serie'] ?? [];
+      $ips              = $_POST['ip'] ?? [];
+      $macs             = $_POST['mac'] ?? [];
       $lat               = $_POST['lat'] ?? null;
       $lng               = $_POST['lng'] ?? null;
       $es_infraestructura = ($_POST['es_infraestructura'] ?? '') === '1';
@@ -412,7 +431,7 @@ try {
           }
         }
 
-        guardarMaterialesInfraestructura($pdo, $infra_id, $fecha_instalacion, $materiales, $cantidades, $series);
+        guardarMaterialesInfraestructura($pdo, $infra_id, $fecha_instalacion, $materiales, $cantidades, $series, $ips, $macs);
 
         $pdo->commit();
 
@@ -442,7 +461,7 @@ try {
 
       // Materiales asociados
       if (!empty($materiales)) {
-        $stmtMat = $pdo->prepare("INSERT INTO arco_material (arco_id, material_id, cantidad, serie) VALUES (?, ?, ?, ?)");
+        $stmtMat = $pdo->prepare("INSERT INTO arco_material (arco_id, material_id, cantidad, serie, ip, mac, fecha_instalacion) VALUES (?, ?,  ?, ?, ?, ?, ?)");
         foreach ($materiales as $i => $mat_id) {
           if (empty($mat_id)) {
             continue;
@@ -455,7 +474,11 @@ try {
 
           $serie = trim($series[$i] ?? '');
           $serie = $serie !== '' ? $serie : null;
-          $stmtMat->execute([$arco_id, $mat_id, $cant, $serie]);
+          $ip = trim($ips[$i] ?? '');
+          $ip = $ip !== '' ? $ip : null;
+          $mac = trim($macs[$i] ?? '');
+          $mac = $mac !== '' ? $mac : null;
+          $stmtMat->execute([$arco_id, $mat_id, $cant, $serie, $ip, $mac, $fecha_instalacion ?: null]);
         }
       }
 
@@ -724,6 +747,8 @@ try {
       $relacion_ids      = $_POST['relacion_id'] ?? [];
       $cantidades        = $_POST['cantidad'] ?? [];
       $series           = $_POST['serie'] ?? [];
+      $ips  = $_POST['ip'] ?? [];
+      $macs = $_POST['mac'] ?? [];
 
       if (empty($id) || empty($nombre) || empty($ubicacion_id) || empty($fecha_instalacion)) {
         header("Location: ../views/arcos.php?error=Datos incompletos&type=error");
@@ -750,15 +775,17 @@ try {
       if (!empty($material_ids)) {
         $stmtUpdateMat = $pdo->prepare("
           UPDATE arco_material
-          SET material_id = ?, cantidad = ?, serie = ?
+          SET material_id = ?, cantidad = ?, serie = ?, ip = ?, mac = ?
           WHERE id = ? AND arco_id = ?
         ");
+
+
         $stmtUpdateMatDatos = $pdo->prepare("
           UPDATE arco_material
-          SET cantidad = ?, serie = ?
+          SET cantidad = ?, serie = ?, ip = ?, mac = ?
           WHERE id = ? AND arco_id = ?
         ");
-        $stmtInsertMat = $pdo->prepare("INSERT INTO arco_material (arco_id, material_id, cantidad, serie) VALUES (?, ?, ?, ?) RETURNING id");
+        $stmtInsertMat = $pdo->prepare("INSERT INTO arco_material (arco_id, material_id, cantidad, serie, ip, mac) VALUES (?, ?, ?, ?, ?, ?) RETURNING id");
         $stmtBuscarMatLibre = $pdo->prepare("
           SELECT am.id
           FROM arco_material am
@@ -766,7 +793,11 @@ try {
             AND am.material_id = ?
             AND (
               (CAST(? AS VARCHAR) IS NULL AND am.serie IS NULL)
-              OR am.serie = CAST(? AS VARCHAR)
+              OR am.serie = CAST(? AS VARCHAR )
+              AND (CAST(? AS VARCHAR) IS NULL AND am.ip IS NULL)
+              OR am.ip = CAST(? AS VARCHAR )
+              AND (CAST(? AS VARCHAR) IS NULL AND am.mac IS NULL)
+              OR am.mac = CAST(? AS VARCHAR )
             )
           ORDER BY am.id ASC
         ");
@@ -793,6 +824,11 @@ try {
 
           $serie = trim($series[$i] ?? '');
           $serie = $serie !== '' ? $serie : null;
+
+          $ip = trim($ips[$i] ?? '');
+          $mac = trim($macs[$i] ?? '');
+
+
           $relacion_id = (int)($relacion_ids[$i] ?? 0);
 
           $relacionActual = false;
@@ -803,14 +839,14 @@ try {
 
           if ($relacion_id > 0 && $relacionActual) {
             if ((int)$relacionActual['usos_mantenimiento'] > 0 && (int)$relacionActual['material_id'] !== (int)$mat_id) {
-              $stmtUpdateMatDatos->execute([$cant, $serie, $relacion_id, $id]);
+              $stmtUpdateMatDatos->execute([$cant, $serie, $ip, $mac, $relacion_id, $id]);
             } else {
-              $stmtUpdateMat->execute([$mat_id, $cant, $serie, $relacion_id, $id]);
+              $stmtUpdateMat->execute([$mat_id, $cant, $serie, $ip, $mac, $relacion_id, $id]);
             }
             $relacionesConservar[] = $relacion_id;
             $relacionesConservarMap[$relacion_id] = true;
           } else {
-            $stmtBuscarMatLibre->execute([$id, $mat_id, $serie, $serie]);
+            $stmtBuscarMatLibre->execute([$id, $mat_id, $serie, $ip, $mac]);
             $relacionLibre = 0;
 
             foreach ($stmtBuscarMatLibre->fetchAll(PDO::FETCH_COLUMN) as $candidatoId) {
@@ -822,11 +858,11 @@ try {
             }
 
             if ($relacionLibre > 0) {
-              $stmtUpdateMat->execute([$mat_id, $cant, $serie, $relacionLibre, $id]);
+              $stmtUpdateMat->execute([$mat_id, $cant, $serie, $ip, $mac, $relacionLibre, $id]);
               $relacionesConservar[] = $relacionLibre;
               $relacionesConservarMap[$relacionLibre] = true;
             } else {
-              $stmtInsertMat->execute([$id, $mat_id, $cant, $serie]);
+              $stmtInsertMat->execute([$id, $mat_id, $cant, $serie, $ip, $mac]);
               $nuevoId = (int)$stmtInsertMat->fetchColumn();
               $relacionesConservar[] = $nuevoId;
               $relacionesConservarMap[$nuevoId] = true;

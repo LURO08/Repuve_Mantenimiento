@@ -1733,6 +1733,16 @@ function renderMaterialesInfraestructura(infra, infraIndex) {
         <input type="text" name="infra_serie[${infraIndex}][]" class="form-control infra-material-input"
           data-index="${infraIndex}" data-material-index="${materialIndex}" data-field="serie"
           value="${escapeHtml(material.serie || "")}" placeholder="Serie">
+
+        <input type="text" name="infra_ip[${infraIndex}][]" class="form-control infra-material-input"
+          data-index="${infraIndex}" data-material-index="${materialIndex}" data-field="ip"
+          value="${escapeHtml(material.ip || "")}" placeholder="IP">
+
+        <input type="text" name="infra_mac[${infraIndex}][]" class="form-control infra-material-input"
+          data-index="${infraIndex}" data-material-index="${materialIndex}" data-field="mac"
+          value="${escapeHtml(material.mac || "")}" placeholder="MAC">
+        
+
         <button type="button" class="btn btn-outline-danger infra-delete-material" data-index="${infraIndex}" data-material-index="${materialIndex}">
           <i class="bi bi-trash"></i>
         </button>
@@ -1763,6 +1773,8 @@ function renderEditarInfraMateriales() {
     const nombre = escapeHtml(material.nombre || catalogo?.nombre || "");
     const cantidad = escapeHtml(medida === "pz" ? "1" : (material.cantidad || "1"));
     const serie = escapeHtml(material.serie || "");
+    const ip = escapeHtml(material.ip || "");
+    const mac = escapeHtml(material.mac || "");
     const foto = escapeHtml(material.foto || catalogo?.foto || "");
     const imagen = foto
       ? `<img src="../uploads/materiales/${foto}" class="material-image" alt="${nombre}">`
@@ -1796,12 +1808,20 @@ function renderEditarInfraMateriales() {
               <span>${serie}</span>
             </div>
           ` : ""}
+          ${ip ? `
+            <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${ip}</span>` : ''}
+          ${mac ? `<span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${mac}</span>` : ''}
         </div>
+
+
 
         <input type="hidden" name="material_id[]" value="${escapeHtml(material.id)}">
         <input type="hidden" name="relacion_id[]" value="${escapeHtml(material.relacion_id || "")}">
         <input type="hidden" name="cantidad[]" value="${cantidad}">
         <input type="hidden" name="serie[]" value="${serie}">
+        <input type="hidden" name="ip[]" value="${ip}">
+        <input type="hidden" name="mac[]" value="${mac}">
+
       </div>
     `;
   }).join("");
@@ -1962,6 +1982,8 @@ function renderListaMaterialesArco(lista, containerId) {
     const medida = escapeHtml(material.medida);
     const cantidad = escapeHtml(material.cantidad);
     const serie = escapeHtml(material.serie);
+    const ip = escapeHtml(material.ip || "");
+    const mac = escapeHtml(material.mac || "");
     const foto = escapeHtml(material.foto);
     const imagen = foto
       ? `<img src="../uploads/materiales/${foto}" class="material-image" alt="${nombre}">`
@@ -1997,11 +2019,16 @@ function renderListaMaterialesArco(lista, containerId) {
               <span>${serie}</span>
             </div>
           ` : ""}
+          ${ip ? `
+            <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${ip}</span>` : ''}
+          ${mac ? `<span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${mac}</span>` : ''}
         </div>
 
         <input type="hidden" name="material_id[]" value="${escapeHtml(material.id)}">
         <input type="hidden" name="cantidad[]" value="${cantidad}">
         <input type="hidden" name="serie[]" value="${serie}">
+        <input type="hidden" name="ip[]" value="${ip}">
+        <input type="hidden" name="mac[]" value="${mac}">
       </div>
     `;
   }).join("");
@@ -2470,11 +2497,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const esPieza = materialSeleccionadoArco.medida === "pz";
     const tieneSerie = document.getElementById("checkSerie")?.checked;
     const serie = document.getElementById("serieInput")?.value.trim() || "";
+
+    const tieneIp = document.getElementById('checkIp').checked;
+    const ip = document.getElementById('ipInput').value.trim();
+
+    const tieneMac = document.getElementById('checkMac').checked;
+    const mac = document.getElementById('macInput').value.trim();
+
     const cantidad = esPieza ? "1" : (document.getElementById("cantidadInput")?.value || "");
     const cantidadNumero = parseFloat(cantidad);
 
     if (tieneSerie && !serie) {
       alert("Ingrese la serie");
+      return;
+    }
+
+    if (tieneIp && ip === '') {
+      alert('Ingrese la dirección IP');
+      return;
+    }
+    if (tieneMac && mac === '') {
+      alert('Ingrese la dirección MAC');
       return;
     }
 
@@ -2492,6 +2535,8 @@ document.addEventListener("DOMContentLoaded", () => {
       nombre: materialSeleccionadoArco.nombre,
       medida: materialSeleccionadoArco.medida,
       serie: tieneSerie ? serie : "",
+      ip: tieneIp ? ip : "",
+      mac: tieneMac ? mac : "",
       cantidad: cantidadNormalizada,
       foto: materialSeleccionadoArco.foto,
       relacion_id: materialContextoActivo === "editar" && materialOperacionActiva === "actualizar" && materialEditarIndex !== null
@@ -3345,4 +3390,69 @@ document.addEventListener("click", (event) => {
       link.remove();
     }, index * 180);
   });
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Elementos de Serie
+  const checkSerie = document.getElementById('checkSerie');
+  const serieContainer = document.getElementById('serieContainer');
+  const serieInput = document.getElementById('serieInput');
+
+  // Elementos de IP
+  const checkIp = document.getElementById('checkIp');
+  const ipContainer = document.getElementById('ipContainer');
+  const ipInput = document.getElementById('ipInput');
+
+  // Elementos de MAC
+  const checkMac = document.getElementById('checkMac');
+  const macContainer = document.getElementById('macContainer');
+  const macInput = document.getElementById('macInput');
+
+  // Evento Switch Serie
+  if (checkSerie) {
+    checkSerie.addEventListener('change', function () {
+      if (this.checked) {
+        serieContainer.classList.remove('d-none');
+        setTimeout(() => serieInput.focus(), 100);
+      } else {
+        serieContainer.classList.add('d-none');
+        serieInput.value = '';
+      }
+    });
+  }
+
+  // Evento Switch IP
+  if (checkIp) {
+    checkIp.addEventListener('change', function () {
+      if (this.checked) {
+        ipContainer.classList.remove('d-none');
+        setTimeout(() => ipInput.focus(), 100);
+      } else {
+        ipContainer.classList.add('d-none');
+        ipInput.value = '';
+      }
+    });
+  }
+
+  // Evento Switch MAC
+  if (checkMac) {
+    checkMac.addEventListener('change', function () {
+      if (this.checked) {
+        macContainer.classList.remove('d-none');
+        setTimeout(() => macInput.focus(), 100);
+      } else {
+        macContainer.classList.add('d-none');
+        macInput.value = '';
+      }
+    });
+  }
+
+  // Autoformato para la dirección MAC (convierte a mayúsculas y coloca dos puntos automáticamente)
+  if (macInput) {
+    macInput.addEventListener('input', function () {
+      let val = this.value.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+      let formatted = val.match(/.{1,2}/g)?.join(':') || '';
+      this.value = formatted.substring(0, 17);
+    });
+  }
 });

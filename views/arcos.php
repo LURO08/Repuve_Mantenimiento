@@ -1016,22 +1016,54 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                 <div class="alert alert-success py-2 text-center fw-semibold" id="materialSeleccionado">
                   Ningún material seleccionado
                 </div>
-                <!-- CHECK SERIE -->
-                <div class="form-check form-switch mb-4">
+                <!-- ================= CONFIGURACIÓN SERIE ================= -->
+                <div class="form-check form-switch mb-3">
                   <input class="form-check-input" type="checkbox" id="checkSerie">
                   <label class="form-check-label fw-semibold" for="checkSerie">
                     Este material tiene número de serie
                   </label>
                 </div>
-                <!-- INPUT SERIE -->
-                <div id="serieContainer" class="d-none mb-4">
+
+                <div id="serieContainer" class="d-none mb-3">
                   <label class="form-label fw-bold text-secondary">
-                    <i class="bi bi-upc-scan me-1"></i>
-                    Número de Serie
+                    <i class="bi bi-upc-scan me-1"></i> Número de Serie
                   </label>
-                  <input type="text" id="serieInput" class="form-control form-control-lg"
-                    placeholder="Ingrese el número de serie">
+                  <input type="text" id="serieInput" class="form-control"
+                    placeholder="Ej. SN-84920492">
                 </div>
+
+
+
+                <!-- ================= 1. NÚMERO DE SERIE (OPCIONAL) ================= -->
+
+                <!-- ================= 2. DIRECCIÓN IP (OPCIONAL) ================= -->
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="checkIp">
+                  <label class="form-check-label fw-semibold" for="checkIp">
+                    Tiene dirección IP asignada
+                  </label>
+                </div>
+                <div id="ipContainer" class="d-none mb-3">
+                  <div class="input-group">
+                    <span class="input-group-text bg-light text-primary"><i class="bi bi-hdd-network"></i></span>
+                    <input type="text" id="ipInput" class="form-control" placeholder="Ej. 192.168.1.50">
+                  </div>
+                </div>
+
+                <!-- ================= 3. DIRECCIÓN MAC (OPCIONAL) ================= -->
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="checkMac">
+                  <label class="form-check-label fw-semibold" for="checkMac">
+                    Tiene dirección MAC
+                  </label>
+                </div>
+                <div id="macContainer" class="d-none mb-3">
+                  <div class="input-group">
+                    <span class="input-group-text bg-light text-success"><i class="bi bi-ethernet"></i></span>
+                    <input type="text" id="macInput" class="form-control text-uppercase" placeholder="Ej. AA:BB:CC:DD:EE:FF" maxlength="17">
+                  </div>
+                </div>
+
                 <!-- CANTIDAD -->
                 <div id="cantidadContainer" class="d-none mb-4">
                   <label class="form-label fw-bold text-secondary">
