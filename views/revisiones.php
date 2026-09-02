@@ -629,15 +629,44 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
 
               <div class="modal-material-fields">
                 <div id="DatosSeries" class="d-none">
-                  <div class="form-check form-switch modal-serie-switch">
+                  <!-- SERIE -->
+                  <div class="form-check form-switch modal-serie-switch mb-2">
                     <input class="form-check-input" type="checkbox" id="modalCheckSerie">
                     <label class="form-check-label fw-semibold" for="modalCheckSerie">
                       Este material tiene numero de serie
                     </label>
                   </div>
-                  <div id="modalSerieField" class="modal-serie-input d-none">
-                    <label class="form-label small">Numero de serie</label>
+                  <div id="modalSerieField" class="modal-serie-input d-none mb-3">
+                    <label class="form-label small text-muted"><i class="bi bi-upc-scan me-1"></i> Número de serie</label>
                     <input type="text" id="modalSerieInput" class="form-control form-control-sm" placeholder="Ingrese el numero de serie">
+                  </div>
+
+                  <!-- IP -->
+                  <div class="form-check form-switch modal-serie-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="modalCheckIp">
+                    <label class="form-check-label fw-semibold" for="modalCheckIp">
+                      Tiene dirección IP asignada
+                    </label>
+                  </div>
+                  <div id="modalIpField" class="modal-serie-input d-none mb-3">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-light text-primary"><i class="bi bi-hdd-network"></i></span>
+                      <input type="text" id="modalIpInput" class="form-control form-control-sm" placeholder="Ej. 192.168.1.50">
+                    </div>
+                  </div>
+
+                  <!-- MAC -->
+                  <div class="form-check form-switch modal-serie-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="modalCheckMac">
+                    <label class="form-check-label fw-semibold" for="modalCheckMac">
+                      Tiene dirección MAC
+                    </label>
+                  </div>
+                  <div id="modalMacField" class="modal-serie-input d-none mb-3">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-light text-success"><i class="bi bi-ethernet"></i></span>
+                      <input type="text" id="modalMacInput" class="form-control form-control-sm text-uppercase" placeholder="Ej. AA:BB:CC:DD:EE:FF" maxlength="17">
+                    </div>
                   </div>
                 </div>
 

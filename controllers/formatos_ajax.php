@@ -41,7 +41,7 @@ if (!$arco) {
 if ($action === 'materials') {
     $baseStmt = $pdo->prepare("
         SELECT am.id AS relacion_id, am.material_id, m.nombre AS material, m.medida,
-               am.cantidad, am.serie
+               am.cantidad, am.serie, am.ip, am.mac
         FROM arco_material am
         JOIN materiales m ON m.id = am.material_id
         WHERE am.arco_id = ?
@@ -51,7 +51,7 @@ if ($action === 'materials') {
     $materialesBase = $baseStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $historyStmt = $pdo->prepare("
-        SELECT rm.arco_material_id AS relacion_id, rm.material_id, rm.cantidad, rm.serie,
+        SELECT rm.arco_material_id AS relacion_id, rm.material_id, rm.cantidad, rm.serie, rm.ip, rm.mac,
                rm.accion, m.nombre AS material, m.medida
         FROM revision_material rm
         JOIN revisiones r ON r.id = rm.revision_id

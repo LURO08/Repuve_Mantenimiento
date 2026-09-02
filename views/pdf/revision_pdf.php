@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include('../../config/db.php');
 
 if (!isset($_GET['id'])) {
@@ -85,8 +85,7 @@ $codigoFormato = 'INN-FOR-002';
                         </tr>
                     </table>
                 </div>
-        </div>
-
+            </div>
 
             <!-- I DATOS -->
             <div class="seccion">
@@ -122,10 +121,6 @@ $codigoFormato = 'INN-FOR-002';
                             <span style="margin-left: 25px;">[ <?= $tipoMant === 'Correctivo' ? 'X' : '&nbsp;' ?> ] Correctivo</span>
                         </td>
                     </tr>
-
-                    <tr>
-                        
-                    </tr>
                 </table>
             </div>
 
@@ -135,8 +130,10 @@ $codigoFormato = 'INN-FOR-002';
 
                 <table class="tabla-componentes">
                     <tr>
-                        <th style="width:70%;">COMPONENTE</th>
-                        <th style="width:30%;">SERIE</th>
+                        <th style="width:45%;">COMPONENTE</th>
+                        <th style="width:20%;">SERIE</th>
+                        <th style="width:17%;">IP</th>
+                        <th style="width:18%;">MAC</th>
                     </tr>
 
                     <?php if (count($materiales) > 0): ?>
@@ -150,13 +147,19 @@ $codigoFormato = 'INN-FOR-002';
                                     <?= $m['medida'] == 'm' ? 'Metros' : 'Piezas' ?>)
                                 </td>
                                 <td style="text-align:center;">
-                                    <?= $m['serie'] ?: 'N/A' ?>
+                                    <?= htmlspecialchars($m['serie'] ?: 'N/A') ?>
+                                </td>
+                                <td style="text-align:center;">
+                                    <?= htmlspecialchars($m['ip'] ?: 'N/A') ?>
+                                </td>
+                                <td style="text-align:center;">
+                                    <?= htmlspecialchars($m['mac'] ?: 'N/A') ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="2" style="text-align:center;">
+                            <td colspan="4" style="text-align:center;">
                                 No hay materiales registrados
                             </td>
                         </tr>
@@ -175,7 +178,7 @@ $codigoFormato = 'INN-FOR-002';
                 </div>
             </div>
 
-          <!-- FIRMA -->
+            <!-- FIRMA -->
             <div class="firmas">
                 <div class="firma">
                     <div class="nombre-firma">

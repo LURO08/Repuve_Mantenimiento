@@ -852,6 +852,8 @@ document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
           medida: m.medida,
           cantidad: 0,
           series: [],
+          ip: m.ip || "",
+          mac: m.mac || "",
           foto: m.foto,
           id: m.id,
           fecha_instalacion: m.fecha_instalacion
@@ -877,6 +879,8 @@ document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
           medida: m.medida,
           cantidad: 0,
           series: [],
+          ip: m.ip || "",
+          mac: m.mac || "",
           foto: m.foto,
           fecha_mantenimiento: m.fecha_mantenimiento
         };
@@ -981,6 +985,8 @@ Object.keys(materialesAgrupados).forEach(key => {
             medida: actual.medida,
             cantidad: actual.cantidad,
             series: seriesActuales,
+            ip: actual.ip || "",
+            mac: actual.mac || "",
             foto: actual.foto,
             fecha_mantenimiento: actual.fecha_mantenimiento,
             fecha_instalacion: actual.fecha_instalacion,
@@ -1085,6 +1091,17 @@ Object.keys(materialesAgrupados).forEach(key => {
           ` : ""}
 
           ${seriesHtml}
+          ${m.ip ? `
+            <div class="mt-2">
+              <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtml(m.ip)}</span>
+            </div>
+          ` : ""}
+          ${m.mac ? `
+            <div class="mt-1">
+              <span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtml(m.mac)}</span>
+            </div>
+          ` : ""}
+
           ${ esNuevo && anterior ? `
             
             <div class="mt-2">
@@ -1125,6 +1142,16 @@ Object.keys(materialesAgrupados).forEach(key => {
                     </div>`
                   : `<div class="text-muted small mt-2">Sin series</div>`
                 }
+                ${anterior.ip ? `
+                  <div class="mt-1">
+                    <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtml(anterior.ip)}</span>
+                  </div>
+                ` : ""}
+                ${anterior.mac ? `
+                  <div class="mt-1">
+                    <span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtml(anterior.mac)}</span>
+                  </div>
+                ` : ""}
                 ${textoFechaMaterial(anterior) ? `<div class="text-muted small mt-2"><i class="bi bi-calendar-event"></i> ${textoFechaMaterial(anterior)}</div>` : ""}
 
               </div>
@@ -1238,6 +1265,18 @@ document.addEventListener("click", function(e) {
                                  <strong>Serie:</strong>
                                  ${obtenerSeriesMaterial(anterior).join(", ") || "Sin serie"}
                              </div>
+                             ${anterior.ip ? `
+                               <div>
+                                 <strong>IP:</strong>
+                                 <span class="badge bg-light text-dark border ms-1"><i class="bi bi-hdd-network text-primary me-1"></i>${escapeHtml(anterior.ip)}</span>
+                               </div>
+                             ` : ""}
+                             ${anterior.mac ? `
+                               <div>
+                                 <strong>MAC:</strong>
+                                 <span class="badge bg-light text-dark border ms-1"><i class="bi bi-ethernet text-success me-1"></i>${escapeHtml(anterior.mac)}</span>
+                               </div>
+                             ` : ""}
                              <div>
                                  <strong>Fecha:</strong>
                                  ${textoFechaMaterial(anterior) || "Sin fecha"}
@@ -1401,6 +1440,8 @@ document.addEventListener("DOMContentLoaded", () => {
           nombre: mat.nombre,
           medida: mat.medida,
           serie: mat.serie || "",
+          ip: mat.ip || "",
+          mac: mat.mac || "",
           cantidad: (mat.medida === "pz" ? "1" : (mat.cantidad || "1")),
           foto: mat.foto || "",
           relacion_id: mat.relacion_id || ""
@@ -1571,6 +1612,8 @@ function renderInfraestructurasComponentes(infraestructuras = []) {
               : `<div class="d-flex align-items-center justify-content-center bg-secondary text-white material-img">Sin foto</div>`;
             const medida = m.medida === "m" ? "metros" : (m.medida === "pz" ? "piezas" : (m.medida || ""));
             const serie = m.serie ? `<span class="series-chip">${escapeHtml(m.serie)}</span>` : `<span class="text-muted small">Sin serie</span>`;
+            const ipBadge = m.ip ? `<span class="badge bg-light text-dark border ms-1"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtml(m.ip)}</span>` : "";
+            const macBadge = m.mac ? `<span class="badge bg-light text-dark border ms-1"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtml(m.mac)}</span>` : "";
             const fecha = m.fecha_instalacion ? `<div class="text-muted small mt-2"><i class="bi bi-calendar-event"></i> Instalado: ${escapeHtml(formatearFechaHoraMaterial(m.fecha_instalacion))}</div>` : "";
 
             return `
@@ -1585,7 +1628,7 @@ function renderInfraestructurasComponentes(infraestructuras = []) {
                   </div>
                   <span class="badge bg-primary fs-6 px-3 py-2">${escapeHtml(m.cantidad || 1)}</span>
                 </div>
-                <div class="mt-2">${serie}</div>
+                <div class="mt-2 d-flex flex-wrap gap-1 align-items-center">${serie}${ipBadge}${macBadge}</div>
                 ${fecha}
               </div>
             `;
@@ -1939,9 +1982,15 @@ function resetModalAgregarMaterial() {
   document.getElementById("buscarMaterial") && (document.getElementById("buscarMaterial").value = "");
   document.getElementById("checkSerie") && (document.getElementById("checkSerie").checked = false);
   document.getElementById("serieInput") && (document.getElementById("serieInput").value = "");
+  document.getElementById("checkIp") && (document.getElementById("checkIp").checked = false);
+  document.getElementById("ipInput") && (document.getElementById("ipInput").value = "");
+  document.getElementById("checkMac") && (document.getElementById("checkMac").checked = false);
+  document.getElementById("macInput") && (document.getElementById("macInput").value = "");
   document.getElementById("cantidadInput") && (document.getElementById("cantidadInput").value = "");
   document.getElementById("materialSeleccionado") && (document.getElementById("materialSeleccionado").innerHTML = "Ningún material seleccionado");
   document.getElementById("serieContainer")?.classList.add("d-none");
+  document.getElementById("ipContainer")?.classList.add("d-none");
+  document.getElementById("macContainer")?.classList.add("d-none");
   document.getElementById("cantidadContainer")?.classList.add("d-none");
   document.getElementById("camposDinamicos")?.classList.add("d-none");
   document.getElementById("configuracionColumna")?.classList.add("d-none");
@@ -2072,6 +2121,12 @@ function seleccionarMaterialEnModal(material) {
   const checkSerie = document.getElementById("checkSerie");
   const serieInput = document.getElementById("serieInput");
   const serieContainer = document.getElementById("serieContainer");
+  const checkIp = document.getElementById("checkIp");
+  const ipInput = document.getElementById("ipInput");
+  const ipContainer = document.getElementById("ipContainer");
+  const checkMac = document.getElementById("checkMac");
+  const macInput = document.getElementById("macInput");
+  const macContainer = document.getElementById("macContainer");
   const cantidadContainer = document.getElementById("cantidadContainer");
   const cantidadInput = document.getElementById("cantidadInput");
   const unidadMedida = document.getElementById("unidadMedida");
@@ -2080,6 +2135,19 @@ function seleccionarMaterialEnModal(material) {
   if (checkSerie) checkSerie.checked = Boolean(material.serie);
   if (serieInput) serieInput.value = material.serie || "";
   serieContainer?.classList.toggle("d-none", !material.serie);
+
+  if (checkIp) checkIp.checked = Boolean(material.ip);
+  if (ipInput) ipInput.value = material.ip || "";
+  ipContainer?.classList.toggle("d-none", !material.ip);
+
+  if (checkMac) checkMac.checked = Boolean(material.mac);
+  if (macInput) macInput.value = material.mac || "";
+  macContainer?.classList.toggle("d-none", !material.mac);
+
+  checkSerie?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
+  checkIp?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
+  checkMac?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
+
   cantidadContainer?.classList.toggle("d-none", esPieza);
 
   if (unidadMedida) unidadMedida.textContent = material.medida;
@@ -2448,15 +2516,36 @@ document.addEventListener("DOMContentLoaded", () => {
         materialSeleccionado.innerHTML = `<i class="bi bi-box-seam me-2"></i>${escapeHtml(materialSeleccionadoArco.nombre)}`;
       }
 
-      checkSerie && (checkSerie.checked = false);
-      document.getElementById("serieInput") && (document.getElementById("serieInput").value = "");
-      document.getElementById("serieContainer")?.classList.add("d-none");
+      const esPieza = materialSeleccionadoArco.medida === "pz";
+
+      const checkSerie = document.getElementById("checkSerie");
+      const serieInput = document.getElementById("serieInput");
+      const serieContainer = document.getElementById("serieContainer");
+      if (checkSerie) checkSerie.checked = false;
+      if (serieInput) serieInput.value = "";
+      serieContainer?.classList.add("d-none");
+
+      const checkIp = document.getElementById("checkIp");
+      const ipInput = document.getElementById("ipInput");
+      const ipContainer = document.getElementById("ipContainer");
+      if (checkIp) checkIp.checked = false;
+      if (ipInput) ipInput.value = "";
+      ipContainer?.classList.add("d-none");
+
+      const checkMac = document.getElementById("checkMac");
+      const macInput = document.getElementById("macInput");
+      const macContainer = document.getElementById("macContainer");
+      if (checkMac) checkMac.checked = false;
+      if (macInput) macInput.value = "";
+      macContainer?.classList.add("d-none");
+
+      checkSerie?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
+      checkIp?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
+      checkMac?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
 
       const cantidadContainer = document.getElementById("cantidadContainer");
       const cantidadInput = document.getElementById("cantidadInput");
       const unidadMedida = document.getElementById("unidadMedida");
-
-      const esPieza = materialSeleccionadoArco.medida === "pz";
 
       if (esPieza) {
         cantidadContainer?.classList.add("d-none");
@@ -2692,6 +2781,8 @@ document.addEventListener("DOMContentLoaded", () => {
           medida: material.medida,
           cantidad: material.cantidad || "1",
           serie: material.serie || "",
+          ip: material.ip || "",
+          mac: material.mac || "",
           foto: material.foto || ""
         }));
         renderEditarInfraMateriales();

@@ -381,6 +381,8 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
             data.forEach((m,index) => {
                 const medidaLabel = m.medida === 'm' ? 'metros' : (m.medida === 'pz' ? 'piezas' : m.medida);
                 const relacionId = m.relacion_id || m.arco_material_id || '';
+                const ip = m.ip || '';
+                const mac = m.mac || '';
                 html += `
                     <div class="contenedor-material" >
                         <div class="card material-card shadow-sm"
@@ -392,6 +394,10 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
                           data-relacion_id="${relacionId}"
                           data-serie="${m.serie || ''}"
                           data-original-serie="${m.serie || ''}"
+                          data-ip="${ip}"
+                          data-original-ip="${ip}"
+                          data-mac="${mac}"
+                          data-original-mac="${mac}"
                           data-cantidad="${m.cantidad || 1}"
                           data-original-cantidad="${m.cantidad || 1}"
                           title="${m.material}"
@@ -425,6 +431,18 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
                                     </small>
                                 ` : ''}
 
+                            ${ip ? `
+                              <small class="text-muted d-block mb-1">
+                                <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtmlRevision(ip)}</span>
+                              </small>
+                            ` : ''}
+
+                            ${mac ? `
+                              <small class="text-muted d-block mb-1">
+                                <span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtmlRevision(mac)}</span>
+                              </small>
+                            ` : ''}
+
                                 <div class="material-actions mt-auto">
                                   <button type="button"
                                           class="btn btn-sm btn-outline-primary btn-edit-material"
@@ -436,6 +454,8 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
                                           data-material="${m.material}"
                                           data-medida="${medidaLabel}"
                                           data-serie="${m.serie || ''}"
+                                          data-ip="${ip}"
+                                          data-mac="${mac}"
                                           data-cantidad="${m.cantidad}">
                                        Editar
                                   </button>
@@ -471,6 +491,8 @@ function bindMaterialCards() {
             const materialId = this.dataset.materialId || this.dataset.material_id;
             const arcoMaterialId = obtenerRelacionOriginalMaterial(this);
             const serie = this.dataset.serie || '';
+            const ip = this.dataset.ip || '';
+            const mac = this.dataset.mac || '';
             const cantidad = this.dataset.cantidad || 1;
             if (!arcoMaterialId) {
                 alert('Este material no tiene una relacion valida con el arco o sitio. Recarga la pagina antes de registrarlo como cambio.');
@@ -494,6 +516,8 @@ function bindMaterialCards() {
                     <input type="hidden" name="materiales[${uid}][material_id]" value="${materialId}">
                     <input type="hidden" name="materiales[${uid}][cantidad]" value="${cantidad}">
                     <input type="hidden" name="materiales[${uid}][serie]" value="${serie}">
+                    <input type="hidden" name="materiales[${uid}][ip]" value="${ip}">
+                    <input type="hidden" name="materiales[${uid}][mac]" value="${mac}">
                     <input type="hidden" name="materiales[${uid}][accion]" value="cambio">
                     <input type="hidden" name="materiales[${uid}][cambiado]" value="1">
                 `;
@@ -523,6 +547,28 @@ function aplicarEstadoSerieModal(tieneSerie, enfocar = false) {
   if (tieneSerie && enfocar) setTimeout(() => serieInput?.focus(), 100);
 }
 
+function aplicarEstadoIpModal(tieneIp, enfocar = false) {
+  const checkIp = document.getElementById('modalCheckIp');
+  const ipField = document.getElementById('modalIpField');
+  const ipInput = document.getElementById('modalIpInput');
+
+  if (checkIp) checkIp.checked = Boolean(tieneIp);
+  ipField?.classList.toggle('d-none', !tieneIp);
+  if (!tieneIp && ipInput) ipInput.value = '';
+  if (tieneIp && enfocar) setTimeout(() => ipInput?.focus(), 100);
+}
+
+function aplicarEstadoMacModal(tieneMac, enfocar = false) {
+  const checkMac = document.getElementById('modalCheckMac');
+  const macField = document.getElementById('modalMacField');
+  const macInput = document.getElementById('modalMacInput');
+
+  if (checkMac) checkMac.checked = Boolean(tieneMac);
+  macField?.classList.toggle('d-none', !tieneMac);
+  if (!tieneMac && macInput) macInput.value = '';
+  if (tieneMac && enfocar) setTimeout(() => macInput?.focus(), 100);
+}
+
 function setMaterialSeleccionadoModal(material, options = {}) {
   const input = document.getElementById('modalSelectMaterial');
   const resumen = document.getElementById('modalMaterialSeleccionado');
@@ -548,6 +594,8 @@ function setMaterialSeleccionadoModal(material, options = {}) {
 
   if (options.resetSerie) {
     aplicarEstadoSerieModal(false);
+    aplicarEstadoIpModal(false);
+    aplicarEstadoMacModal(false);
   }
 }
 
@@ -652,14 +700,33 @@ function bindEditButtons() {
 
             document.getElementById('modalMaterialId').value = btn.dataset.uid;
             const serieActual = normalizarSerieRevision(card.dataset.serie);
+            const ipActual = String(card.dataset.ip || '').trim();
+            const macActual = String(card.dataset.mac || '').trim();
+
             document.getElementById('modalSerieInput').value = serieActual;
             aplicarEstadoSerieModal(Boolean(serieActual));
-            document.getElementById('modalCantidadInput').value = card.dataset.cantidad;
+
+            document.getElementById('modalIpInput').value = ipActual;
+            aplicarEstadoIpModal(Boolean(ipActual));
+
+            document.getElementById('modalMacInput').value = macActual;
+            aplicarEstadoMacModal(Boolean(macActual));
+
+            document.getElementById('modalCantidadInput').value = card.dataset.cantidad || '1';
 
             cargarMaterialesModalMantenimiento(id).then(() => {
               const serieActualizada = normalizarSerieRevision(card.dataset.serie);
+              const ipActualizada = String(card.dataset.ip || '').trim();
+              const macActualizada = String(card.dataset.mac || '').trim();
+
               document.getElementById('modalSerieInput').value = serieActualizada;
               aplicarEstadoSerieModal(Boolean(serieActualizada));
+
+              document.getElementById('modalIpInput').value = ipActualizada;
+              aplicarEstadoIpModal(Boolean(ipActualizada));
+
+              document.getElementById('modalMacInput').value = macActualizada;
+              aplicarEstadoMacModal(Boolean(macActualizada));
             });
             
             modal.show();
@@ -687,13 +754,21 @@ function bindAddMaterialButton() {
     const uid = `agregado_${Date.now()}_${++contadorMaterialAgregadoRevision}`;
     document.getElementById('modalMaterialId').value = uid;
     document.getElementById('modalSerieInput').value = '';
+    document.getElementById('modalIpInput').value = '';
+    document.getElementById('modalMacInput').value = '';
     document.getElementById('modalCantidadInput').value = '1';
     aplicarEstadoSerieModal(false);
+    aplicarEstadoIpModal(false);
+    aplicarEstadoMacModal(false);
 
     cargarMaterialesModalMantenimiento('').then(() => {
       document.getElementById('modalSerieInput').value = '';
+      document.getElementById('modalIpInput').value = '';
+      document.getElementById('modalMacInput').value = '';
       document.getElementById('modalCantidadInput').value = '1';
       aplicarEstadoSerieModal(false);
+      aplicarEstadoIpModal(false);
+      aplicarEstadoMacModal(false);
     });
 
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -723,7 +798,9 @@ function obtenerMaterialOriginal(card) {
   return {
     materialId: card?.dataset?.originalMaterialId || card?.dataset?.materialId || card?.dataset?.material_id || '',
     cantidad: card?.dataset?.originalCantidad || card?.dataset?.cantidad || '1',
-    serie: card?.dataset?.originalSerie || ''
+    serie: card?.dataset?.originalSerie || '',
+    ip: card?.dataset?.originalIp || '',
+    mac: card?.dataset?.originalMac || ''
   };
 }
 
@@ -735,7 +812,11 @@ function actualizarCamposModalSeriePorMedida(medida) {
 
   datosCantidad?.classList.toggle('d-none', !esMetro);
   datosSerie?.classList.toggle('d-none', esMetro);
-  if (esMetro) aplicarEstadoSerieModal(false);
+  if (esMetro) {
+    aplicarEstadoSerieModal(false);
+    aplicarEstadoIpModal(false);
+    aplicarEstadoMacModal(false);
+  }
   if (medidaLabel) medidaLabel.textContent = etiquetaMedidaModal(medida);
 }
 
@@ -751,7 +832,7 @@ function asegurarInputMaterial(bloque, uid, campo, valor) {
   input.value = valor ?? '';
 }
 
-function sincronizarMaterialHidden(uid, materialId, cantidad, serie, arcoMaterialId = '', accion = 'cambio') {
+function sincronizarMaterialHidden(uid, materialId, cantidad, serie, ip = '', mac = '', arcoMaterialId = '', accion = 'cambio') {
   const hidden = document.getElementById('materialesHidden');
   if (!hidden) return false;
 
@@ -772,6 +853,8 @@ function sincronizarMaterialHidden(uid, materialId, cantidad, serie, arcoMateria
   asegurarInputMaterial(bloque, uid, 'material_id', materialId);
   asegurarInputMaterial(bloque, uid, 'cantidad', cantidad);
   asegurarInputMaterial(bloque, uid, 'serie', serie);
+  asegurarInputMaterial(bloque, uid, 'ip', ip);
+  asegurarInputMaterial(bloque, uid, 'mac', mac);
   asegurarInputMaterial(bloque, uid, 'accion', accion);
   asegurarInputMaterial(bloque, uid, 'cambiado', '1');
   return true;
@@ -806,7 +889,7 @@ function marcarMaterialRetirado(card) {
     retireBtn.title = 'Cancelar retiro';
   }
 
-  sincronizarMaterialHidden(uid, original.materialId, original.cantidad, original.serie, arcoMaterialId, 'retiro');
+  sincronizarMaterialHidden(uid, original.materialId, original.cantidad, original.serie, original.ip, original.mac, arcoMaterialId, 'retiro');
 }
 
 function cancelarRetiroMaterial(card) {
@@ -875,7 +958,7 @@ function asegurarGridMaterialesMantenimiento() {
   return grid;
 }
 
-function crearTarjetaMaterialAgregado(uid, materialId, nombre, medida, foto, cantidad, serie) {
+function crearTarjetaMaterialAgregado(uid, materialId, nombre, medida, foto, cantidad, serie, ip = '', mac = '') {
   const grid = asegurarGridMaterialesMantenimiento();
   if (!grid) return null;
 
@@ -893,6 +976,10 @@ function crearTarjetaMaterialAgregado(uid, materialId, nombre, medida, foto, can
       data-relacion_id=""
       data-serie="${escapeHtmlRevision(serie || '')}"
       data-original-serie="${escapeHtmlRevision(serie || '')}"
+      data-ip="${escapeHtmlRevision(ip || '')}"
+      data-original-ip="${escapeHtmlRevision(ip || '')}"
+      data-mac="${escapeHtmlRevision(mac || '')}"
+      data-original-mac="${escapeHtmlRevision(mac || '')}"
       data-cantidad="${escapeHtmlRevision(cantidad || '1')}"
       data-original-cantidad="${escapeHtmlRevision(cantidad || '1')}"
       title="${escapeHtmlRevision(nombre || '')}">
@@ -926,6 +1013,18 @@ function crearTarjetaMaterialAgregado(uid, materialId, nombre, medida, foto, can
           </small>
         ` : ''}
 
+        ${ip ? `
+          <small class="text-muted d-block mb-1 ip-container">
+            <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtmlRevision(ip)}</span>
+          </small>
+        ` : ''}
+
+        ${mac ? `
+          <small class="text-muted d-block mb-1 mac-container">
+            <span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtmlRevision(mac)}</span>
+          </small>
+        ` : ''}
+
         <div class="material-actions mt-auto">
           <button type="button"
                   class="btn btn-sm btn-outline-primary btn-edit-material"
@@ -937,6 +1036,8 @@ function crearTarjetaMaterialAgregado(uid, materialId, nombre, medida, foto, can
                   data-material="${escapeHtmlRevision(nombre || '')}"
                   data-medida="${escapeHtmlRevision(medidaLabel)}"
                   data-serie="${escapeHtmlRevision(serie || '')}"
+                  data-ip="${escapeHtmlRevision(ip || '')}"
+                  data-mac="${escapeHtmlRevision(mac || '')}"
                   data-cantidad="${escapeHtmlRevision(cantidad || '1')}">
                Editar
           </button>
@@ -964,6 +1065,10 @@ function guardarCambiosMaterialMantenimiento() {
   const cantidad = esMetro ? (document.getElementById('modalCantidadInput')?.value || '1') : '1';
   const tieneSerie = !esMetro && Boolean(document.getElementById('modalCheckSerie')?.checked);
   const serie = tieneSerie ? normalizarSerieRevision(document.getElementById('modalSerieInput')?.value) : '';
+  const tieneIp = !esMetro && Boolean(document.getElementById('modalCheckIp')?.checked);
+  const ip = tieneIp ? String(document.getElementById('modalIpInput')?.value || '').trim() : '';
+  const tieneMac = !esMetro && Boolean(document.getElementById('modalCheckMac')?.checked);
+  const mac = tieneMac ? String(document.getElementById('modalMacInput')?.value || '').trim() : '';
   const card = Array.from(document.querySelectorAll('#materialesContainer .material-card'))
     .find(item => item.dataset.uid === uid);
 
@@ -972,10 +1077,18 @@ function guardarCambiosMaterialMantenimiento() {
     alert('Ingrese la serie');
     return;
   }
+  if (tieneIp && !ip) {
+    alert('Ingrese la dirección IP');
+    return;
+  }
+  if (tieneMac && !mac) {
+    alert('Ingrese la dirección MAC');
+    return;
+  }
 
   if (modo === 'agregado' && !card) {
-    crearTarjetaMaterialAgregado(uid, materialId, nombre, medida, foto, cantidad, serie);
-    sincronizarMaterialHidden(uid, materialId, cantidad, serie, '', 'agregado');
+    crearTarjetaMaterialAgregado(uid, materialId, nombre, medida, foto, cantidad, serie, ip, mac);
+    sincronizarMaterialHidden(uid, materialId, cantidad, serie, ip, mac, '', 'agregado');
     bootstrap.Modal.getInstance(document.getElementById('modalSerie'))?.hide();
     return;
   }
@@ -994,6 +1107,8 @@ function guardarCambiosMaterialMantenimiento() {
   card.setAttribute('data-material_id', materialId);
   card.dataset.cantidad = cantidad;
   card.dataset.serie = serie;
+  card.dataset.ip = ip;
+  card.dataset.mac = mac;
   card.classList.remove('border-danger', 'material-retirado');
   card.classList.add('border-success', 'border-3');
 
@@ -1007,6 +1122,8 @@ function guardarCambiosMaterialMantenimiento() {
     btn.dataset.material = nombre;
     btn.dataset.medida = etiquetaMedidaModal(medida);
     btn.dataset.serie = serie;
+    btn.dataset.ip = ip;
+    btn.dataset.mac = mac;
     btn.dataset.cantidad = cantidad;
   }
 
@@ -1049,7 +1166,31 @@ function guardarCambiosMaterialMantenimiento() {
     serieContainer?.remove();
   }
 
-  if (!sincronizarMaterialHidden(uid, materialId, cantidad, serie, arcoMaterialId, accionMaterial)) {
+  let ipContainer = card.querySelector('.ip-container');
+  if (ip) {
+    if (!ipContainer) {
+      ipContainer = document.createElement('small');
+      ipContainer.className = 'text-muted d-block mb-1 ip-container';
+      card.querySelector('.card-body')?.insertBefore(ipContainer, actions);
+    }
+    ipContainer.innerHTML = `<span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtmlRevision(ip)}</span>`;
+  } else {
+    ipContainer?.remove();
+  }
+
+  let macContainer = card.querySelector('.mac-container');
+  if (mac) {
+    if (!macContainer) {
+      macContainer = document.createElement('small');
+      macContainer.className = 'text-muted d-block mb-1 mac-container';
+      card.querySelector('.card-body')?.insertBefore(macContainer, actions);
+    }
+    macContainer.innerHTML = `<span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtmlRevision(mac)}</span>`;
+  } else {
+    macContainer?.remove();
+  }
+
+  if (!sincronizarMaterialHidden(uid, materialId, cantidad, serie, ip, mac, arcoMaterialId, accionMaterial)) {
     return;
   }
   bootstrap.Modal.getInstance(document.getElementById('modalSerie'))?.hide();
@@ -1063,170 +1204,23 @@ document.getElementById('btnGuardarSerie')?.addEventListener('click', function (
 document.getElementById('modalCheckSerie')?.addEventListener('change', function () {
   aplicarEstadoSerieModal(this.checked, this.checked);
 });
-      
-  // function guardarCambios() {
-  //   const rowId = document.getElementById('modalMaterialId').value;
-  //   const serie = document.getElementById('modalSerieInput').value;
-  //   const cantidad = document.getElementById('modalCantidadInput').value;
 
-  //   const card = document.querySelector(`.material-card[data-id="${rowId}"]`);
-  //   const hidden = document.getElementById('materialesHidden');
-
-  //   card.dataset.serie = serie;
-  //   card.dataset.cantidad = cantidad;
-
-  //   let bloque = hidden.querySelector(`.material-${rowId}`);
-
-  //   if (bloque) {
-  //       bloque.querySelector(`[name="materiales[${rowId}][serie]"]`).value = serie;
-  //       bloque.querySelector(`[name="materiales[${rowId}][cantidad]"]`).value = cantidad;
-  //   }
-  // }
-
-
-document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
-  btn.addEventListener('click', function () {
-
-    let materialesOriginal = JSON.parse(this.dataset.materiales);
-    let contenedor = document.getElementById("contenedorMateriales");
-
-    if (!materialesOriginal || materialesOriginal.length === 0) {
-      contenedor.innerHTML = `
-        <div class="text-center p-3">
-          <span class="badge bg-warning text-dark">
-            <i class="bi bi-exclamation-circle"></i> Sin materiales
-          </span>
-        </div>`;
-      return;
-    }
-
-    // ✅ AGRUPAR MATERIALES
-    let agrupados = {};
-
-    materialesOriginal.forEach(m => {
-      let key = m.material + "_" + m.medida;
-
-      if (!agrupados[key]) {
-        agrupados[key] = {
-          material: m.material,
-          medida: m.medida,
-          cantidad: 0,
-          series: [],
-          foto: m.foto
-        };
-      }
-
-      agrupados[key].cantidad += parseFloat(m.cantidad);
-
-      if (m.serie && m.serie.trim() !== "") {
-        agrupados[key].series.push(m.serie);
-      }
-    });
-
-    let materiales = Object.values(agrupados);
-
-    let html = `<div class="material-grid">`;
-
-    materiales.forEach((m, index) => {
-
-      let imagenHtml = (!m.foto || m.foto === "null" || m.foto.trim() === "")
-        ? `<div class="d-flex align-items-center justify-content-center bg-secondary text-white material-img">Sin foto</div>`
-        : `<img src="../uploads/materiales/${m.foto}" class="material-img">`;
-
-      let medida2 = m.medida === 'm' ? 'metros' : m.medida === 'pz' ? 'piezas' : m.medida;
-      if (medida2 === 'piezas' && m.cantidad === 1) medida2 = "pieza";
-
-      let seriesId = "series_" + index;
-      let totalSeries = m.series.length;
-
-      let seriesHtml = "";
-
-      if (totalSeries > 0) {
-
-        let chips = m.series.map(s => `<span class="series-chip">${s}</span>`).join("");
-
-        seriesHtml = `
-          <div class="mt-2">
-
-            <div class="d-flex justify-content-between align-items-center">
-              <small class="text-muted">
-                Series: ${totalSeries}
-              </small>
-
-              <button class="btn btn-sm btn-outline-primary series-btn"
-                      type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#${seriesId}">
-                Ver series <i class="bi bi-chevron-down"></i>
-              </button>
-            </div>
-
-            <div class="collapse" id="${seriesId}">
-              <div class="series-panel">
-                ${chips}
-              </div>
-            </div>
-
-          </div>
-        `;
-      }
-
-      html += `
-        <div class="material-card">
-
-          <div class="d-flex align-items-center gap-2 mb-2 justify-content-between">
-            <div class="d-flex align-items-center gap-2">
-              ${imagenHtml}
-              <div>
-                <div class="fw-bold">${m.material}</div>
-              </div>
-            </div>
-
-            <div class="d-flex  align-items-center">
-              <span class="badge bg-success fs-6 px-3 py-2 me-2">
-                ${m.cantidad}
-              </span>
-              <span class="text-muted small">${medida2}</span>
-            </div>
-          </div>
-
-          ${seriesHtml}
-
-        </div>
-      `;
-    });
-
-    html += `</div>`;
-    contenedor.innerHTML = html;
-
-    // ✅ ACTIVAR COLLAPSE DE SERIES (CORRECTO)
-    contenedor.querySelectorAll('.collapse').forEach(collapseEl => {
-
-      collapseEl.addEventListener('show.bs.collapse', function () {
-        let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
-        if (btn) {
-          btn.innerHTML = 'Ocultar series <i class="bi bi-chevron-up"></i>';
-        }
-      });
-
-      collapseEl.addEventListener('hide.bs.collapse', function () {
-        let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
-        if (btn) {
-          btn.innerHTML = 'Ver series <i class="bi bi-chevron-down"></i>';
-        }
-      });
-
-    });
-
-
-    // ✅ ACTIVAR TOOLTIP BOOTSTRAP
-    let tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
-    tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
-
-  });
-
-
+document.getElementById('modalCheckIp')?.addEventListener('change', function () {
+  aplicarEstadoIpModal(this.checked, this.checked);
 });
+
+document.getElementById('modalCheckMac')?.addEventListener('change', function () {
+  aplicarEstadoMacModal(this.checked, this.checked);
+});
+
+const modalMacInput = document.getElementById('modalMacInput');
+if (modalMacInput) {
+  modalMacInput.addEventListener('input', function () {
+    let val = this.value.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+    let formatted = val.match(/.{1,2}/g)?.join(':') || '';
+    this.value = formatted.substring(0, 17);
+  });
+}
 
 // Nuevo método para cargar evidencias al hacer clic en el botón (CORRECTO, MÁS COMPLETO Y CON MEJOR DISEÑO)
 function escapeHtmlRevision(value) {
@@ -1329,7 +1323,7 @@ function agruparMaterialesRevision(materiales) {
     const rowId = material.relacion_id || material.id || material.instancia || index;
     const accion = material.accion || "cambio";
     const key = esPieza
-      ? `${fechaKey}|${accion}|${material.material}|${material.medida}|${rowId}|${material.serie || ""}|${index}`
+      ? `${fechaKey}|${accion}|${material.material}|${material.medida}|${rowId}|${material.serie || ""}|${material.ip || ""}|${material.mac || ""}|${index}`
       : `${fechaKey}|${accion}|${material.material}|${material.medida}`;
 
     if (!grupos.has(key)) {
@@ -1338,6 +1332,8 @@ function agruparMaterialesRevision(materiales) {
         medida: material.medida,
         cantidad: 0,
         series: [],
+        ip: material.ip || "",
+        mac: material.mac || "",
         foto: material.foto,
         fecha_cambio: fecha,
         fecha_key: fechaKey,
@@ -1473,6 +1469,8 @@ function renderComponentesMantenimiento(btn) {
                   ${escapeHtmlRevision(fechaTexto)}
                 </div>
                 ${renderSeriesRevision(m.series || [], globalIndex)}
+                ${m.ip ? `<div class="mt-1"><span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtmlRevision(m.ip)}</span></div>` : ''}
+                ${m.mac ? `<div class="mt-1"><span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtmlRevision(m.mac)}</span></div>` : ''}
               </div>
             `;
           }).join("")}
@@ -1791,6 +1789,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const total = rows.querySelectorAll(".infra-revision-material-row").length;
     if (total > 1) {
       btn.closest(".infra-revision-material-row")?.remove();
+    }
+  });
+
+  rows.addEventListener("input", e => {
+    if (e.target.name === "infra_mac[]") {
+      let val = e.target.value.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+      let formatted = val.match(/.{1,2}/g)?.join(':') || '';
+      e.target.value = formatted.substring(0, 17);
     }
   });
 
