@@ -1223,6 +1223,8 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                 <option value="Reubicacion">Reubicacion</option>
                 <option value="Sustitucion de arco">Sustitucion de arco</option>
                 <option value="Sin operacion">Sin operacion</option>
+                <option value="Daño por vandalismo">Daño por vandalismo</option>
+                <option value="Daño por choque">Daño por choque</option>
                 <option value="Otro">Otro</option>
               </select>
             </div>
