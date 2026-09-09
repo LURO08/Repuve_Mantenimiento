@@ -1,18 +1,17 @@
-<?php
-include('../../config/db.php');
+﻿<?php
+require_once __DIR__ . '/../../config/db.php';
 
 if (!isset($_GET['id'])) {
     die("ID no recibido");
 }
 
+$id = (int)$_GET['id'];
 
 $logoPath = '../../assets/LOGO INNOVATEC.png';
 date_default_timezone_set('America/Mexico_City');
 $fechaFormato = date("d M Y");
 $codigoFormato = 'INN-FOR-001';
 $tituloFormato = 'BITÁCORA';
-
-$id = $_GET['id'];
 
 /* DATOS DEL ARCO */
 $stmt = $pdo->prepare("
@@ -81,6 +80,9 @@ if ($bitacora) {
     $checks = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+$safeArc = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($arco['nombre'] ?? 'arco'));
+$nombreArchivoPdf = "Bitacora_{$safeArc}_{$id}.pdf";
+$urlDescargaServidor = "../../controllers/pdf_controller.php?action=bitacora_pdf&id={$id}&download=1";
 
 ?>
 
@@ -89,9 +91,9 @@ if ($bitacora) {
 
 <head>
     <meta charset="UTF-8">
-    <title>Bitácora de Instalación</title>
-
+    <title>Bitácora de Instalación - <?= htmlspecialchars($arco['nombre']) ?></title>
     <link rel="stylesheet" href="../../css/bitacora_arco.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
@@ -108,7 +110,8 @@ if ($bitacora) {
     </style>
 
     <div class="no-print">
-        <button onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+        <button type="button" class="btn-print" onclick="window.print()">🖨️ Imprimir</button>
+        <button type="button" class="btn-download" onclick="descargarFormatoPDF()">📥 Descargar PDF</button>
     </div>
 
     <div class="Diseño">
@@ -365,6 +368,48 @@ if ($bitacora) {
 
         </div>
     </div>
+
+    <script>
+    function descargarFormatoPDF() {
+        const elemento = document.querySelector('.hoja');
+        const btnDescarga = document.querySelector('.btn-download');
+        const textoOriginal = btnDescarga ? btnDescarga.innerHTML : '';
+        if (btnDescarga) {
+            btnDescarga.disabled = true;
+            btnDescarga.innerHTML = '⏳ Descargando...';
+        }
+
+        const opt = {
+            margin:       0,
+            filename:     '<?= $nombreArchivoPdf ?>',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        if (typeof html2pdf !== 'undefined') {
+            html2pdf().set(opt).from(elemento).save().then(() => {
+                if (btnDescarga) {
+                    btnDescarga.disabled = false;
+                    btnDescarga.innerHTML = textoOriginal;
+                }
+            }).catch(err => {
+                console.error('Error al generar PDF con html2pdf:', err);
+                window.location.href = '<?= $urlDescargaServidor ?>';
+                if (btnDescarga) {
+                    btnDescarga.disabled = false;
+                    btnDescarga.innerHTML = textoOriginal;
+                }
+            });
+        } else {
+            window.location.href = '<?= $urlDescargaServidor ?>';
+            if (btnDescarga) {
+                btnDescarga.disabled = false;
+                btnDescarga.innerHTML = textoOriginal;
+            }
+        }
+    }
+    </script>
 </body>
 
 </html>

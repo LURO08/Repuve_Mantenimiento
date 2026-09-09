@@ -1,11 +1,11 @@
-<?php
-include('../../config/db.php');
+﻿<?php
+require_once __DIR__ . '/../config/db.php';
 
 if (!isset($_GET['id'])) {
     die("ID no recibido");
 }
 
-$id = $_GET['id'];
+$id = (int)$_GET['id'];
 
 /* DATOS DEL ARCO */
 $stmt = $pdo->prepare("
@@ -74,6 +74,9 @@ if ($bitacora) {
     $checks = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+$safeArc = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($arco['nombre'] ?? 'arco'));
+$nombreArchivoPdf = "Bitacora_{$safeArc}_{$id}.pdf";
+$urlDescargaServidor = "pdf_controller.php?action=bitacora_pdf&id={$id}&download=1";
 
 ?>
 
@@ -82,15 +85,16 @@ if ($bitacora) {
 
 <head>
     <meta charset="UTF-8">
-    <title>Bitácora de Instalación</title>
-
-    <link rel="stylesheet" href="../../css/bitacora_arco.css">
+    <title>Bitácora de Instalación - <?= htmlspecialchars($arco['nombre']) ?></title>
+    <link rel="stylesheet" href="../css/bitacora_arco.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
 
     <div class="no-print">
-        <button onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+        <button type="button" class="btn-print" onclick="window.print()">🖨️ Imprimir</button>
+        <button type="button" class="btn-download" onclick="descargarFormatoPDF()">📥 Descargar PDF</button>
     </div>
 
     <div class="Diseño">
@@ -130,30 +134,13 @@ if ($bitacora) {
                     </tr>
 
                     <tr>
-                        <td colspan="3">
+                        <td colspan="2">
                             <strong>Técnico Responsable:</strong>
                             <span><?= htmlspecialchars($bitacora['encargado'] ?? '') ?></span>
-
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>
-                            <strong>Fecha Instalación:</strong>
-                            <span>
-                                <?= !empty($arco['fecha_instalacion']) 
-                                    ? date("d / m / Y", strtotime($arco['fecha_instalacion'])) 
-                                    : 'N/A' ?>
-                            </span>
-                        </td>
-
-                        <td>
-                            <strong>Latitud:</strong>
-                            <span><?= htmlspecialchars($arco['lat']) ?></span>
                         </td>
                         <td>
-                            <strong>Longitud:</strong>
-                            <span><?= htmlspecialchars($arco['lng']) ?></span>
+                            <strong>Coordenadas:</strong>
+                            <span><?= !empty($arco['lat']) ? htmlspecialchars($arco['lat']) : '' ?>, <?= !empty($arco['lng']) ? htmlspecialchars($arco['lng']) : '' ?></span>
                         </td>
                     </tr>
                 </table>
@@ -166,9 +153,9 @@ if ($bitacora) {
                 </div>
 
                 <?php
-                    $mitadMateriales = (int)ceil(count($materiales) / 2);
-                    $columnaMateriales1 = array_slice($materiales, 0, $mitadMateriales);
-                    $columnaMateriales2 = array_slice($materiales, $mitadMateriales);
+                $mitadMateriales = (int)ceil(count($materiales) / 2);
+                $columnaMateriales1 = array_slice($materiales, 0, $mitadMateriales);
+                $columnaMateriales2 = array_slice($materiales, $mitadMateriales);
                 ?>
 
                 <table class="tabla-componentes tabla-componentes--dos-columnas">
@@ -182,8 +169,8 @@ if ($bitacora) {
                     <?php if (count($materiales) > 0): ?>
                         <?php for ($i = 0; $i < $mitadMateriales; $i++): ?>
                             <?php
-                                $materialIzq = $columnaMateriales1[$i] ?? null;
-                                $materialDer = $columnaMateriales2[$i] ?? null;
+                            $materialIzq = $columnaMateriales1[$i] ?? null;
+                            $materialDer = $columnaMateriales2[$i] ?? null;
                             ?>
                             <tr>
                                 <td class="componente-cell">
@@ -237,7 +224,6 @@ if ($bitacora) {
                 </table>
             </div>
 
-
             <!-- III CHECKLIST -->
             <div class="seccion">
                 <div class="titulo-seccion">
@@ -245,13 +231,12 @@ if ($bitacora) {
                 </div>
 
                 <?php
-                    /* solo checks realizados */
-                    $mitad = ceil(count($checks) / 2);
-                    $columna1 = array_slice($checks, 0, $mitad);
-                    $columna2 = array_slice($checks, $mitad);
+                $mitad = ceil(count($checks) / 2);
+                $columna1 = array_slice($checks, 0, $mitad);
+                $columna2 = array_slice($checks, $mitad);
                 ?>
 
-            <table class="tabla-componentes">
+                <table class="tabla-componentes">
                     <tr>
                         <th style="width:40%;">CONCEPTO</th>
                         <th style="width:10%;">✓</th>
@@ -259,31 +244,20 @@ if ($bitacora) {
                         <th style="width:10%;">✓</th>
                     </tr>
 
-                    <?php for($i = 0; $i < $mitad; $i++): ?>
-                    <tr>
-                        <!-- izquierda -->
-                        <td>
-                            <?= htmlspecialchars($columna1[$i]['nombre'] ?? '') ?>
-                        </td>
-                        <td style="text-align:center; font-size:16px;">
-                            <?= !empty($columna1[$i]['realizado']) ? '☑' : '☐' ?>
-                        </td>
-
-                        <!-- derecha -->
-                        <td>
-                            <?= htmlspecialchars($columna2[$i]['nombre'] ?? '') ?>
-                        </td>
-                        <td style="text-align:center; font-size:16px;">
-                            <?= !empty($columna2[$i]['realizado']) ? '☑' : '☐' ?>
-                        </td>
-                    </tr>
+                    <?php for ($i = 0; $i < $mitad; $i++): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($columna1[$i]['nombre'] ?? '') ?></td>
+                            <td style="text-align:center; font-size:16px;">
+                                <?= !empty($columna1[$i]['realizado']) ? '☑' : '☐' ?>
+                            </td>
+                            <td><?= htmlspecialchars($columna2[$i]['nombre'] ?? '') ?></td>
+                            <td style="text-align:center; font-size:16px;">
+                                <?= !empty($columna2[$i]['realizado']) ? '☑' : '☐' ?>
+                            </td>
+                        </tr>
                     <?php endfor; ?>
                 </table>
-
-
             </div>
-
-
 
             <!-- OBSERVACIONES -->
             <div class="observaciones">
@@ -295,7 +269,6 @@ if ($bitacora) {
                         : '&nbsp;' ?>
                 </div>
             </div>
-
 
             <!-- FIRMAS -->
             <div class="firmas">
@@ -312,6 +285,48 @@ if ($bitacora) {
 
         </div>                   
     </div>
+
+    <script>
+    function descargarFormatoPDF() {
+        const elemento = document.querySelector('.hoja');
+        const btnDescarga = document.querySelector('.btn-download');
+        const textoOriginal = btnDescarga ? btnDescarga.innerHTML : '';
+        if (btnDescarga) {
+            btnDescarga.disabled = true;
+            btnDescarga.innerHTML = '⏳ Descargando...';
+        }
+
+        const opt = {
+            margin:       0,
+            filename:     '<?= $nombreArchivoPdf ?>',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        if (typeof html2pdf !== 'undefined') {
+            html2pdf().set(opt).from(elemento).save().then(() => {
+                if (btnDescarga) {
+                    btnDescarga.disabled = false;
+                    btnDescarga.innerHTML = textoOriginal;
+                }
+            }).catch(err => {
+                console.error('Error al generar PDF con html2pdf:', err);
+                window.location.href = '<?= $urlDescargaServidor ?>';
+                if (btnDescarga) {
+                    btnDescarga.disabled = false;
+                    btnDescarga.innerHTML = textoOriginal;
+                }
+            });
+        } else {
+            window.location.href = '<?= $urlDescargaServidor ?>';
+            if (btnDescarga) {
+                btnDescarga.disabled = false;
+                btnDescarga.innerHTML = textoOriginal;
+            }
+        }
+    }
+    </script>
 </body>
 
 </html>

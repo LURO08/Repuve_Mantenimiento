@@ -1,7 +1,12 @@
-<?php
-include('../config/db.php');
-require_once '../config/tecnicos_schema.php';
-require_once '../libs/dompdf/autoload.inc.php';
+﻿<?php
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+$rootDir = dirname(__DIR__);
+require_once $rootDir . '/config/db.php';
+require_once $rootDir . '/config/tecnicos_schema.php';
+require_once $rootDir . '/libs/dompdf/autoload.inc.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -9,15 +14,22 @@ use Dompdf\Options;
 $action = $_GET['action'] ?? '';
 
 try {
-
     switch ($action) {
-
         case 'bitacora':
             generarBitacora($pdo);
             break;
 
         case 'mantenimiento':
+        case 'revision_pdf':
             generarMantenimiento($pdo);
+            break;
+
+        case 'bitacora_pdf':
+            generarBitacoraPdf($pdo);
+            break;
+
+        case 'baja_pdf':
+            generarBajaPdf($pdo);
             break;
 
         case 'revision':
@@ -27,14 +39,12 @@ try {
         default:
             die("Acción no válida");
     }
-
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     die("Error: " . $e->getMessage());
 }
 
-
 /* =========================
-   BITÁCORA
+   BITÁCORA (GUARDAR POST Y REDIRIGIR)
 ========================= */
 function generarBitacora($pdo)
 {
@@ -101,71 +111,177 @@ function generarBitacora($pdo)
     exit;
 }
 
-
 /* =========================
-   MANTENIMIENTO
+   MANTENIMIENTO / DIAGNÓSTICO (PDF)
 ========================= */
 function generarMantenimiento($pdo)
 {
-    $revision_id = $_GET['id'] ?? null;
+    $revision_id = (int)($_GET['id'] ?? 0);
+    $download = isset($_GET['download']) && in_array(strtolower((string)$_GET['download']), ['1', 'true', 'yes'], true);
 
-    if (!$revision_id) {
+    if ($revision_id <= 0) {
         die("ID de revisión no válido");
     }
 
     $stmt = $pdo->prepare("
-        SELECT *
-        FROM revisiones
-        WHERE id = ?
+        SELECT r.*, a.nombre AS arco
+        FROM revisiones r
+        JOIN arcos a ON r.arco_id = a.id
+        WHERE r.id = ?
     ");
     $stmt->execute([$revision_id]);
-
     $revision = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$revision) {
         die("No existe la revisión");
     }
 
-    // capturar HTML
+    $_GET['id'] = $revision_id;
+    $id = $revision_id;
+
     ob_start();
-    include '../views/pdf/revision_pdf.php';
+    include __DIR__ . '/../views/pdf/revision_pdf.php';
     $html = ob_get_clean();
 
-    // configurar DOMPDF
     $options = new Options();
     $options->set('isRemoteEnabled', true);
+    $options->set('isHtml5ParserEnabled', true);
+    $options->set('defaultFont', 'DejaVu Sans');
 
     $dompdf = new Dompdf($options);
-
-    $dompdf->loadHtml($html);
+    $dompdf->loadHtml($html, 'UTF-8');
     $dompdf->setPaper('letter', 'portrait');
     $dompdf->render();
 
-    // limpiar buffer antes de enviar PDF
     if (ob_get_length()) {
         ob_end_clean();
     }
 
-    $dompdf->stream("mantenimiento_{$revision_id}.pdf", [
-        "Attachment" => false
-    ]);
+    $safeName = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($revision['arco'] ?? 'arco'));
+    $filename = "Diagnostico_Inicial_{$safeName}_{$revision_id}.pdf";
 
+    $dompdf->stream($filename, [
+        "Attachment" => $download
+    ]);
     exit;
 }
 
+/* =========================
+   BITÁCORA (PDF STREAM / DOWNLOAD)
+========================= */
+function generarBitacoraPdf($pdo)
+{
+    $arco_id = (int)($_GET['id'] ?? $_GET['arco_id'] ?? 0);
+    $download = isset($_GET['download']) && in_array(strtolower((string)$_GET['download']), ['1', 'true', 'yes'], true);
+
+    if ($arco_id <= 0) {
+        die("ID de arco no válido");
+    }
+
+    $stmt = $pdo->prepare("SELECT id, nombre FROM arcos WHERE id = ?");
+    $stmt->execute([$arco_id]);
+    $arco = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$arco) {
+        die("Arco no encontrado");
+    }
+
+    $_GET['id'] = $arco_id;
+    $id = $arco_id;
+
+    ob_start();
+    include __DIR__ . '/../views/pdf/bitacora_arco.php';
+    $html = ob_get_clean();
+
+    $options = new Options();
+    $options->set('isRemoteEnabled', true);
+    $options->set('isHtml5ParserEnabled', true);
+    $options->set('defaultFont', 'DejaVu Sans');
+
+    $dompdf = new Dompdf($options);
+    $dompdf->loadHtml($html, 'UTF-8');
+    $dompdf->setPaper('letter', 'portrait');
+    $dompdf->render();
+
+    if (ob_get_length()) {
+        ob_end_clean();
+    }
+
+    $safeName = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($arco['nombre'] ?? 'arco'));
+    $filename = "Bitacora_{$safeName}_{$arco_id}.pdf";
+
+    $dompdf->stream($filename, [
+        "Attachment" => $download
+    ]);
+    exit;
+}
 
 /* =========================
-   REVISIÓN
+   BAJA DE ARCO (PDF STREAM / DOWNLOAD)
+========================= */
+function generarBajaPdf($pdo)
+{
+    $baja_id = (int)($_GET['id'] ?? 0);
+    $download = isset($_GET['download']) && in_array(strtolower((string)$_GET['download']), ['1', 'true', 'yes'], true);
+
+    if ($baja_id <= 0) {
+        die("ID de baja no válido");
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT b.id, a.nombre AS arco
+        FROM arcos_bajas b
+        JOIN arcos a ON a.id = b.arco_id
+        WHERE b.id = ?
+    ");
+    $stmt->execute([$baja_id]);
+    $baja = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$baja) {
+        die("Baja no encontrada");
+    }
+
+    $_GET['id'] = $baja_id;
+    $id = $baja_id;
+
+    ob_start();
+    include __DIR__ . '/../views/pdf/baja_arco_pdf.php';
+    $html = ob_get_clean();
+
+    $options = new Options();
+    $options->set('isRemoteEnabled', true);
+    $options->set('isHtml5ParserEnabled', true);
+    $options->set('defaultFont', 'DejaVu Sans');
+
+    $dompdf = new Dompdf($options);
+    $dompdf->loadHtml($html, 'UTF-8');
+    $dompdf->setPaper('letter', 'portrait');
+    $dompdf->render();
+
+    if (ob_get_length()) {
+        ob_end_clean();
+    }
+
+    $safeName = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($baja['arco'] ?? 'arco'));
+    $filename = "Baja_Arco_{$safeName}_{$baja_id}.pdf";
+
+    $dompdf->stream($filename, [
+        "Attachment" => $download
+    ]);
+    exit;
+}
+
+/* =========================
+   REVISIÓN (REDIRECT)
 ========================= */
 function generarRevision($pdo)
 {
-    $revision_id = $_GET['revision_id'] ?? null;
+    $revision_id = (int)($_GET['revision_id'] ?? $_GET['id'] ?? 0);
 
-    if (!$revision_id) {
+    if ($revision_id <= 0) {
         die("Revisión no válida");
     }
 
-    header("Location: ../views/pdf/revision.php?id=$revision_id");
+    header("Location: ../views/pdf/revision_pdf.php?id=$revision_id");
     exit;
 }
-?>

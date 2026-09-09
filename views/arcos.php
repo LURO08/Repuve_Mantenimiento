@@ -63,10 +63,14 @@ $tecnicosActivos = $pdo->query("SELECT nombre, id FROM tecnicos WHERE activo = 1
 
     <strong>Éxito!</strong> <?= htmlspecialchars($_GET["msg"]) ?>
     <?php if (!empty($_GET["baja_id"])): ?>
-      <div class="mt-2">
+      <div class="mt-2 d-flex justify-content-center gap-2">
         <a class="btn btn-light btn-sm" target="_blank"
           href="../views/pdf/baja_arco_pdf.php?id=<?= htmlspecialchars($_GET["baja_id"], ENT_QUOTES, 'UTF-8') ?>">
-          Ver formato de baja
+          <i class="bi bi-file-earmark-pdf"></i> Ver formato
+        </a>
+        <a class="btn btn-outline-light btn-sm"
+          href="../controllers/pdf_controller.php?action=baja_pdf&id=<?= htmlspecialchars($_GET["baja_id"], ENT_QUOTES, 'UTF-8') ?>&download=1">
+          <i class="bi bi-download"></i> Descargar
         </a>
       </div>
     <?php endif; ?>
@@ -449,12 +453,16 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
 
                 <?php if ($yaExiste): ?>
                   <a href="../views/pdf/bitacora_arco.php?id=<?= $r['id'] ?>" target="_blank"
-                    class="btn btn-outline-primary btn-sm p-2">
+                    class="btn btn-outline-primary btn-sm p-2" title="Ver / Imprimir bitácora">
                     <i class="bi bi-file-earmark-pdf"></i>
+                  </a>
+                  <a href="../controllers/pdf_controller.php?action=bitacora_pdf&id=<?= $r['id'] ?>&download=1"
+                    class="btn btn-outline-primary btn-sm p-2" title="Descargar bitácora PDF">
+                    <i class="bi bi-download"></i>
                   </a>
                 <?php else: ?>
                   <button type="button" class="btn btn-primary btn-sm generarBitacoraBtn p-2" data-id="<?= $r['id'] ?>"
-                    data-bs-toggle="modal" data-bs-target="#modalBitacora">
+                    data-bs-toggle="modal" data-bs-target="#modalBitacora" title="Generar bitácora">
                     <i class="bi bi-file-earmark-plus"></i>
                   </button>
                 <?php endif; ?>
@@ -587,8 +595,12 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
               <td>
                 <div class="btn-group btn-group-sm" role="group">
                   <a href="../views/pdf/baja_arco_pdf.php?id=<?= htmlspecialchars($baja['baja_id'], ENT_QUOTES, 'UTF-8') ?>"
-                    target="_blank" class="btn btn-outline-dark" title="Formato de baja">
+                    target="_blank" class="btn btn-outline-dark" title="Ver / Imprimir formato de baja">
                     <i class="bi bi-file-earmark-pdf"></i>
+                  </a>
+                  <a href="../controllers/pdf_controller.php?action=baja_pdf&id=<?= htmlspecialchars($baja['baja_id'], ENT_QUOTES, 'UTF-8') ?>&download=1"
+                    class="btn btn-outline-dark" title="Descargar formato de baja PDF">
+                    <i class="bi bi-download"></i>
                   </a>
                   <form method="post" action="../controllers/arcos_controller.php" class="d-inline">
                     <input type="hidden" name="action" value="restaurar">

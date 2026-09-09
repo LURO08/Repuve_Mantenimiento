@@ -89,5 +89,7 @@ $safeArc = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $registro['arco']) ?: 'arco
 $safeArc = trim(preg_replace('/[^a-zA-Z0-9_-]+/', '_', $safeArc), '_');
 $filename = $registro['tipo'] . '_' . $safeArc . '_' . $registro['id'] . '.pdf';
 
-$dompdf->stream($filename, ['Attachment' => false]);
+$download = isset($_GET['download']) && in_array(strtolower((string)$_GET['download']), ['1', 'true', 'yes'], true);
+
+$dompdf->stream($filename, ['Attachment' => $download ? true : false]);
 exit;

@@ -94,14 +94,23 @@ if ($arcoId > 0) {
         <div class="saved-formats__list">
           <?php foreach ($formatosGuardados as $guardado): ?>
             <?php $savedConfig = $formatos[$guardado['tipo']] ?? null; if (!$savedConfig) continue; ?>
-            <a href="../controllers/formato_servicio_pdf.php?id=<?= $guardado['id'] ?>" target="_blank">
-              <i class="bi bi-file-earmark-pdf-fill"></i>
-              <span>
-                <strong><?= htmlspecialchars($savedConfig['title']) ?></strong>
-                <small><?= date('d/m/Y H:i', strtotime($guardado['created_at'])) ?></small>
-              </span>
-              <i class="bi bi-box-arrow-up-right"></i>
-            </a>
+            <div class="saved-format-card d-flex align-items-center justify-content-between p-2 border rounded bg-white gap-2">
+              <a href="../controllers/formato_servicio_pdf.php?id=<?= $guardado['id'] ?>" target="_blank" class="d-flex align-items-center gap-2 text-decoration-none text-dark flex-grow-1 min-w-0">
+                <i class="bi bi-file-earmark-pdf-fill text-danger fs-4 flex-shrink-0"></i>
+                <span class="min-w-0">
+                  <strong class="d-block text-truncate"><?= htmlspecialchars($savedConfig['title']) ?></strong>
+                  <small class="text-muted"><?= date('d/m/Y H:i', strtotime($guardado['created_at'])) ?></small>
+                </span>
+              </a>
+              <div class="btn-group btn-group-sm flex-shrink-0">
+                <a href="../controllers/formato_servicio_pdf.php?id=<?= $guardado['id'] ?>" target="_blank" class="btn btn-outline-secondary" title="Ver / Imprimir PDF">
+                  <i class="bi bi-eye"></i>
+                </a>
+                <a href="../controllers/formato_servicio_pdf.php?id=<?= $guardado['id'] ?>&download=1" class="btn btn-outline-danger" title="Descargar PDF">
+                  <i class="bi bi-download"></i>
+                </a>
+              </div>
+            </div>
           <?php endforeach; ?>
         </div>
       <?php endif; ?>

@@ -1661,10 +1661,15 @@ function renderDetalleMantenimiento(btn) {
   }
 
   const tipoClase = detalle.tipo === "Correctivo" ? "bg-warning text-dark" : "bg-success";
+  const downloadUrl = detalle.pdf_download || (detalle.id ? `../controllers/pdf_controller.php?action=mantenimiento&id=${detalle.id}&download=1` : "");
   const pdfHtml = detalle.pdf
-    ? `<a href="${escapeHtmlRevision(detalle.pdf)}" target="_blank" class="btn btn-sm btn-danger">
+    ? `<a href="${escapeHtmlRevision(detalle.pdf)}" target="_blank" class="btn btn-sm btn-danger" title="Ver / Imprimir formato">
          <i class="bi bi-file-earmark-pdf"></i> Ver formato
-       </a>`
+       </a>
+       ${downloadUrl ? `
+       <a href="${escapeHtmlRevision(downloadUrl)}" class="btn btn-sm btn-outline-danger" title="Descargar PDF">
+         <i class="bi bi-download"></i> Descargar
+       </a>` : ""}`
     : "";
 
   contenedor.innerHTML = `

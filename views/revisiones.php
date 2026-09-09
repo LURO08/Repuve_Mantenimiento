@@ -180,6 +180,7 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
               'evidencias' => (int)($r['evidencias_count'] ?? 0),
               'evidencias_ajax' => true,
               'pdf' => "../views/pdf/revision_pdf.php?id={$r['id']}",
+              'pdf_download' => "../controllers/pdf_controller.php?action=mantenimiento&id={$r['id']}&download=1",
               'materiales' => $lista
             ];
             ?>
@@ -214,20 +215,23 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
                 <form action="../controllers/revisiones_controller.php" method="POST" class="d-inline eliminar-form">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="id" value="<?= $r['id'] ?>">
-                  <button type="submit" class="btn btn-outline-danger btn-sm">
+                  <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar revisión">
                     <i class="bi bi-trash"></i>
                   </button>
                 </form>
 
-               <a href="../views/pdf/revision_pdf.php?id=<?= $r['id'] ?>" 
+                <a href="../views/pdf/revision_pdf.php?id=<?= $r['id'] ?>" 
                   target="_blank"
                   class="btn btn-danger btn-sm"
-                  title="Ver PDF">
+                  title="Ver / Imprimir PDF">
                   <i class="bi bi-file-earmark-pdf"></i>
                 </a>
 
-
-
+                <a href="../controllers/pdf_controller.php?action=mantenimiento&id=<?= $r['id'] ?>&download=1" 
+                  class="btn btn-outline-danger btn-sm"
+                  title="Descargar PDF">
+                  <i class="bi bi-download"></i>
+                </a>
               </td>
             </tr>
           <?php endforeach; ?>
