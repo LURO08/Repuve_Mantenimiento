@@ -456,10 +456,6 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                     class="btn btn-outline-primary btn-sm p-2" title="Ver / Imprimir bitácora">
                     <i class="bi bi-file-earmark-pdf"></i>
                   </a>
-                  <a href="../controllers/pdf_controller.php?action=bitacora_pdf&id=<?= $r['id'] ?>&download=1"
-                    class="btn btn-outline-primary btn-sm p-2" title="Descargar bitácora PDF">
-                    <i class="bi bi-download"></i>
-                  </a>
                 <?php else: ?>
                   <button type="button" class="btn btn-primary btn-sm generarBitacoraBtn p-2" data-id="<?= $r['id'] ?>"
                     data-bs-toggle="modal" data-bs-target="#modalBitacora" title="Generar bitácora">
