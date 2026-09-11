@@ -1,4 +1,4 @@
-﻿@page {
+@page {
     size: letter;
     margin: 10mm;
 }
@@ -228,6 +228,17 @@ table {
     margin-top: 2px;
     font-size: 10px;
     color: #333;
+}
+
+.datos-tecnicos {
+    margin-top: 3px;
+    font-size: 9.5px;
+    color: #444;
+    line-height: 1.35;
+}
+
+.datos-tecnicos strong {
+    color: #003865;
 }
 
 /* OBSERVACIONES */

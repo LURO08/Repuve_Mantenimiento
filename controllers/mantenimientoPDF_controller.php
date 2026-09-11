@@ -155,46 +155,46 @@ $urlDescargaServidor = "pdf_controller.php?action=bitacora_pdf&id={$id}&download
                 <table class="tabla-componentes">
                     <thead>
                         <tr>
-                            <th style="width:36%;">COMPONENTE</th>
-                            <th style="width:12%;">CANTIDAD</th>
-                            <th style="width:18%;">SERIE</th>
-                            <th style="width:17%;">IP</th>
-                            <th style="width:17%;">MAC</th>
+                            <th style="width:7%; text-align:center;">#</th>
+                            <th style="width:73%; text-align:left; padding-left:10px;">COMPONENTE / ESPECIFICACIÓN</th>
+                            <th style="width:20%; text-align:center;">CANTIDAD</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (count($materiales) > 0): ?>
-                            <?php foreach ($materiales as $m): ?>
+                            <?php foreach ($materiales as $index => $m): ?>
+                                <?php
+                                $datosTecnicos = [];
+                                if (!empty(trim((string)($m['serie'] ?? '')))) {
+                                    $datosTecnicos[] = '<strong>Serie:</strong> ' . htmlspecialchars(trim($m['serie']));
+                                }
+                                if (!empty(trim((string)($m['ip'] ?? '')))) {
+                                    $datosTecnicos[] = '<strong>IP:</strong> ' . htmlspecialchars(trim($m['ip']));
+                                }
+                                if (!empty(trim((string)($m['mac'] ?? '')))) {
+                                    $datosTecnicos[] = '<strong>MAC:</strong> ' . htmlspecialchars(trim($m['mac']));
+                                }
+                                ?>
                                 <tr>
-                                    <td>
-                                        <span class="nombre-material">
+                                    <td style="text-align:center; color:#555; font-weight:bold;"><?= $index + 1 ?></td>
+                                    <td style="padding-left:10px;">
+                                        <div style="font-weight:bold; font-size:11px; color:#111;">
                                             <?= htmlspecialchars($m['material']) ?>
-                                        </span>
+                                        </div>
+                                        <?php if (!empty($datosTecnicos)): ?>
+                                            <div class="datos-tecnicos">
+                                                <?= implode(' &nbsp;•&nbsp; ', $datosTecnicos) ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
-                                    <td style="text-align:center;">
-                                        <?= htmlspecialchars($m['cantidad']) ?>
-                                        <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : 'pz') ?>
-                                    </td>
-                                    <td style="text-align:center;">
-                                        <?= !empty($m['serie'])
-                                            ? htmlspecialchars($m['serie'])
-                                            : 'N/A' ?>
-                                    </td>
-                                    <td style="text-align:center;">
-                                        <?= !empty($m['ip'])
-                                            ? htmlspecialchars($m['ip'])
-                                            : 'N/A' ?>
-                                    </td>
-                                    <td style="text-align:center;">
-                                        <?= !empty($m['mac'])
-                                            ? htmlspecialchars($m['mac'])
-                                            : 'N/A' ?>
+                                    <td style="text-align:center; font-weight:bold; font-size:11px; white-space:nowrap;">
+                                        <?= htmlspecialchars($m['cantidad']) ?> <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : ($m['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="5" style="text-align:center;">
+                                <td colspan="3" style="text-align:center; padding:12px; color:#666;">
                                     No hay materiales registrados
                                 </td>
                             </tr>

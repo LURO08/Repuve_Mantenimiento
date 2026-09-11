@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../../config/db.php';
 
 if (!isset($_GET['id'])) {
@@ -134,43 +134,64 @@ $urlDescargaServidor = "../../controllers/pdf_controller.php?action=mantenimient
             <div class="seccion">
                 <div class="titulo-seccion">II. MATERIALES CAMBIADOS / AGREGADOS / RETIRADOS</div>
 
-                <table class="tabla-componentes">
-                    <tr>
-                        <th style="width:45%;">COMPONENTE</th>
-                        <th style="width:20%;">SERIE</th>
-                        <th style="width:17%;">IP</th>
-                        <th style="width:18%;">MAC</th>
-                    </tr>
-
-                    <?php if (count($materiales) > 0): ?>
-                        <?php foreach ($materiales as $m): ?>
-                            <?php $esRetiro = ($m['accion'] ?? 'cambio') === 'retiro'; ?>
+                <?php if (count($materiales) > 0): ?>
+                    <table class="tabla-componentes">
+                        <thead>
                             <tr>
-                                <td>
-                                    <?= $esRetiro ? '[RETIRADO] ' : '' ?>
-                                    <?= htmlspecialchars($m['material']) ?>
-                                    (<?= $m['cantidad'] ?>
-                                    <?= $m['medida'] == 'm' ? 'Metros' : 'Piezas' ?>)
-                                </td>
-                                <td style="text-align:center;">
-                                    <?= htmlspecialchars($m['serie'] ?: 'N/A') ?>
-                                </td>
-                                <td style="text-align:center;">
-                                    <?= htmlspecialchars($m['ip'] ?: 'N/A') ?>
-                                </td>
-                                <td style="text-align:center;">
-                                    <?= htmlspecialchars($m['mac'] ?: 'N/A') ?>
-                                </td>
+                                <th style="width:7%; text-align:center;">#</th>
+                                <th style="width:73%; text-align:left; padding-left:10px;">COMPONENTE / ESPECIFICACIÓN</th>
+                                <th style="width:20%; text-align:center;">CANTIDAD</th>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($materiales as $index => $m): ?>
+                                <?php
+                                $esRetiro = ($m['accion'] ?? 'cambio') === 'retiro';
+                                $esAgregado = ($m['accion'] ?? 'cambio') === 'agregado';
+                                $datosTecnicos = [];
+                                if (!empty(trim((string)($m['serie'] ?? '')))) {
+                                    $datosTecnicos[] = '<strong>Serie:</strong> ' . htmlspecialchars(trim($m['serie']));
+                                }
+                                if (!empty(trim((string)($m['ip'] ?? '')))) {
+                                    $datosTecnicos[] = '<strong>IP:</strong> ' . htmlspecialchars(trim($m['ip']));
+                                }
+                                if (!empty(trim((string)($m['mac'] ?? '')))) {
+                                    $datosTecnicos[] = '<strong>MAC:</strong> ' . htmlspecialchars(trim($m['mac']));
+                                }
+                                ?>
+                                <tr>
+                                    <td style="text-align:center; color:#555; font-weight:bold;"><?= $index + 1 ?></td>
+                                    <td style="padding-left:10px;">
+                                        <div style="font-weight:bold; font-size:11px; color:#111;">
+                                            <?php if ($esRetiro): ?>
+                                                <span style="color:#b02a37; font-weight:bold;">[RETIRADO]</span>
+                                            <?php elseif ($esAgregado): ?>
+                                                <span style="color:#0d6efd; font-weight:bold;">[AGREGADO]</span>
+                                            <?php endif; ?>
+                                            <?= htmlspecialchars($m['material']) ?>
+                                        </div>
+                                        <?php if (!empty($datosTecnicos)): ?>
+                                            <div class="datos-tecnicos">
+                                                <?= implode(' &nbsp;•&nbsp; ', $datosTecnicos) ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td style="text-align:center; font-weight:bold; font-size:11px; white-space:nowrap;">
+                                        <?= htmlspecialchars($m['cantidad']) ?> <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : ($m['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <table class="tabla-componentes">
                         <tr>
-                            <td colspan="4" style="text-align:center;">
+                            <td style="text-align:center; padding:12px; color:#666;">
                                 No hay materiales registrados
                             </td>
                         </tr>
-                    <?php endif; ?>
-                </table>
+                    </table>
+                <?php endif; ?>
             </div>
 
             <!-- III OBSERVACIONES -->

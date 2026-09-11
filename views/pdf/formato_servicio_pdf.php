@@ -309,16 +309,16 @@ $fechaDocumento = strtotime($registro['created_at']);
                 <?php
                 $details = [];
                 if (trim((string)($component['serie'] ?? '')) !== '') {
-                    $details[] = 'Serie: ' . pdfText($component['serie']);
+                    $details[] = '<strong>Serie:</strong> ' . pdfText($component['serie']);
                 }
                 if (trim((string)($component['ip'] ?? '')) !== '') {
-                    $details[] = 'IP: ' . pdfText($component['ip']);
+                    $details[] = '<strong>IP:</strong> ' . pdfText($component['ip']);
                 }
                 if (trim((string)($component['mac'] ?? '')) !== '') {
-                    $details[] = 'MAC: ' . pdfText($component['mac']);
+                    $details[] = '<strong>MAC:</strong> ' . pdfText($component['mac']);
                 }
                 if (!empty($details)): ?>
-                  <br><span class="muted"><?= implode(' | ', $details) ?></span>
+                  <br><span class="muted" style="font-size:7.5px;"><?= implode(' &nbsp;•&nbsp; ', $details) ?></span>
                 <?php endif; ?>
               </td>
               <td class="center"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Bueno') ?></span></td>
