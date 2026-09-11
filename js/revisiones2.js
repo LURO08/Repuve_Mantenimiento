@@ -1446,6 +1446,60 @@ function renderComponentesMantenimiento(btn) {
               : (esAgregado ? 'Agregado por mantenimiento' : 'Cambiado por mantenimiento');
             const badgeClass = esRetiro ? 'bg-danger' : (esAgregado ? 'bg-primary' : 'bg-success');
 
+            const seriesList = Array.isArray(m.series) ? m.series.filter(Boolean) : [];
+            const totalSeries = seriesList.length;
+            const ipVal = String(m.ip || "").trim();
+            const macVal = String(m.mac || "").trim();
+            const hasTechData = totalSeries > 0 || ipVal !== "" || macVal !== "";
+
+            let techDataHtml = "";
+            if (hasTechData) {
+              const techCollapseId = `tech_rev_${globalIndex}`;
+              const summaryParts = [];
+              if (totalSeries > 0) summaryParts.push(`${totalSeries} serie${totalSeries > 1 ? 's' : ''}`);
+              if (ipVal) summaryParts.push("IP");
+              if (macVal) summaryParts.push("MAC");
+
+              techDataHtml = `
+                <div class="mt-2 pt-2 border-top">
+                  <div class="d-flex justify-content-between align-items-center gap-1">
+                    <span class="text-muted d-flex align-items-center" style="font-size: 11px;">
+                      <i class="bi bi-cpu text-primary me-1"></i> ${summaryParts.join(" • ")}
+                    </span>
+                    <button class="btn btn-sm btn-outline-primary tech-toggle-btn"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#${techCollapseId}">
+                      Ver detalles <i class="bi bi-chevron-down"></i>
+                    </button>
+                  </div>
+
+                  <div class="collapse mt-2" id="${techCollapseId}">
+                    <div class="tech-details-panel">
+                      ${totalSeries > 0 ? `
+                        <div class="mb-1">
+                          <small class="text-muted d-block fw-semibold mb-1" style="font-size: 10.5px;">Series (${totalSeries}):</small>
+                          <div class="d-flex flex-wrap gap-1">
+                            ${seriesList.map(s => `<span class="series-chip">${escapeHtmlRevision(s)}</span>`).join("")}
+                          </div>
+                        </div>
+                      ` : ""}
+                      ${ipVal ? `
+                        <div class="mt-1">
+                          <span class="tech-badge"><i class="bi bi-hdd-network text-primary me-1"></i>IP: <strong class="ms-1">${escapeHtmlRevision(ipVal)}</strong></span>
+                        </div>
+                      ` : ""}
+                      ${macVal ? `
+                        <div class="mt-1">
+                          <span class="tech-badge"><i class="bi bi-ethernet text-success me-1"></i>MAC: <strong class="ms-1">${escapeHtmlRevision(macVal)}</strong></span>
+                        </div>
+                      ` : ""}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }
+
             return `
               <div class="revision-material-card material-card">
                 <div class="d-flex align-items-start gap-2 justify-content-between">
@@ -1468,9 +1522,7 @@ function renderComponentesMantenimiento(btn) {
                   <i class="bi bi-clock"></i>
                   ${escapeHtmlRevision(fechaTexto)}
                 </div>
-                ${renderSeriesRevision(m.series || [], globalIndex)}
-                ${m.ip ? `<div class="mt-1"><span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtmlRevision(m.ip)}</span></div>` : ''}
-                ${m.mac ? `<div class="mt-1"><span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtmlRevision(m.mac)}</span></div>` : ''}
+                ${techDataHtml}
               </div>
             `;
           }).join("")}
@@ -1481,13 +1533,21 @@ function renderComponentesMantenimiento(btn) {
 
   contenedor.querySelectorAll('.collapse').forEach(collapseEl => {
     collapseEl.addEventListener('show.bs.collapse', function () {
-      let btnSeries = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
-      if (btnSeries) btnSeries.innerHTML = 'Ocultar series <i class="bi bi-chevron-up"></i>';
+      let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
+      if (btn && btn.classList.contains('tech-toggle-btn')) {
+        btn.innerHTML = 'Ocultar <i class="bi bi-chevron-up"></i>';
+      } else if (btn) {
+        btn.innerHTML = 'Ocultar series <i class="bi bi-chevron-up"></i>';
+      }
     });
 
     collapseEl.addEventListener('hide.bs.collapse', function () {
-      let btnSeries = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
-      if (btnSeries) btnSeries.innerHTML = 'Ver series <i class="bi bi-chevron-down"></i>';
+      let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
+      if (btn && btn.classList.contains('tech-toggle-btn')) {
+        btn.innerHTML = 'Ver detalles <i class="bi bi-chevron-down"></i>';
+      } else if (btn) {
+        btn.innerHTML = 'Ver series <i class="bi bi-chevron-down"></i>';
+      }
     });
   });
 }
@@ -1730,22 +1790,16 @@ function renderDetalleMantenimiento(btn) {
   window.requestAnimationFrame(() => cargarEvidenciasDetalle(detalle));
 }
 
-document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
-  btn.addEventListener('click', function () {
-    renderComponentesMantenimiento(this);
-  });
-});
+document.addEventListener('click', function (e) {
+  const btnMaterial = e.target.closest('.verMaterialesBtn, .verInfraMaterialesBtn');
+  if (btnMaterial) {
+    renderComponentesMantenimiento(btnMaterial);
+  }
 
-document.querySelectorAll('.verInfraMaterialesBtn').forEach(btn => {
-  btn.addEventListener('click', function () {
-    renderComponentesMantenimiento(this);
-  });
-});
-
-document.querySelectorAll('.verDetalleMantenimientoBtn').forEach(btn => {
-  btn.addEventListener('click', function () {
-    renderDetalleMantenimiento(this);
-  });
+  const btnDetalle = e.target.closest('.verDetalleMantenimientoBtn');
+  if (btnDetalle) {
+    renderDetalleMantenimiento(btnDetalle);
+  }
 });
 
 document.addEventListener("DOMContentLoaded", () => {

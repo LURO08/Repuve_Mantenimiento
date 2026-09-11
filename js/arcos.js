@@ -796,11 +796,16 @@ function buscarConOrden(input) {
   window.history.replaceState(null, "", url.toString());
 }
 
-document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
-  btn.addEventListener('click', async function () {
-    if (!this.dataset.nuevos && !this.dataset.anteriores && !this.dataset.infraestructura) {
-      const contenedorCarga = document.getElementById("contenedorMateriales");
-      contenedorCarga.innerHTML = `
+document.addEventListener('click', async function (e) {
+  const btn = e.target.closest('.verMaterialesBtn');
+  if (!btn) return;
+
+  const contenedor = document.getElementById("contenedorMateriales");
+  if (!contenedor) return;
+
+  try {
+    if (!btn.dataset.nuevos && !btn.dataset.anteriores && !btn.dataset.infraestructura) {
+      contenedor.innerHTML = `
         <div class="text-center text-muted p-4">
           <div class="spinner-border text-primary mb-2" role="status"></div>
           <div>Cargando componentes...</div>
@@ -808,14 +813,16 @@ document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
       `;
 
       try {
-        const res = await fetch(`../controllers/arcos_controller.php?action=get_componentes&id=${encodeURIComponent(this.dataset.id || "")}`);
+        const arcoId = btn.dataset.id || btn.getAttribute('data-id') || "";
+        const res = await fetch(`../controllers/arcos_controller.php?action=get_componentes&id=${encodeURIComponent(arcoId)}`);
         const data = await res.json();
         if (data.error) throw new Error(data.error);
-        this.dataset.nuevos = JSON.stringify(data.nuevos || []);
-        this.dataset.anteriores = JSON.stringify(data.anteriores || []);
-        this.dataset.infraestructura = JSON.stringify(data.infraestructura || []);
+        btn.dataset.nuevos = JSON.stringify(data.nuevos || []);
+        btn.dataset.anteriores = JSON.stringify(data.anteriores || []);
+        btn.dataset.infraestructura = JSON.stringify(data.infraestructura || []);
       } catch (error) {
-        contenedorCarga.innerHTML = `
+        console.error("Error al obtener componentes:", error);
+        contenedor.innerHTML = `
           <div class="alert alert-danger mb-0">
             No se pudieron cargar los componentes: ${error.message || "Error desconocido"}
           </div>
@@ -824,11 +831,9 @@ document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
       }
     }
 
-    let nuevos = JSON.parse(this.dataset.nuevos || "[]");       // 🔴 PRINCIPALES
-    let anteriores = JSON.parse(this.dataset.anteriores || "[]"); // 🔽 HISTORIAL
-
-    let infraestructuras = JSON.parse(this.dataset.infraestructura || "[]");
-    let contenedor = document.getElementById("contenedorMateriales");
+    let nuevos = JSON.parse(btn.dataset.nuevos || "[]");       // 🔴 PRINCIPALES
+    let anteriores = JSON.parse(btn.dataset.anteriores || "[]"); // 🔽 HISTORIAL
+    let infraestructuras = JSON.parse(btn.dataset.infraestructura || "[]");
 
     if ((!anteriores || anteriores.length === 0) && (!nuevos || nuevos.length === 0) && (!infraestructuras || infraestructuras.length === 0)){
       contenedor.innerHTML = `
@@ -1211,8 +1216,14 @@ Object.keys(materialesAgrupados).forEach(key => {
     // ✅ ACTIVAR TOOLTIP BOOTSTRAP
     let tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
     tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
-
-  });
+  } catch (renderError) {
+    console.error("Error al renderizar componentes:", renderError);
+    contenedor.innerHTML = `
+      <div class="alert alert-danger mb-0">
+        Error al mostrar componentes: ${renderError.message || "Error desconocido"}
+      </div>
+    `;
+  }
 });
 
 
@@ -1639,6 +1650,9 @@ function renderInfraestructurasComponentes(infraestructuras = []) {
             const hasTech = serieChip || ipBadge || macBadge;
             const fecha = m.fecha_instalacion ? `<div class="text-muted small mt-2"><i class="bi bi-calendar-event"></i> Instalado: ${escapeHtml(formatearFechaHoraMaterial(m.fecha_instalacion))}</div>` : "";
 
+            let matMedida = m.medida === 'm' ? 'metros' : m.medida === 'pz' ? 'piezas' : (m.medida || '');
+            if (matMedida === 'piezas' && (m.cantidad == 1 || !m.cantidad)) matMedida = "pieza";
+
             return `
               <div class="material-card border infra-component-card" data-infra-material="${matIndex}">
                 <div class="d-flex align-items-center gap-2 justify-content-between">
@@ -1646,7 +1660,7 @@ function renderInfraestructurasComponentes(infraestructuras = []) {
                     ${foto}
                     <div>
                       <div class="fw-bold">${escapeHtml(m.material)}</div>
-                      <small class="text-muted">${escapeHtml(medida)}</small>
+                      <small class="text-muted">${escapeHtml(matMedida)}</small>
                     </div>
                   </div>
                   <span class="badge bg-primary fs-6 px-3 py-2">${escapeHtml(m.cantidad || 1)}</span>
@@ -2463,8 +2477,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-  modalAgregarMaterial.addEventListener("show.bs.modal", resetModalAgregarMaterial);
-  modalAgregarMaterial.addEventListener("shown.bs.modal", () => {
+  modalAgregarMaterial?.addEventListener("show.bs.modal", resetModalAgregarMaterial);
+  modalAgregarMaterial?.addEventListener("shown.bs.modal", () => {
     marcarBackdropMaterialSobreArco();
     if (materialContextoActivo === "editar" && materialOperacionActiva === "actualizar") {
       setTimeout(() => {
@@ -2476,7 +2490,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 50);
     }
   });
-  modalAgregarMaterial.addEventListener("hidden.bs.modal", () => {
+  modalAgregarMaterial?.addEventListener("hidden.bs.modal", () => {
     limpiarModalMaterialSobreArco();
     if (materialContextoActivo === "editar" && seleccionandoMaterialParaEditar) {
       setTimeout(() => {
@@ -2914,7 +2928,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const modalMapaArcos = document.getElementById('modalMapaArcos');
 
-  modalMapaArcos.addEventListener('show.bs.modal', function (event) {
+  modalMapaArcos?.addEventListener('show.bs.modal', function (event) {
 
     const trigger = event.relatedTarget;
     if (!trigger) return;
@@ -3100,7 +3114,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById('modalSeleccionarMapa')
-    .addEventListener('shown.bs.modal', () => {
+    ?.addEventListener('shown.bs.modal', () => {
       if (typeof L === "undefined") {
         const mapEl = document.getElementById("mapSelector");
         if (mapEl) {
@@ -3209,7 +3223,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ✅ Aceptar ubicación
-  document.getElementById('btnAceptarUbicacion').addEventListener('click', () => {
+  document.getElementById('btnAceptarUbicacion')?.addEventListener('click', () => {
     if (!selectedLat || !selectedLng) {
       alert('Selecciona una ubicación en el mapa');
       return;
@@ -3262,7 +3276,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  document.getElementById('btnUsarMiUbicacion').addEventListener('click', () => {
+  document.getElementById('btnUsarMiUbicacion')?.addEventListener('click', () => {
     const statusEl = document.getElementById('mapStatus');
     const helpEl = document.getElementById('mapHelp');
     statusEl.textContent = 'Estado: solicitando ubicación...';
