@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../../config/db.php';
 
 if (!isset($_GET['id'])) {
@@ -169,48 +169,36 @@ $urlDescargaServidor = "../../controllers/pdf_controller.php?action=baja_pdf&id=
                 <div class="titulo-seccion">III. COMPONENTES REGISTRADOS</div>
 
                 <?php if (count($materiales) > 0): ?>
-                    <?php
-                    $mitadMateriales = (int)ceil(count($materiales) / 2);
-                    $materialesIzquierda = array_slice($materiales, 0, $mitadMateriales);
-                    $materialesDerecha = array_slice($materiales, $mitadMateriales);
-                    ?>
                     <table class="tabla-componentes">
-                        <tr>
-                            <th style="width:25%;">COMPONENTE</th>
-                            <th style="width:10%;">CANT.</th>
-                            <th style="width:15%;">SERIE</th>
-                            <th style="width:25%;">COMPONENTE</th>
-                            <th style="width:10%;">CANT.</th>
-                            <th style="width:15%;">SERIE</th>
-                        </tr>
-                        <?php for ($i = 0; $i < $mitadMateriales; $i++): ?>
-                            <?php
-                            $izquierda = $materialesIzquierda[$i] ?? null;
-                            $derecha = $materialesDerecha[$i] ?? null;
-                            ?>
+                        <thead>
                             <tr>
-                                <td><?= $izquierda ? htmlspecialchars($izquierda['material']) : '&nbsp;' ?></td>
-                                <td style="text-align:center;">
-                                    <?php if ($izquierda): ?>
-                                        <?= htmlspecialchars($izquierda['cantidad']) ?>
-                                        <?= htmlspecialchars($izquierda['medida'] === 'm' ? 'm' : 'pz') ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td style="text-align:center;">
-                                    <?= $izquierda ? htmlspecialchars($izquierda['serie'] ?: 'N/A') : '' ?>
-                                </td>
-                                <td><?= $derecha ? htmlspecialchars($derecha['material']) : '&nbsp;' ?></td>
-                                <td style="text-align:center;">
-                                    <?php if ($derecha): ?>
-                                        <?= htmlspecialchars($derecha['cantidad']) ?>
-                                        <?= htmlspecialchars($derecha['medida'] === 'm' ? 'm' : 'pz') ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td style="text-align:center;">
-                                    <?= $derecha ? htmlspecialchars($derecha['serie'] ?: 'N/A') : '' ?>
-                                </td>
+                                <th style="width:36%;">COMPONENTE</th>
+                                <th style="width:12%;">CANTIDAD</th>
+                                <th style="width:18%;">SERIE</th>
+                                <th style="width:17%;">IP</th>
+                                <th style="width:17%;">MAC</th>
                             </tr>
-                        <?php endfor; ?>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($materiales as $m): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($m['material']) ?></td>
+                                    <td style="text-align:center;">
+                                        <?= htmlspecialchars($m['cantidad']) ?>
+                                        <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : 'pz') ?>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <?= !empty($m['serie']) ? htmlspecialchars($m['serie']) : 'N/A' ?>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <?= !empty($m['ip']) ? htmlspecialchars($m['ip']) : 'N/A' ?>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <?= !empty($m['mac']) ? htmlspecialchars($m['mac']) : 'N/A' ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
                     </table>
                 <?php else: ?>
                     <table class="tabla-componentes">

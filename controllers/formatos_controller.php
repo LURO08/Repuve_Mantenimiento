@@ -116,6 +116,8 @@ if ($type === 'checklist') {
             'relacion_id' => (int)($component['relacion_id'] ?? 0),
             'nombre' => $nombre,
             'serie' => cleanValue($component['serie'] ?? ''),
+            'ip' => cleanValue($component['ip'] ?? ''),
+            'mac' => cleanValue($component['mac'] ?? ''),
             'cantidad' => max(0, (float)($component['cantidad'] ?? 1)),
             'medida' => cleanValue($component['medida'] ?? 'pz'),
             'estado' => cleanValue($component['estado'] ?? '') === 'Malo' ? 'Malo' : 'Bueno',

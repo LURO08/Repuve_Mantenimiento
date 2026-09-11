@@ -1022,42 +1022,93 @@ Object.keys(materialesAgrupados).forEach(key => {
       let medida2 = m.medida === 'm' ? 'metros' : m.medida === 'pz' ? 'piezas' : m.medida;
       if (medida2 === 'piezas' && m.cantidad === 1) medida2 = "pieza";
 
-      let seriesId = "series_" + index;
-      let totalSeries = (m.series || []).length;
+      let seriesList = obtenerSeriesMaterial(m);
+      let totalSeries = seriesList.length;
+      let ipVal = (m.ip || "").trim();
+      let macVal = (m.mac || "").trim();
+      let hasTechData = totalSeries > 0 || ipVal !== "" || macVal !== "";
 
-      let seriesHtml = "";
+      let techDataHtml = "";
+      if (hasTechData) {
+        let techCollapseId = `tech_${index}_${Math.random().toString(36).substr(2, 7)}`;
+        let summaryParts = [];
+        if (totalSeries > 0) summaryParts.push(`${totalSeries} serie${totalSeries > 1 ? 's' : ''}`);
+        if (ipVal) summaryParts.push("IP");
+        if (macVal) summaryParts.push("MAC");
 
-      if (totalSeries > 0) {
-
-        let chips = m.series.map(s => `<span class="series-chip">${s}</span>`).join("");
-
-        seriesHtml = `
-          <div class="mt-2">
-
-            <div class="d-flex justify-content-between align-items-center">
-              <small class="text-muted">
-                Series: ${totalSeries}
-              </small>
-
-              <button class="btn btn-sm btn-outline-primary series-btn"
+        techDataHtml = `
+          <div class="mt-2 pt-2 border-top">
+            <div class="d-flex justify-content-between align-items-center gap-1">
+              <span class="text-muted d-flex align-items-center" style="font-size: 11px;">
+                <i class="bi bi-cpu text-primary me-1"></i> ${summaryParts.join(" • ")}
+              </span>
+              <button class="btn btn-sm btn-outline-primary tech-toggle-btn"
                       type="button"
                       data-bs-toggle="collapse"
-                      data-bs-target="#${seriesId}">
-                Ver series <i class="bi bi-chevron-down"></i>
+                      data-bs-target="#${techCollapseId}">
+                Ver detalles <i class="bi bi-chevron-down"></i>
               </button>
             </div>
 
-            <div class="collapse" id="${seriesId}">
-              <div class="series-panel">
-                ${chips}
+            <div class="collapse mt-2" id="${techCollapseId}">
+              <div class="tech-details-panel">
+                ${totalSeries > 0 ? `
+                  <div class="mb-1">
+                    <small class="text-muted d-block fw-semibold mb-1" style="font-size: 10.5px;">Series (${totalSeries}):</small>
+                    <div class="d-flex flex-wrap gap-1">
+                      ${seriesList.map(s => `<span class="series-chip">${escapeHtml(s)}</span>`).join("")}
+                    </div>
+                  </div>
+                ` : ""}
+                ${ipVal ? `
+                  <div class="mt-1">
+                    <span class="tech-badge"><i class="bi bi-hdd-network text-primary me-1"></i>IP: <strong class="ms-1">${escapeHtml(ipVal)}</strong></span>
+                  </div>
+                ` : ""}
+                ${macVal ? `
+                  <div class="mt-1">
+                    <span class="tech-badge"><i class="bi bi-ethernet text-success me-1"></i>MAC: <strong class="ms-1">${escapeHtml(macVal)}</strong></span>
+                  </div>
+                ` : ""}
               </div>
             </div>
-
           </div>
         `;
       }
 
       let fechaActualHtml = textoFechaMaterial(m);
+
+      let anteriorTechHtml = "";
+      if (anterior) {
+        let antSeries = obtenerSeriesMaterial(anterior);
+        let antIp = (anterior.ip || "").trim();
+        let antMac = (anterior.mac || "").trim();
+        let hasAntTech = antSeries.length > 0 || antIp !== "" || antMac !== "";
+        if (hasAntTech) {
+          anteriorTechHtml = `
+            <div class="tech-details-panel mt-2">
+              ${antSeries.length > 0 ? `
+                <div class="mb-1">
+                  <small class="text-muted d-block fw-semibold mb-1" style="font-size: 10.5px;">Series:</small>
+                  <div class="d-flex flex-wrap gap-1">
+                    ${antSeries.map(s => `<span class="series-chip">${escapeHtml(s)}</span>`).join("")}
+                  </div>
+                </div>
+              ` : ""}
+              ${antIp ? `
+                <div class="mt-1">
+                  <span class="tech-badge"><i class="bi bi-hdd-network text-primary me-1"></i>IP: <strong class="ms-1">${escapeHtml(antIp)}</strong></span>
+                </div>
+              ` : ""}
+              ${antMac ? `
+                <div class="mt-1">
+                  <span class="tech-badge"><i class="bi bi-ethernet text-success me-1"></i>MAC: <strong class="ms-1">${escapeHtml(antMac)}</strong></span>
+                </div>
+              ` : ""}
+            </div>
+          `;
+        }
+      }
 
       html += `
          ${esNuevo 
@@ -1068,15 +1119,15 @@ Object.keys(materialesAgrupados).forEach(key => {
             <div class="d-flex align-items-center gap-2">
               ${imagenHtml}
               <div>
-                <div class="fw-bold">${m.material}</div>
+                <div class="fw-bold">${escapeHtml(m.material)}</div>
               </div>
               ${esNuevo 
                   ? `<span class="badge bg-danger">NUEVO</span>` 
-                  : `<span class="badge bg-secondary"></span>`
+                  : ``
                 }
             </div>
 
-            <div class="d-flex  align-items-center">
+            <div class="d-flex align-items-center">
               <span class="badge bg-success fs-6 px-3 py-2 me-2">
                 ${m.cantidad}
               </span>
@@ -1090,74 +1141,44 @@ Object.keys(materialesAgrupados).forEach(key => {
             </div>
           ` : ""}
 
-          ${seriesHtml}
-          ${m.ip ? `
-            <div class="mt-2">
-              <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtml(m.ip)}</span>
-            </div>
-          ` : ""}
-          ${m.mac ? `
-            <div class="mt-1">
-              <span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtml(m.mac)}</span>
-            </div>
-          ` : ""}
+          ${techDataHtml}
 
           ${ esNuevo && anterior ? `
-            
-            <div class="mt-2">
-              <button class="btn btn-sm btn-outline-secondary ver-anterior-btn"
-              data-anterior='${JSON.stringify(historial)}'>
-              Ver material anterior
-            </button>
+            <div class="mt-2 pt-1 border-top">
+              <button class="btn btn-sm btn-outline-secondary ver-anterior-btn w-100"
+                      data-anterior='${JSON.stringify(historial)}'>
+                <i class="bi bi-clock-history me-1"></i> Ver historial anterior
+              </button>
 
-            <div class="collapse material mt-2" id="${histId}">
-              <div class="material-card border border-secondary mt-2 p-2 rounded">
-                <div class="d-flex align-items-center gap-2 justify-content-between">
-                  <div class="d-flex align-items-center gap-2">
-                    
-                    ${
-                      (!anterior.foto || anterior.foto === "null")
-                      ? `<div class="material-img bg-secondary text-white d-flex align-items-center justify-content-center">Sin foto</div>`
-                      : `<img src="../uploads/materiales/${anterior.foto}" class="material-img">`
-                    }
+              <div class="collapse material mt-2" id="${histId}">
+                <div class="material-card border border-secondary mt-2 p-2 rounded">
+                  <div class="d-flex align-items-center gap-2 justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                      ${
+                        (!anterior.foto || anterior.foto === "null")
+                        ? `<div class="material-img bg-secondary text-white d-flex align-items-center justify-content-center">Sin foto</div>`
+                        : `<img src="../uploads/materiales/${escapeHtml(anterior.foto)}" class="material-img">`
+                      }
+                      <div>
+                        <div class="fw-bold">${escapeHtml(anterior.material)}</div>
+                        <small class="text-muted">Material anterior</small>
+                      </div>
+                    </div>
 
                     <div>
-                      <div class="fw-bold">${anterior.material}</div>
-                      <small class="text-muted">Material anterior</small>
+                      <span class="badge bg-secondary fs-6 px-3 py-2">
+                        ${escapeHtml(anterior.cantidad)}
+                      </span>
                     </div>
                   </div>
 
-                  <div>
-                    <span class="badge bg-secondary fs-6 px-3 py-2">
-                      ${anterior.cantidad}
-                    </span>
-                  </div>
+                  ${anteriorTechHtml}
+                  ${textoFechaMaterial(anterior) ? `<div class="text-muted small mt-2"><i class="bi bi-calendar-event"></i> ${textoFechaMaterial(anterior)}</div>` : ""}
+
                 </div>
-
-                ${
-                  obtenerSeriesMaterial(anterior).length > 0
-                  ? `<div class="mt-2">
-                      <small class="text-muted">Series:</small><br>
-                      ${obtenerSeriesMaterial(anterior).map(s => `<span class="series-chip">${s}</span>`).join("")}
-                    </div>`
-                  : `<div class="text-muted small mt-2">Sin series</div>`
-                }
-                ${anterior.ip ? `
-                  <div class="mt-1">
-                    <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtml(anterior.ip)}</span>
-                  </div>
-                ` : ""}
-                ${anterior.mac ? `
-                  <div class="mt-1">
-                    <span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtml(anterior.mac)}</span>
-                  </div>
-                ` : ""}
-                ${textoFechaMaterial(anterior) ? `<div class="text-muted small mt-2"><i class="bi bi-calendar-event"></i> ${textoFechaMaterial(anterior)}</div>` : ""}
-
               </div>
             </div>
-      </div>
-    ` : ``}
+          ` : ``}
         </div>
       `;
     });
@@ -1165,23 +1186,27 @@ Object.keys(materialesAgrupados).forEach(key => {
     html += `</div>`;
     html += renderInfraestructurasComponentes(infraestructuras);
     contenedor.innerHTML = html;
-  // ✅ ACTIVAR COLLAPSE DE SERIES (CORRECTO)
-  contenedor.querySelectorAll('.collapse').forEach(collapseEl => {
 
-    collapseEl.addEventListener('show.bs.collapse', function () {
-      let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
-      if (btn) {
-        btn.innerHTML = 'Ocultar serie <i class="bi bi-chevron-up"></i>';
-      }
-    });
+    // ✅ ACTIVAR COLLAPSE DE SERIES Y DATOS TECNICOS
+    contenedor.querySelectorAll('.collapse').forEach(collapseEl => {
+      collapseEl.addEventListener('show.bs.collapse', function () {
+        let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
+        if (btn && btn.classList.contains('tech-toggle-btn')) {
+          btn.innerHTML = 'Ocultar <i class="bi bi-chevron-up"></i>';
+        } else if (btn && btn.classList.contains('series-btn')) {
+          btn.innerHTML = 'Ocultar series <i class="bi bi-chevron-up"></i>';
+        }
+      });
 
-    collapseEl.addEventListener('hide.bs.collapse', function () {
-      let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
-      if (btn) {
-        btn.innerHTML = 'Ver serie <i class="bi bi-chevron-down"></i>';
-      }
+      collapseEl.addEventListener('hide.bs.collapse', function () {
+        let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
+        if (btn && btn.classList.contains('tech-toggle-btn')) {
+          btn.innerHTML = 'Ver detalles <i class="bi bi-chevron-down"></i>';
+        } else if (btn && btn.classList.contains('series-btn')) {
+          btn.innerHTML = 'Ver series <i class="bi bi-chevron-down"></i>';
+        }
+      });
     });
-  });
 
     // ✅ ACTIVAR TOOLTIP BOOTSTRAP
     let tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
@@ -1261,20 +1286,18 @@ document.addEventListener("click", function(e) {
                                 <strong>Cantidad:</strong>
                                 ${anterior.cantidad}
                             </div>
-                             <div>
+                             <div class="mt-1">
                                  <strong>Serie:</strong>
-                                 ${obtenerSeriesMaterial(anterior).join(", ") || "Sin serie"}
+                                 ${obtenerSeriesMaterial(anterior).map(s => `<span class="series-chip">${escapeHtml(s)}</span>`).join("") || '<span class="text-muted small">Sin serie</span>'}
                              </div>
                              ${anterior.ip ? `
-                               <div>
-                                 <strong>IP:</strong>
-                                 <span class="badge bg-light text-dark border ms-1"><i class="bi bi-hdd-network text-primary me-1"></i>${escapeHtml(anterior.ip)}</span>
+                               <div class="mt-1">
+                                 <span class="tech-badge"><i class="bi bi-hdd-network text-primary me-1"></i>IP: <strong class="ms-1">${escapeHtml(anterior.ip)}</strong></span>
                                </div>
                              ` : ""}
                              ${anterior.mac ? `
-                               <div>
-                                 <strong>MAC:</strong>
-                                 <span class="badge bg-light text-dark border ms-1"><i class="bi bi-ethernet text-success me-1"></i>${escapeHtml(anterior.mac)}</span>
+                               <div class="mt-1">
+                                 <span class="tech-badge"><i class="bi bi-ethernet text-success me-1"></i>MAC: <strong class="ms-1">${escapeHtml(anterior.mac)}</strong></span>
                                </div>
                              ` : ""}
                              <div>
@@ -1610,10 +1633,10 @@ function renderInfraestructurasComponentes(infraestructuras = []) {
             const foto = m.foto
               ? `<img src="../uploads/materiales/${escapeHtml(m.foto)}" class="material-img">`
               : `<div class="d-flex align-items-center justify-content-center bg-secondary text-white material-img">Sin foto</div>`;
-            const medida = m.medida === "m" ? "metros" : (m.medida === "pz" ? "piezas" : (m.medida || ""));
-            const serie = m.serie ? `<span class="series-chip">${escapeHtml(m.serie)}</span>` : `<span class="text-muted small">Sin serie</span>`;
-            const ipBadge = m.ip ? `<span class="badge bg-light text-dark border ms-1"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtml(m.ip)}</span>` : "";
-            const macBadge = m.mac ? `<span class="badge bg-light text-dark border ms-1"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtml(m.mac)}</span>` : "";
+            const serieChip = m.serie ? `<span class="series-chip">${escapeHtml(m.serie)}</span>` : "";
+            const ipBadge = m.ip ? `<span class="tech-badge"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${escapeHtml(m.ip)}</span>` : "";
+            const macBadge = m.mac ? `<span class="tech-badge"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${escapeHtml(m.mac)}</span>` : "";
+            const hasTech = serieChip || ipBadge || macBadge;
             const fecha = m.fecha_instalacion ? `<div class="text-muted small mt-2"><i class="bi bi-calendar-event"></i> Instalado: ${escapeHtml(formatearFechaHoraMaterial(m.fecha_instalacion))}</div>` : "";
 
             return `
@@ -1628,7 +1651,7 @@ function renderInfraestructurasComponentes(infraestructuras = []) {
                   </div>
                   <span class="badge bg-primary fs-6 px-3 py-2">${escapeHtml(m.cantidad || 1)}</span>
                 </div>
-                <div class="mt-2 d-flex flex-wrap gap-1 align-items-center">${serie}${ipBadge}${macBadge}</div>
+                ${hasTech ? `<div class="mt-2 pt-2 border-top d-flex flex-wrap gap-1 align-items-center">${serieChip}${ipBadge}${macBadge}</div>` : ""}
                 ${fecha}
               </div>
             `;

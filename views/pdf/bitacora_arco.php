@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../../config/db.php';
 
 if (!isset($_GET['id'])) {
@@ -205,75 +205,54 @@ $urlDescargaServidor = "../../controllers/pdf_controller.php?action=bitacora_pdf
                     II. COMPONENTES INSTALADOS EN EL ARCO
                 </div>
 
-                <?php
-                $mitadMateriales = (int)ceil(count($materiales) / 2);
-                $columnaMateriales1 = array_slice($materiales, 0, $mitadMateriales);
-                $columnaMateriales2 = array_slice($materiales, $mitadMateriales);
-                ?>
-
-                <table class="tabla-componentes tabla-componentes--dos-columnas">
-                    <tr>
-                        <th style="width:34%;">COMPONENTE</th>
-                        <th style="width:16%;">SERIE</th>
-                        <th style="width:34%;">COMPONENTE</th>
-                        <th style="width:16%;">SERIE</th>
-                    </tr>
-
-                    <?php if (count($materiales) > 0): ?>
-                        <?php for ($i = 0; $i < $mitadMateriales; $i++): ?>
-                            <?php
-                            $materialIzq = $columnaMateriales1[$i] ?? null;
-                            $materialDer = $columnaMateriales2[$i] ?? null;
-                            ?>
+                <table class="tabla-componentes">
+                    <thead>
+                        <tr>
+                            <th style="width:36%;">COMPONENTE</th>
+                            <th style="width:12%;">CANTIDAD</th>
+                            <th style="width:18%;">SERIE</th>
+                            <th style="width:17%;">IP</th>
+                            <th style="width:17%;">MAC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (count($materiales) > 0): ?>
+                            <?php foreach ($materiales as $m): ?>
+                                <tr>
+                                    <td>
+                                        <span class="nombre-material">
+                                            <?= htmlspecialchars($m['material']) ?>
+                                        </span>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <?= htmlspecialchars($m['cantidad']) ?>
+                                        <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : 'pz') ?>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <?= !empty($m['serie'])
+                                            ? htmlspecialchars($m['serie'])
+                                            : 'N/A' ?>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <?= !empty($m['ip'])
+                                            ? htmlspecialchars($m['ip'])
+                                            : 'N/A' ?>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <?= !empty($m['mac'])
+                                            ? htmlspecialchars($m['mac'])
+                                            : 'N/A' ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
                             <tr>
-                                <td class="componente-cell">
-                                    <?php if ($materialIzq): ?>
-                                        <span class="nombre-material">
-                                            <?= htmlspecialchars($materialIzq['material']) ?>
-                                        </span>
-                                        <span class="cantidad-material">
-                                            <?= htmlspecialchars($materialIzq['cantidad']) ?>
-                                            <?= ' ' . strtoupper(htmlspecialchars($materialIzq['medida'] === 'm' ? 'Metros' : 'Piezas')) ?>
-                                        </span>
-                                    <?php else: ?>
-                                        &nbsp;
-                                    <?php endif; ?>
-                                </td>
-
-                                <td class="serie-cell">
-                                    <?= !empty($materialIzq['serie'])
-                                        ? htmlspecialchars($materialIzq['serie'])
-                                        : ($materialIzq ? 'N/A' : '') ?>
-                                </td>
-
-                                <td class="componente-cell">
-                                    <?php if ($materialDer): ?>
-                                        <span class="nombre-material">
-                                            <?= htmlspecialchars($materialDer['material']) ?>
-                                        </span>
-                                        <span class="cantidad-material">
-                                            <?= htmlspecialchars($materialDer['cantidad']) ?>
-                                            <?= ' ' . strtoupper(htmlspecialchars($materialDer['medida'] === 'm' ? 'Metros' : 'Piezas')) ?>
-                                        </span>
-                                    <?php else: ?>
-                                        &nbsp;
-                                    <?php endif; ?>
-                                </td>
-
-                                <td class="serie-cell">
-                                    <?= !empty($materialDer['serie'])
-                                        ? htmlspecialchars($materialDer['serie'])
-                                        : ($materialDer ? 'N/A' : '') ?>
+                                <td colspan="5" style="text-align:center;">
+                                    No hay materiales registrados
                                 </td>
                             </tr>
-                        <?php endfor; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="4" style="text-align:center;">
-                                No hay materiales registrados
-                            </td>
-                        </tr>
-                    <?php endif; ?>
+                        <?php endif; ?>
+                    </tbody>
                 </table>
             </div>
 

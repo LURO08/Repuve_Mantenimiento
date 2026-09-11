@@ -202,6 +202,8 @@ foreach ($arcos as $arcOption) {
                 <input type="hidden" class="checklist-relation">
                 <input type="hidden" class="checklist-name">
                 <input type="hidden" class="checklist-series">
+                <input type="hidden" class="checklist-ip">
+                <input type="hidden" class="checklist-mac">
                 <input type="hidden" class="checklist-quantity">
                 <input type="hidden" class="checklist-measure">
               </div>

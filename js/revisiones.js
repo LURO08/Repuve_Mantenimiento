@@ -432,14 +432,22 @@ document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
           medida: m.medida,
           cantidad: 0,
           series: [],
+          ip: m.ip || "",
+          mac: m.mac || "",
           foto: m.foto
         };
       }
 
-      agrupados[key].cantidad += parseFloat(m.cantidad);
+      agrupados[key].cantidad += parseFloat(m.cantidad || 0);
 
       if (m.serie && m.serie.trim() !== "") {
-        agrupados[key].series.push(m.serie);
+        agrupados[key].series.push(m.serie.trim());
+      }
+      if (m.ip && !agrupados[key].ip) {
+        agrupados[key].ip = m.ip.trim();
+      }
+      if (m.mac && !agrupados[key].mac) {
+        agrupados[key].mac = m.mac.trim();
       }
     });
 
@@ -456,34 +464,55 @@ document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
       let medida2 = m.medida === 'm' ? 'metros' : m.medida === 'pz' ? 'piezas' : m.medida;
       if (medida2 === 'piezas' && m.cantidad === 1) medida2 = "pieza";
 
-      let seriesId = "series_" + index;
-      let totalSeries = m.series.length;
+      let totalSeries = (m.series || []).length;
+      let ipVal = (m.ip || "").trim();
+      let macVal = (m.mac || "").trim();
+      let hasTechData = totalSeries > 0 || ipVal !== "" || macVal !== "";
 
-      let seriesHtml = "";
+      let techDataHtml = "";
 
-      if (totalSeries > 0) {
+      if (hasTechData) {
+        let techCollapseId = `tech_rev_${index}_${Math.random().toString(36).substr(2, 7)}`;
+        let summaryParts = [];
+        if (totalSeries > 0) summaryParts.push(`${totalSeries} serie${totalSeries > 1 ? 's' : ''}`);
+        if (ipVal) summaryParts.push("IP");
+        if (macVal) summaryParts.push("MAC");
 
-        let chips = m.series.map(s => `<span class="series-chip">${s}</span>`).join("");
+        techDataHtml = `
+          <div class="mt-2 pt-2 border-top">
+            <div class="d-flex justify-content-between align-items-center gap-1">
+              <span class="text-muted d-flex align-items-center" style="font-size: 11px;">
+                <i class="bi bi-cpu text-primary me-1"></i> ${summaryParts.join(" • ")}
+              </span>
 
-        seriesHtml = `
-          <div class="mt-2">
-
-            <div class="d-flex justify-content-between align-items-center">
-              <small class="text-muted">
-                Series: ${totalSeries}
-              </small>
-
-              <button class="btn btn-sm btn-outline-primary series-btn"
+              <button class="btn btn-sm btn-outline-primary tech-toggle-btn"
                       type="button"
                       data-bs-toggle="collapse"
-                      data-bs-target="#${seriesId}">
-                Ver series <i class="bi bi-chevron-down"></i>
+                      data-bs-target="#${techCollapseId}">
+                Ver detalles <i class="bi bi-chevron-down"></i>
               </button>
             </div>
 
-            <div class="collapse" id="${seriesId}">
-              <div class="series-panel">
-                ${chips}
+            <div class="collapse mt-2" id="${techCollapseId}">
+              <div class="tech-details-panel">
+                ${totalSeries > 0 ? `
+                  <div class="mb-1">
+                    <small class="text-muted d-block fw-semibold mb-1" style="font-size: 10.5px;">Series (${totalSeries}):</small>
+                    <div class="d-flex flex-wrap gap-1">
+                      ${m.series.map(s => `<span class="series-chip">${s}</span>`).join("")}
+                    </div>
+                  </div>
+                ` : ""}
+                ${ipVal ? `
+                  <div class="mt-1">
+                    <span class="tech-badge"><i class="bi bi-hdd-network text-primary me-1"></i>IP: <strong class="ms-1">${escapeHtml(ipVal)}</strong></span>
+                  </div>
+                ` : ""}
+                ${macVal ? `
+                  <div class="mt-1">
+                    <span class="tech-badge"><i class="bi bi-ethernet text-success me-1"></i>MAC: <strong class="ms-1">${escapeHtml(macVal)}</strong></span>
+                  </div>
+                ` : ""}
               </div>
             </div>
 
@@ -510,7 +539,7 @@ document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
             </div>
           </div>
 
-          ${seriesHtml}
+          ${techDataHtml}
 
         </div>
       `;
@@ -519,19 +548,23 @@ document.querySelectorAll('.verMaterialesBtn').forEach(btn => {
     html += `</div>`;
     contenedor.innerHTML = html;
 
-    // ✅ ACTIVAR COLLAPSE DE SERIES (CORRECTO)
+    // ✅ ACTIVAR COLLAPSE DE DATOS TECNICOS
     contenedor.querySelectorAll('.collapse').forEach(collapseEl => {
 
       collapseEl.addEventListener('show.bs.collapse', function () {
         let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
-        if (btn) {
+        if (btn && btn.classList.contains('tech-toggle-btn')) {
+          btn.innerHTML = 'Ocultar <i class="bi bi-chevron-up"></i>';
+        } else if (btn) {
           btn.innerHTML = 'Ocultar series <i class="bi bi-chevron-up"></i>';
         }
       });
 
       collapseEl.addEventListener('hide.bs.collapse', function () {
         let btn = contenedor.querySelector(`[data-bs-target="#${this.id}"]`);
-        if (btn) {
+        if (btn && btn.classList.contains('tech-toggle-btn')) {
+          btn.innerHTML = 'Ver detalles <i class="bi bi-chevron-down"></i>';
+        } else if (btn) {
           btn.innerHTML = 'Ver series <i class="bi bi-chevron-down"></i>';
         }
       });

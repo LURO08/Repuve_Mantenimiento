@@ -66,6 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
       row.querySelector('.checklist-relation').name = `componente[${index}][relacion_id]`;
       row.querySelector('.checklist-name').name = `componente[${index}][nombre]`;
       row.querySelector('.checklist-series').name = `componente[${index}][serie]`;
+      if (row.querySelector('.checklist-ip')) row.querySelector('.checklist-ip').name = `componente[${index}][ip]`;
+      if (row.querySelector('.checklist-mac')) row.querySelector('.checklist-mac').name = `componente[${index}][mac]`;
       row.querySelector('.checklist-quantity').name = `componente[${index}][cantidad]`;
       row.querySelector('.checklist-measure').name = `componente[${index}][medida]`;
       row.querySelector('.status-good').name = `componente[${index}][estado]`;
@@ -79,12 +81,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!checklistRows || !checklistTemplate) return;
     const row = checklistTemplate.content.firstElementChild.cloneNode(true);
     const documentedSeries = saved.serie ?? material.serie ?? '';
+    const documentedIp = saved.ip ?? material.ip ?? '';
+    const documentedMac = saved.mac ?? material.mac ?? '';
+
     row.dataset.relationId = material.relacion_id;
     row.querySelector('.checklist-material-name').textContent = material.material;
-    row.querySelector('.checklist-material-series').textContent = documentedSeries ? `Serie: ${documentedSeries}` : '';
+
+    let subDetails = [];
+    if (documentedSeries) subDetails.push(`Serie: ${documentedSeries}`);
+    if (documentedIp) subDetails.push(`IP: ${documentedIp}`);
+    if (documentedMac) subDetails.push(`MAC: ${documentedMac}`);
+
+    row.querySelector('.checklist-material-series').textContent = subDetails.join(' | ');
     row.querySelector('.checklist-relation').value = material.relacion_id;
     row.querySelector('.checklist-name').value = material.material;
     row.querySelector('.checklist-series').value = documentedSeries;
+    if (row.querySelector('.checklist-ip')) row.querySelector('.checklist-ip').value = documentedIp;
+    if (row.querySelector('.checklist-mac')) row.querySelector('.checklist-mac').value = documentedMac;
     row.querySelector('.checklist-quantity').value = material.cantidad || 1;
     row.querySelector('.checklist-measure').value = material.medida || 'pz';
     row.querySelector('.status-good').checked = saved.estado !== 'Malo';
@@ -99,6 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
     relacion_id: `virtual-${key}`,
     material,
     serie: '',
+    ip: '',
+    mac: '',
     cantidad: 1,
     medida
   });
@@ -111,7 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
         estado: row.querySelector('.status-bad').checked ? 'Malo' : 'Bueno',
         observacion: row.querySelector('.checklist-observation').value,
         cambiado: row.querySelector('.checklist-changed').checked,
-        serie: row.querySelector('.checklist-series').value
+        serie: row.querySelector('.checklist-series').value,
+        ip: row.querySelector('.checklist-ip')?.value || '',
+        mac: row.querySelector('.checklist-mac')?.value || ''
       });
     });
     checklistRows.innerHTML = '';
@@ -126,9 +143,16 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = 'checklist-material-option is-included';
       card.innerHTML = '<span><i class="bi bi-check2"></i><strong></strong><small></small></span>';
       card.querySelector('strong').textContent = material.material;
-      card.querySelector('small').textContent = material.serie
-        ? `Serie: ${material.serie}`
-        : `${material.cantidad || 1} ${material.medida === 'm' ? 'm' : 'pz'}`;
+
+      let cardParts = [];
+      if (material.serie) cardParts.push(`Serie: ${material.serie}`);
+      if (material.ip) cardParts.push(`IP: ${material.ip}`);
+      if (material.mac) cardParts.push(`MAC: ${material.mac}`);
+      if (!cardParts.length) {
+        cardParts.push(`${material.cantidad || 1} ${material.medida === 'm' ? 'm' : 'pz'}`);
+      }
+
+      card.querySelector('small').textContent = cardParts.join(' | ');
       checklistSelector.appendChild(card);
 
       const saved = currentRows.get(String(material.relacion_id)) || getSavedComponent(material) || {};
