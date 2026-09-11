@@ -15,13 +15,16 @@ $tituloFormato = 'BITÁCORA';
 
 /* DATOS DEL ARCO */
 $stmt = $pdo->prepare("
-    SELECT a.*, u.nombre AS ubicacion
+    SELECT a.*, u.nombre AS ubicacion, a.fecha_instalacion AS fecha_instalacion
     FROM arcos a
     JOIN ubicaciones u ON a.ubicacion_id = u.id
     WHERE a.id = ?
 ");
 $stmt->execute([$id]);
 $arco = $stmt->fetch(PDO::FETCH_ASSOC);
+$fechaInstalacion = $arco ? date("d/m/Y", strtotime($arco['fecha_instalacion'])) : '';
+
+
 
 if (!$arco) {
     die("Arco no encontrado");
@@ -81,7 +84,7 @@ if ($bitacora) {
 }
 
 $safeArc = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($arco['nombre'] ?? 'arco'));
-$nombreArchivoPdf = "Bitacora_{$safeArc}_{$id}.pdf";
+$nombreArchivoPdf = "Bitacora_{$safeArc}_{$fechaInstalacion}.pdf";
 $urlDescargaServidor = "../../controllers/pdf_controller.php?action=bitacora_pdf&id={$id}&download=1";
 
 ?>
@@ -205,7 +208,46 @@ $urlDescargaServidor = "../../controllers/pdf_controller.php?action=bitacora_pdf
                     II. COMPONENTES INSTALADOS EN EL ARCO
                 </div>
 
-                <?php if (count($materiales) > 0): ?>
+                <?php if (count($materiales) === 1): ?>
+                    <?php
+                    $m = $materiales[0];
+                    $datosTec = [];
+                    if (!empty(trim((string)($m['serie'] ?? '')))) {
+                        $datosTec[] = '<strong>Serie:</strong> ' . htmlspecialchars(trim($m['serie']));
+                    }
+                    if (!empty(trim((string)($m['ip'] ?? '')))) {
+                        $datosTec[] = '<strong>IP:</strong> ' . htmlspecialchars(trim($m['ip']));
+                    }
+                    if (!empty(trim((string)($m['mac'] ?? '')))) {
+                        $datosTec[] = '<strong>MAC:</strong> ' . htmlspecialchars(trim($m['mac']));
+                    }
+                    ?>
+                    <table class="tabla-componentes">
+                        <thead>
+                            <tr>
+                                <th style="width:80%; text-align:left; padding-left:10px;">COMPONENTE / ESPECIFICACIÓN</th>
+                                <th style="width:20%; text-align:center;">CANTIDAD</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:6px 10px; vertical-align:middle;">
+                                    <div style="font-weight:bold; font-size:11px; color:#111; line-height:1.2;">
+                                        <?= htmlspecialchars($m['material']) ?>
+                                    </div>
+                                    <?php if (!empty($datosTec)): ?>
+                                        <div class="datos-tecnicos" style="margin-top:2px; font-size:9.5px; color:#444; line-height:1.25;">
+                                            <?= implode(' &nbsp;•&nbsp; ', $datosTec) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="text-align:center; font-weight:bold; font-size:11px; white-space:nowrap; vertical-align:middle;">
+                                    <?= htmlspecialchars($m['cantidad']) ?> <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : ($m['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                <?php elseif (count($materiales) > 1): ?>
                     <?php
                     $mitadMat = ceil(count($materiales) / 2);
                     $matCol1 = array_slice($materiales, 0, $mitadMat);

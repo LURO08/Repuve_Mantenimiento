@@ -124,13 +124,14 @@ function generarMantenimiento($pdo)
     }
 
     $stmt = $pdo->prepare("
-        SELECT r.*, a.nombre AS arco
+        SELECT r.*, a.nombre AS arco, fecha_mantenimiento AS fecha_mantenimiento
         FROM revisiones r
         JOIN arcos a ON r.arco_id = a.id
         WHERE r.id = ?
     ");
     $stmt->execute([$revision_id]);
     $revision = $stmt->fetch(PDO::FETCH_ASSOC);
+    $fechaRegistroMantenimiento = $revision ? date("d/m/Y H:i A", strtotime($revision['fecha_mantenimiento'])) : '';
 
     if (!$revision) {
         die("No existe la revisión");
@@ -158,7 +159,7 @@ function generarMantenimiento($pdo)
     }
 
     $safeName = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($revision['arco'] ?? 'arco'));
-    $filename = "Diagnostico_Inicial_{$safeName}_{$revision_id}.pdf";
+    $filename = "Diagnostico_Inicial_{$safeName}_{$fechaRegistroMantenimiento}.pdf";
 
     $dompdf->stream($filename, [
         "Attachment" => $download
@@ -178,9 +179,10 @@ function generarBitacoraPdf($pdo)
         die("ID de arco no válido");
     }
 
-    $stmt = $pdo->prepare("SELECT id, nombre FROM arcos WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT id, nombre, fecha_instalacion AS fecha_instalacion FROM arcos WHERE id = ?");
     $stmt->execute([$arco_id]);
     $arco = $stmt->fetch(PDO::FETCH_ASSOC);
+    $fechaInstalacion = $arco ? date("d/m/Y", strtotime($arco['fecha_instalacion'])) : '';
 
     if (!$arco) {
         die("Arco no encontrado");
@@ -208,7 +210,7 @@ function generarBitacoraPdf($pdo)
     }
 
     $safeName = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($arco['nombre'] ?? 'arco'));
-    $filename = "Bitacora_{$safeName}_{$arco_id}.pdf";
+    $filename = "Bitacora_{$safeName}_{$fechaInstalacion}.pdf";
 
     $dompdf->stream($filename, [
         "Attachment" => $download

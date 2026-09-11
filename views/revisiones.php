@@ -226,12 +226,6 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
                   title="Ver / Imprimir PDF">
                   <i class="bi bi-file-earmark-pdf"></i>
                 </a>
-
-                <a href="../controllers/pdf_controller.php?action=mantenimiento&id=<?= $r['id'] ?>&download=1" 
-                  class="btn btn-outline-danger btn-sm"
-                  title="Descargar PDF">
-                  <i class="bi bi-download"></i>
-                </a>
               </td>
             </tr>
           <?php endforeach; ?>

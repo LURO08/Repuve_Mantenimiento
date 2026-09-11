@@ -11,7 +11,7 @@ $id = (int)$_GET['id'];
    DATOS DE LA REVISIÓN
 ========================= */
 $stmt = $pdo->prepare("
-    SELECT r.*, t.nombre AS tecnico_responsable, a.nombre AS arco, u.nombre AS ubicacion
+    SELECT r.*, t.nombre AS tecnico_responsable, a.nombre AS arco, u.nombre AS ubicacion, fecha_mantenimiento AS fecha_mantenimiento
     FROM revisiones r
     JOIN arcos a ON r.arco_id = a.id
     JOIN ubicaciones u ON a.ubicacion_id = u.id
@@ -20,6 +20,7 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$id]);
 $revision = $stmt->fetch(PDO::FETCH_ASSOC);
+$fechaMantenimiento = $revision ? date("d/m/Y", strtotime($revision['fecha_mantenimiento'])) : '';
 
 if (!$revision) {
     die("Revisión no encontrada");
@@ -43,7 +44,7 @@ $fechaFormato = date("d M Y");
 $codigoFormato = 'INN-FOR-002';
 
 $safeArc = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($revision['arco'] ?? 'arco'));
-$nombreArchivoPdf = "Diagnostico_Inicial_{$safeArc}_{$id}.pdf";
+$nombreArchivoPdf = "Diagnostico_Inicial_{$safeArc}_{$fechaMantenimiento}.pdf";
 $urlDescargaServidor = "../../controllers/pdf_controller.php?action=mantenimiento&id={$id}&download=1";
 
 ?>
@@ -134,7 +135,53 @@ $urlDescargaServidor = "../../controllers/pdf_controller.php?action=mantenimient
             <div class="seccion">
                 <div class="titulo-seccion">II. MATERIALES CAMBIADOS / AGREGADOS / RETIRADOS</div>
 
-                <?php if (count($materiales) > 0): ?>
+                <?php if (count($materiales) === 1): ?>
+                    <?php
+                    $m = $materiales[0];
+                    $esRetiro = ($m['accion'] ?? 'cambio') === 'retiro';
+                    $esAgregado = ($m['accion'] ?? 'cambio') === 'agregado';
+                    $datosTec = [];
+                    if (!empty(trim((string)($m['serie'] ?? '')))) {
+                        $datosTec[] = '<strong>Serie:</strong> ' . htmlspecialchars(trim($m['serie']));
+                    }
+                    if (!empty(trim((string)($m['ip'] ?? '')))) {
+                        $datosTec[] = '<strong>IP:</strong> ' . htmlspecialchars(trim($m['ip']));
+                    }
+                    if (!empty(trim((string)($m['mac'] ?? '')))) {
+                        $datosTec[] = '<strong>MAC:</strong> ' . htmlspecialchars(trim($m['mac']));
+                    }
+                    ?>
+                    <table class="tabla-componentes">
+                        <thead>
+                            <tr>
+                                <th style="width:80%; text-align:left; padding-left:10px;">COMPONENTE / ESPECIFICACIÓN</th>
+                                <th style="width:20%; text-align:center;">CANTIDAD</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:6px 10px; vertical-align:middle;">
+                                    <div style="font-weight:bold; font-size:11px; color:#111; line-height:1.2;">
+                                        <?php if ($esRetiro): ?>
+                                            <span style="color:#b02a37; font-weight:bold;">[RETIRADO]</span>
+                                        <?php elseif ($esAgregado): ?>
+                                            <span style="color:#0d6efd; font-weight:bold;">[AGREGADO]</span>
+                                        <?php endif; ?>
+                                        <?= htmlspecialchars($m['material']) ?>
+                                    </div>
+                                    <?php if (!empty($datosTec)): ?>
+                                        <div class="datos-tecnicos" style="margin-top:2px; font-size:9.5px; color:#444; line-height:1.25;">
+                                            <?= implode(' &nbsp;•&nbsp; ', $datosTec) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="text-align:center; font-weight:bold; font-size:11px; white-space:nowrap; vertical-align:middle;">
+                                    <?= htmlspecialchars($m['cantidad']) ?> <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : ($m['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                <?php elseif (count($materiales) > 1): ?>
                     <?php
                     $mitadMat = ceil(count($materiales) / 2);
                     $matCol1 = array_slice($materiales, 0, $mitadMat);

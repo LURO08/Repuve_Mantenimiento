@@ -168,7 +168,46 @@ $urlDescargaServidor = "../../controllers/pdf_controller.php?action=baja_pdf&id=
             <div class="seccion">
                 <div class="titulo-seccion">III. COMPONENTES REGISTRADOS</div>
 
-                <?php if (count($materiales) > 0): ?>
+                <?php if (count($materiales) === 1): ?>
+                    <?php
+                    $m = $materiales[0];
+                    $datosTec = [];
+                    if (!empty(trim((string)($m['serie'] ?? '')))) {
+                        $datosTec[] = '<strong>Serie:</strong> ' . htmlspecialchars(trim($m['serie']));
+                    }
+                    if (!empty(trim((string)($m['ip'] ?? '')))) {
+                        $datosTec[] = '<strong>IP:</strong> ' . htmlspecialchars(trim($m['ip']));
+                    }
+                    if (!empty(trim((string)($m['mac'] ?? '')))) {
+                        $datosTec[] = '<strong>MAC:</strong> ' . htmlspecialchars(trim($m['mac']));
+                    }
+                    ?>
+                    <table class="tabla-componentes">
+                        <thead>
+                            <tr>
+                                <th style="width:80%; text-align:left; padding-left:10px;">COMPONENTE / ESPECIFICACIÓN</th>
+                                <th style="width:20%; text-align:center;">CANTIDAD</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding:6px 10px; vertical-align:middle;">
+                                    <div style="font-weight:bold; font-size:11px; color:#111; line-height:1.2;">
+                                        <?= htmlspecialchars($m['material']) ?>
+                                    </div>
+                                    <?php if (!empty($datosTec)): ?>
+                                        <div class="datos-tecnicos" style="margin-top:2px; font-size:9.5px; color:#444; line-height:1.25;">
+                                            <?= implode(' &nbsp;•&nbsp; ', $datosTec) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="text-align:center; font-weight:bold; font-size:11px; white-space:nowrap; vertical-align:middle;">
+                                    <?= htmlspecialchars($m['cantidad']) ?> <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : ($m['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                <?php elseif (count($materiales) > 1): ?>
                     <?php
                     $mitadMat = ceil(count($materiales) / 2);
                     $matCol1 = array_slice($materiales, 0, $mitadMat);
