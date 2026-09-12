@@ -4,6 +4,7 @@ return [
     'checklist' => [
         'title' => 'Check List de Diagnóstico Inicial',
         'pdf_title' => 'CHECK LIST DE DIAGNÓSTICO INICIAL',
+        'file_prefix' => 'Check_List_Diagnostico_Inicial',
         'code' => 'INN-FOR-002',
         'description' => 'Registra el estado, observaciones y cambios de cada componente del arco.',
         'icon' => 'bi-clipboard2-check',
@@ -25,7 +26,8 @@ return [
     ],
     'quality' => [
         'title' => 'Formato de Pruebas de Calidad',
-        'pdf_title' => 'PRUEBAS DE CALIDAD',
+        'pdf_title' => 'FORMATO DE PRUEBAS DE CALIDAD',
+        'file_prefix' => 'Formato_Pruebas_Calidad',
         'code' => 'INN-FOR-003',
         'description' => 'Documenta las pruebas por carril, energía, enlace y sistema de monitoreo.',
         'icon' => 'bi-patch-check',
@@ -36,6 +38,7 @@ return [
     'tools' => [
         'title' => 'Formato de Herramientas',
         'pdf_title' => 'FORMATO DE HERRAMIENTAS',
+        'file_prefix' => 'Formato_Herramientas',
         'code' => 'INN-FOR-004',
         'description' => 'Selecciona herramientas, consumibles y equipo de protección para el servicio.',
         'icon' => 'bi-tools',

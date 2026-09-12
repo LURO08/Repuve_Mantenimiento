@@ -38,6 +38,8 @@ function asegurarEsquemaBajaArco($pdo)
 
   $pdo->exec("ALTER TABLE infraestructura_revision_material ADD COLUMN IF NOT EXISTS ip VARCHAR(50)");
   $pdo->exec("ALTER TABLE infraestructura_revision_material ADD COLUMN IF NOT EXISTS mac VARCHAR(50)");
+  $pdo->exec("ALTER TABLE infraestructura_revision_material ADD COLUMN IF NOT EXISTS infraestructura_material_id INTEGER");
+  $pdo->exec("ALTER TABLE infraestructura_revision_material ADD COLUMN IF NOT EXISTS accion VARCHAR(20) DEFAULT 'cambio'");
 
   $pdo->exec("
     CREATE TABLE IF NOT EXISTS arcos_bajas (

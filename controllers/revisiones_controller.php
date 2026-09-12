@@ -21,6 +21,8 @@ $pdo->exec("ALTER TABLE infraestructura_material ADD COLUMN IF NOT EXISTS fecha_
 
 $pdo->exec("ALTER TABLE infraestructura_revision_material ADD COLUMN IF NOT EXISTS ip VARCHAR(50)");
 $pdo->exec("ALTER TABLE infraestructura_revision_material ADD COLUMN IF NOT EXISTS mac VARCHAR(50)");
+$pdo->exec("ALTER TABLE infraestructura_revision_material ADD COLUMN IF NOT EXISTS infraestructura_material_id INTEGER");
+$pdo->exec("ALTER TABLE infraestructura_revision_material ADD COLUMN IF NOT EXISTS accion VARCHAR(20) DEFAULT 'cambio'");
 
 $pdo->exec("
     CREATE TABLE IF NOT EXISTS infraestructura_revision_evidencias (
@@ -172,11 +174,43 @@ case 'get_infra_materiales':
         ORDER BY im.id ASC
     ");
     $stmt->execute([$infraestructura_id]);
+    $materialesBase = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $historialStmt = $pdo->prepare("
+        SELECT irm.infraestructura_material_id AS relacion_id, irm.material_id AS id, irm.cantidad, irm.serie, irm.ip, irm.mac, irm.accion,
+               m.medida AS medida, m.nombre AS material, m.foto
+        FROM infraestructura_revision_material irm
+        JOIN infraestructura_revisiones ir ON irm.revision_id = ir.id
+        JOIN materiales m ON irm.material_id = m.id
+        WHERE ir.infraestructura_id = ?
+          AND irm.infraestructura_material_id IS NOT NULL
+        ORDER BY irm.infraestructura_material_id ASC, ir.fecha_mantenimiento DESC, irm.id DESC
+    ");
+    $historialStmt->execute([$infraestructura_id]);
+
+    $ultimoPorRelacion = [];
+    foreach ($historialStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $relacionId = (int)($row['relacion_id'] ?? 0);
+        if ($relacionId && !isset($ultimoPorRelacion[$relacionId])) {
+            $ultimoPorRelacion[$relacionId] = $row;
+        }
+    }
+
+    $materialesActuales = [];
+    foreach ($materialesBase as $base) {
+        $relacionId = (int)($base['relacion_id'] ?? 0);
+        $actual = $ultimoPorRelacion[$relacionId] ?? $base;
+
+        if (($actual['accion'] ?? 'cambio') === 'retiro') {
+            continue;
+        }
+
+        $actual['relacion_id'] = $relacionId;
+        $materialesActuales[] = $actual;
+    }
+
+    echo json_encode($materialesActuales);
     exit;
-
-
 
 /* =========================================================
    AGREGAR REVISION / MANTENIMIENTO
@@ -239,8 +273,13 @@ case 'add_infra':
         $revision_id = (int)$stmt->fetchColumn();
 
         $stmtMat = $pdo->prepare("
-            INSERT INTO infraestructura_revision_material (revision_id, material_id, cantidad, serie, ip, mac)
+            INSERT INTO infraestructura_revision_material (revision_id, infraestructura_material_id, material_id, cantidad, serie, ip, mac, accion)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmtNuevoMaterialInfra = $pdo->prepare("
+            INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, ip, mac)
             VALUES (?, ?, ?, ?, ?, ?)
+            RETURNING id
         ");
 
         if (is_array($materiales)) {
@@ -259,7 +298,18 @@ case 'add_infra':
                 $ip = $ip !== '' ? $ip : null;
                 $mac = trim($macs[$i] ?? '');
                 $mac = $mac !== '' ? $mac : null;
-                $stmtMat->execute([$revision_id, $material_id, $cantidad, $serie !== '' ? $serie : null, $ip, $mac]);
+                
+                $stmtNuevoMaterialInfra->execute([
+                    $infraestructura_id,
+                    $material_id,
+                    $cantidad,
+                    $serie !== '' ? $serie : null,
+                    $ip,
+                    $mac
+                ]);
+                $infra_material_id = (int)$stmtNuevoMaterialInfra->fetchColumn();
+
+                $stmtMat->execute([$revision_id, $infra_material_id, $material_id, $cantidad, $serie !== '' ? $serie : null, $ip, $mac, 'agregado']);
             }
         }
 
@@ -326,9 +376,22 @@ case 'add':
             $revision_id = (int)$stmt->fetchColumn();
 
             $stmtMat = $pdo->prepare("
-                INSERT INTO infraestructura_revision_material (revision_id, material_id, cantidad, serie, ip, mac)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO infraestructura_revision_material (revision_id, infraestructura_material_id, material_id, cantidad, serie, ip, mac, accion)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ");
+            $stmtValidarMaterialInfra = $pdo->prepare("
+                SELECT 1
+                FROM infraestructura_material
+                WHERE id = ?
+                  AND infraestructura_id = ?
+                LIMIT 1
+            ");
+            $stmtNuevoMaterialInfra = $pdo->prepare("
+                INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, ip, mac)
+                VALUES (?, ?, ?, ?, ?, ?)
+                RETURNING id
+            ");
+            $relacionesUsadasInfra = [];
 
             foreach ($materiales as $mat) {
                 $material_id = $mat['material_id'] ?? null;
@@ -336,6 +399,7 @@ case 'add':
                     continue;
                 }
 
+                $infra_material_id = !empty($mat['arco_material_id']) ? (int)$mat['arco_material_id'] : (!empty($mat['infraestructura_material_id']) ? (int)$mat['infraestructura_material_id'] : (!empty($mat['relacion_id']) ? (int)$mat['relacion_id'] : null));
                 $cantidad = (float)($mat['cantidad'] ?? 1);
                 if ($cantidad <= 0) {
                     $cantidad = 1;
@@ -345,7 +409,50 @@ case 'add':
                 $ip = $ip !== '' ? $ip : null;
                 $mac = trim($mat['mac'] ?? '');
                 $mac = $mac !== '' ? $mac : null;
-                $stmtMat->execute([$revision_id, $material_id, $cantidad, $serie !== '' ? $serie : null, $ip, $mac]);
+                $accion = $mat['accion'] ?? 'cambio';
+                if (!in_array($accion, ['cambio', 'retiro', 'agregado'], true)) {
+                    $accion = 'cambio';
+                }
+
+                if ($accion === 'agregado') {
+                    $stmtNuevoMaterialInfra->execute([
+                        $infraestructura_id,
+                        $material_id,
+                        $cantidad,
+                        $serie !== '' ? $serie : null,
+                        $ip,
+                        $mac
+                    ]);
+                    $infra_material_id = (int)$stmtNuevoMaterialInfra->fetchColumn();
+                } else {
+                    if ($infra_material_id && $infra_material_id > 0) {
+                        $stmtValidarMaterialInfra->execute([$infra_material_id, $infraestructura_id]);
+                        if (!$stmtValidarMaterialInfra->fetchColumn()) {
+                            $infra_material_id = null;
+                        }
+                    } else {
+                        $infra_material_id = null;
+                    }
+
+                    if ($infra_material_id) {
+                        $relacionKey = (string)$infra_material_id . ':' . $accion;
+                        if (isset($relacionesUsadasInfra[$relacionKey])) {
+                            throw new Exception('El mismo componente fue seleccionado más de una vez en este mantenimiento.');
+                        }
+                        $relacionesUsadasInfra[$relacionKey] = true;
+                    }
+                }
+
+                $stmtMat->execute([
+                    $revision_id,
+                    $infra_material_id,
+                    $material_id,
+                    $cantidad,
+                    $serie !== '' ? $serie : null,
+                    $ip,
+                    $mac,
+                    $accion
+                ]);
             }
 
             guardarEvidenciasRevision($pdo, (int)$revision_id, 'infraestructura_revision_evidencias');

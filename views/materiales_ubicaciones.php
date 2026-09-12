@@ -301,34 +301,40 @@ if (!isset($_SESSION["user"])) {
 <div class="custom-modal" id="modalAgregarMaterial">
   <div class="custom-modal-content">
     <div class="modal-header-custom">
-      <h5>Agregar Material</h5>
+      <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i> Agregar Material</h5>
       <span class="close-modal" onclick="closeModal('modalAgregarMaterial')">&times;</span>
     </div>
 
-    <div style="padding: 10px;">
+    <div class="p-3">
       <form method="post" action="../controllers/materiales_controller.php" enctype="multipart/form-data">
 
-        <div class="row-two">
-          <div class="col">
-            <label>Nombre:</label>
-            <input type="text" name="nombre" required>
+        <div class="row g-2 mb-3">
+          <div class="col-12 col-sm-8">
+            <label class="form-label small fw-bold text-secondary">Nombre del material:</label>
+            <input type="text" name="nombre" class="form-control" placeholder="Ej. Lector RFID" required>
           </div>
 
-          <div class="col">
-            <label>Medida:</label>
-            <select name="medida" required>
-              <option value="pz">pz</option>
-              <option value="m">m</option>
+          <div class="col-12 col-sm-4">
+            <label class="form-label small fw-bold text-secondary">Unidad de medida:</label>
+            <select name="medida" class="form-select" required>
+              <option value="pz" selected>pz (piezas)</option>
+              <option value="m">m (metros)</option>
             </select>
           </div>
         </div>
 
-        <label>Foto:</label>
-        <input type="file" name="foto" class="form-control" accept="image/*"
-          onchange="previewImage('previewAgregar', event)">
-        <img id="previewAgregar" class="preview-img">
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-secondary">Foto del material (opcional):</label>
+          <input type="file" name="foto" class="form-control form-control-sm" accept="image/*"
+            onchange="previewImage('previewAgregar', event)">
+          <div class="text-center mt-2">
+            <img id="previewAgregar" class="preview-img">
+          </div>
+        </div>
 
-        <button class="btn btn-success btn-sm  w-100 mt-3">Guardar</button>
+        <button type="submit" class="btn btn-success fw-semibold w-100 py-2">
+          <i class="bi bi-check-circle me-1"></i> Guardar Material
+        </button>
       </form>
     </div>
   </div>
@@ -338,36 +344,42 @@ if (!isset($_SESSION["user"])) {
 <div class="custom-modal" id="modalEditarMaterial">
   <div class="custom-modal-content">
     <div class="modal-header-customEditar">
-      <h5>Editar Material</h5>
+      <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i> Editar Material</h5>
       <span class="close-modal" onclick="closeModal('modalEditarMaterial')">&times;</span>
     </div>
 
-    <div style="padding: 10px;">
+    <div class="p-3">
       <form method="post" action="../controllers/materiales_controller.php?action=update" enctype="multipart/form-data">
 
         <input type="hidden" name="id" id="edit-material-id">
 
-        <div class="row-two">
-          <div class="col">
-            <label>Nombre:</label>
+        <div class="row g-2 mb-3">
+          <div class="col-12 col-sm-8">
+            <label class="form-label small fw-bold text-secondary">Nombre del material:</label>
             <input type="text" name="nombre" id="edit-material-nombre" class="form-control" required>
           </div>
 
-          <div class="col">
-            <label>Medida:</label>
-            <select name="medida" id="edit-material-medida" class="form-control" required>
-              <option value="pz">pz</option>
-              <option value="m">m</option>
+          <div class="col-12 col-sm-4">
+            <label class="form-label small fw-bold text-secondary">Unidad de medida:</label>
+            <select name="medida" id="edit-material-medida" class="form-select" required>
+              <option value="pz">pz (piezas)</option>
+              <option value="m">m (metros)</option>
             </select>
           </div>
         </div>
 
-        <label>Cambiar Foto:</label>
-        <input type="file" name="foto" class="form-control" accept="image/*"
-          onchange="previewImage('previewEditar', event)">
-        <img id="previewEditar" class="preview-img">
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-secondary">Cambiar Foto:</label>
+          <input type="file" name="foto" class="form-control form-control-sm" accept="image/*"
+            onchange="previewImage('previewEditar', event)">
+          <div class="text-center mt-2">
+            <img id="previewEditar" class="preview-img">
+          </div>
+        </div>
 
-        <button class="btn w-100 mt-3" id="btnActualizar">Actualizar</button>
+        <button type="submit" class="btn btn-warning fw-semibold w-100 py-2" id="btnActualizar">
+          <i class="bi bi-check-circle me-1"></i> Actualizar Material
+        </button>
       </form>
     </div>
 

@@ -618,11 +618,23 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
 </div>
 
 <div class="card table-responsive shadow-sm rounded arcos-table-view d-none" id="tableViewInfra">
-  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <h5 class="mb-0 fw-bold text-primary">
-      <i class="bi bi-broadcast-pin"></i> Puentes / Sitios / Torres
-    </h5>
-    <span class="badge bg-primary">Infraestructura conectada</span>
+  <div class="interfaz card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex justify-content-between align-items-center mb-0">
+      <button type="button" class="btn btn-primary shadow-sm" id="btnModalAgregarInfra"
+        data-bs-toggle="modal" data-bs-target="#modalAgregarArco">
+        <i class="bi bi-plus-circle"></i> Agregar Puente / Sitio
+      </button>
+    </div>
+
+    <div class="d-flex justify-content-end align-items-center">
+      <div class="input-group" style="max-width: 350px; width: 100%;">
+        <span class="input-group-text bg-primary text-white">
+          <i class="bi bi-search"></i>
+        </span>
+        <input type="search" id="searchInfra" class="form-control shadow-sm" placeholder="Buscar puente o sitio..."
+          onkeyup="filterTable('searchInfra', 'InfraTable')">
+      </div>
+    </div>
   </div>
 
   <div class="tabla-scroll">
@@ -661,13 +673,20 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
           ), '[]'::jsonb) AS arcos_vinculados_json,
           COUNT(DISTINCT ai.arco_id) AS arcos_count,
           STRING_AGG(DISTINCT a.nombre, ', ' ORDER BY a.nombre) AS arcos_nombres,
-          COUNT(DISTINCT im.id) AS materiales_count
+          COUNT(DISTINCT im.id) AS materiales_count,
+          bit.id AS bitacora_id
         FROM infraestructura_nodos n
         LEFT JOIN ubicaciones u ON u.id = n.ubicacion_id
         LEFT JOIN arco_infraestructura ai ON ai.infraestructura_id = n.id
         LEFT JOIN arcos a ON a.id = ai.arco_id
         LEFT JOIN infraestructura_material im ON im.infraestructura_id = n.id
-        GROUP BY n.id, u.nombre
+        LEFT JOIN (
+          SELECT DISTINCT ON (infraestructura_id) id, infraestructura_id
+          FROM bitacoras_arco
+          WHERE infraestructura_id IS NOT NULL
+          ORDER BY infraestructura_id, fecha_registro DESC, id DESC
+        ) bit ON bit.infraestructura_id = n.id
+        GROUP BY n.id, u.nombre, bit.id
         ORDER BY u.nombre ASC, n.tipo ASC, n.nombre ASC
       ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -724,15 +743,40 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
             </td>
             <td>
               <div class="btn-group btn-group-sm" role="group">
-                <button type="button" class="btn btn-warning editarInfraBtn"
+                <button type="button" class="btn btn-warning d-flex align-items-center justify-content-center editarInfraBtn"
                   data-id="<?= htmlspecialchars($infra['id'], ENT_QUOTES, 'UTF-8') ?>"
                   data-bs-toggle="modal" data-bs-target="#modalEditarInfraestructura"
                   title="Editar puente/sitio">
                   <i class="bi bi-pencil-fill"></i>
                 </button>
+                <button type="button"
+                  class="btn btn-success d-flex align-items-center justify-content-center verFormatosInfraBtn"
+                  data-infra-id="<?= htmlspecialchars($infra['id'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-nombre="<?= htmlspecialchars($infra['nombre'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modalFormatosArco"
+                  title="Formatos del sitio">
+                  <i class="bi bi-folder2-open"></i>
+                </button>
+                <?php $yaExisteInfraBit = !empty($infra['bitacora_id']); ?>
+                <?php if ($yaExisteInfraBit): ?>
+                  <a href="../views/pdf/bitacora_arco.php?tipo=infra&id=<?= $infra['id'] ?>" target="_blank"
+                    class="btn btn-outline-primary btn-sm p-2" title="Ver / Imprimir bitácora">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                  </a>
+                <?php else: ?>
+                  <button type="button" class="btn btn-primary btn-sm generarBitacoraInfraBtn p-2"
+                    data-id="<?= $infra['id'] ?>"
+                    data-nombre="<?= htmlspecialchars($infra['nombre'], ENT_QUOTES, 'UTF-8') ?>"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalBitacora"
+                    title="Generar bitácora">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                  </button>
+                <?php endif; ?>
                 <a href="../controllers/arcos_controller.php?action=delete_infra&id=<?= htmlspecialchars($infra['id'], ENT_QUOTES, 'UTF-8') ?>"
-                  class="btn btn-danger"
-                  onclick="return confirm('Â¿Seguro que deseas eliminar este puente/sitio y sus mantenimientos?')"
+                  class="btn btn-danger d-flex align-items-center justify-content-center"
+                  onclick="return confirm('¿Seguro que deseas eliminar este puente/sitio y sus mantenimientos?')"
                   title="Eliminar puente/sitio">
                   <i class="bi bi-trash-fill"></i>
                 </a>
@@ -749,36 +793,37 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
 
 <!-- MODAL AGREGAR ARCO -->
 <div class="modal fade modalAgregarArco" id="modalAgregarArco" tabindex="-1" aria-hidden="true" data-bs-focus="false">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content shadow-lg">
       <div class="modal-header bg-success text-white">
-        <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Nuevo Arco</h5>
+        <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Nuevo Arco / Sitio</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <form method="post" action="../controllers/arcos_controller.php" enctype="multipart/form-data">
-        <div class="modal-body" style="  max-height: 80vh; overflow-y: auto;">
-          <div class="row g-3">
-            <div id="modalFormulario" class="col-12 col-lg-6">
+      <form method="post" action="../controllers/arcos_controller.php" enctype="multipart/form-data" class="d-flex flex-column h-100 mb-0">
+        <div class="modal-body p-0">
+          <div class="modal-arcos-grid">
+            <!-- PANEL IZQUIERDO: FORMULARIO -->
+            <div id="modalFormulario" class="modal-arcos-form-panel">
               <input type="hidden" name="action" value="add">
 
-              <div class="form-check form-switch mb-3">
-                <input class="form-check-input" type="checkbox" id="checkPuenteSitio" name="es_infraestructura" value="1">
-                <label class="form-check-label fw-semibold" for="checkPuenteSitio">
-                  Registrar como Puente/Sitio
+              <div class="form-check form-switch mb-3 p-2 bg-white rounded border shadow-sm">
+                <input class="form-check-input ms-0 me-2" type="checkbox" id="checkPuenteSitio" name="es_infraestructura" value="1">
+                <label class="form-check-label fw-bold text-dark" for="checkPuenteSitio">
+                  Registrar como Puente / Sitio / Torre
                 </label>
               </div>
 
-              <div id="camposPuenteSitio" class="row mb-3 d-none">
+              <div id="camposPuenteSitio" class="row g-2 mb-3 d-none">
                 <div class="col-md-5">
-                  <label class="form-label">Tipo</label>
-                  <select name="infra_tipo_principal" id="infraTipoPrincipal" class="form-select">
+                  <label class="form-label fw-semibold">Tipo</label>
+                  <select name="infra_tipo_principal" id="infraTipoPrincipal" class="form-select form-select-sm">
                     <option value="Puente/Poste">Puente/Poste</option>
                     <option value="Sitio/Torre">Sitio/Torre</option>
                   </select>
                 </div>
                 <div class="col-md-7 d-none" id="infraArcosGroup">
-                  <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                    <label class="form-label mb-0">Arcos vinculados</label>
+                  <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
+                    <label class="form-label fw-semibold mb-0">Arcos vinculados</label>
                     <span class="badge bg-primary" id="infraArcosSeleccionados">0 seleccionados</span>
                   </div>
                   <div class="input-group input-group-sm mb-2">
@@ -795,19 +840,19 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                       </label>
                     <?php endforeach; ?>
                     <div class="infra-arcos-empty" id="infraArcosEmpty">
-                      Seleccione una ubicaciÃ³n para ver los arcos.
+                      Seleccione una ubicación para ver los arcos.
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div class="row mb-3 ">
-                <div class="col-md-4">
-                  <label class="form-label" id="nombrePrincipalLabel">Nombre del Arco</label>
-                  <input name="nombre" id="nombrePrincipalInput" class="form-control" required>
+              <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold" id="nombrePrincipalLabel">Nombre del Arco</label>
+                  <input name="nombre" id="nombrePrincipalInput" class="form-control" required placeholder="Ej: Arco Norte 01">
                 </div>
-                <div class="col-md-4 " id="ubicacionPrincipalGroup">
-                  <label class="form-label">Ubicación</label>
+                <div class="col-md-6" id="ubicacionPrincipalGroup">
+                  <label class="form-label fw-semibold">Ubicación</label>
                   <select name="ubicacion_id" id="ubicacionPrincipalSelect" class="form-select" required>
                     <option value="">Seleccione...</option>
                     <?php foreach ($pdo->query('SELECT * FROM ubicaciones ORDER BY nombre') as $u): ?>
@@ -816,56 +861,53 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                     <?php endforeach; ?>
                   </select>
                 </div>
-                <div class="col-md-4 d-none" id="tipoPuenteSitioGroup"></div>
+                <div class="col-12 d-none" id="tipoPuenteSitioGroup"></div>
               </div>
 
-              <div class="row mb-1" id="filaFechaCoordenadas">
-                <div class="col-md-4">
-                  <label class="form-label">Fecha de Instalación</label>
+              <div class="row g-2 mb-2" id="filaFechaCoordenadas">
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Fecha de Instalación</label>
                   <input type="datetime-local" name="fecha_instalacion" class="form-control" required>
                 </div>
 
-                <div class="col-md-3">
-                  <label class="form-label">Latitud</label>
-                  <input type="text" name="lat" id="latInput" class="form-control" required>
+                <div class="col-5">
+                  <label class="form-label fw-semibold">Latitud</label>
+                  <input type="text" name="lat" id="latInput" class="form-control" required placeholder="19.1234">
                 </div>
 
-                <div class="col-md-3">
-                  <label class="form-label">Longitud</label>
-                  <input type="text" name="lng" id="lngInput" class="form-control" required>
+                <div class="col-5">
+                  <label class="form-label fw-semibold">Longitud</label>
+                  <input type="text" name="lng" id="lngInput" class="form-control" required placeholder="-99.1234">
                 </div>
 
-                <div class="col-md-2 d-grid">
+                <div class="col-2 d-grid">
                   <label class="form-label">&nbsp;</label>
                   <button type="button" class="btn btn-outline-success abrirMapa" id="btnAbrirMapa" data-lat="latInput"
-                    data-lng="lngInput">
+                    data-lng="lngInput" title="Seleccionar en mapa">
                     <i class="bi bi-map"></i>
                   </button>
                 </div>
               </div>
             </div>
 
-            <!-- Materiales Agregar -->
-            <div class="col-12 col-lg-6">
-              <div class="col-12 d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-
-                <!-- Título -->
+            <!-- PANEL DERECHO: MATERIALES -->
+            <div class="modal-arcos-materials-panel">
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2 border-bottom pb-2">
                 <div class="d-flex align-items-center gap-2">
                   <div class="bg-success text-white rounded-circle d-flex justify-content-center align-items-center"
-                    style="width:36px; height:36px;">
+                    style="width:32px; height:32px;">
                     <i class="bi bi-tools"></i>
                   </div>
-                  <h5 class="mb-0 fw-semibold text-success">Materiales</h5>
+                  <h6 class="mb-0 fw-bold text-success">Componentes / Materiales</h6>
                 </div>
 
-                <!-- Botón -->
-                <button type="button" class="btn btn-success d-flex align-items-center gap-2 px-3 py-2 shadow-sm"
+                <button type="button" class="btn btn-success btn-sm d-flex align-items-center gap-1 px-3 py-1 shadow-sm"
                      id="btnAgregarMaterial">
                   <i class="bi bi-plus-lg"></i>
                   <span>Agregar material</span>
                 </button>
-
               </div>
+
               <div id="materialesContainer" class="materiales-container-added">
                 <div id="listaMaterialesAgregados" class="materiales-grid-added">
                   <div class="empty-materials-state">
@@ -875,37 +917,12 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                 </div>
               </div>
             </div>
-
-            <div class="col-12 d-none">
-              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2 mb-3 border-top pt-3">
-                <div class="d-flex align-items-center gap-2">
-                  <div class="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center"
-                    style="width:36px; height:36px;">
-                    <i class="bi bi-broadcast-pin"></i>
-                  </div>
-                  <h5 class="mb-0 fw-semibold text-primary">Puentes / Sitios</h5>
-                </div>
-
-                <button type="button" class="btn btn-primary d-flex align-items-center gap-2 px-3 py-2 shadow-sm"
-                  id="btnAgregarInfraestructura">
-                  <i class="bi bi-plus-lg"></i>
-                  <span>Agregar puente o sitio</span>
-                </button>
-              </div>
-
-              <div id="listaInfraestructurasArco" class="infra-list">
-                <div class="empty-materials-state">
-                  <i class="bi bi-broadcast-pin"></i>
-                  <span class="fw-semibold">NingÃºn puente o sitio agregado</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar</button>
+        <div class="modal-footer bg-light py-2">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success px-4"><i class="bi bi-save me-1"></i> Guardar</button>
         </div>
       </form>
     </div>
@@ -1298,90 +1315,100 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
 </div>
 
 <!-- ===================== MODAL EDITAR PUENTE / SITIO ===================== -->
-<div class="modal fade" id="modalEditarInfraestructura" tabindex="-1" aria-hidden="true" data-bs-focus="false">
-  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+<div class="modal fade modalEditarInfraestructura" id="modalEditarInfraestructura" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content shadow-lg">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="bi bi-broadcast-pin"></i> Editar Puente / Sitio / Torre</h5>
+        <h5 class="modal-title fw-bold"><i class="bi bi-broadcast-pin me-2"></i> Editar Puente / Sitio / Torre</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
-      <form method="post" action="../controllers/arcos_controller.php" id="formEditarInfraestructura">
+      <form method="post" action="../controllers/arcos_controller.php" id="formEditarInfraestructura" class="d-flex flex-column h-100 mb-0">
         <input type="hidden" name="action" value="update_infra">
         <input type="hidden" name="id" id="editarInfraId">
 
-        <div class="modal-body">
-          <div class="row g-3">
-            <div class="col-12 col-lg-6">
-              <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label fw-semibold">Nombre</label>
-              <input type="text" name="nombre" id="editarInfraNombre" class="form-control" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-semibold">Ubicación</label>
-              <select name="ubicacion_id" id="editarInfraUbicacion" class="form-select" required>
-                <option value="">Seleccione...</option>
-                <?php foreach ($pdo->query('SELECT * FROM ubicaciones ORDER BY nombre') as $u): ?>
-                  <option value="<?= htmlspecialchars($u['id'], ENT_QUOTES, 'UTF-8') ?>">
-                    <?= htmlspecialchars($u['nombre'], ENT_QUOTES, 'UTF-8') ?>
-                  </option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-semibold">Tipo</label>
-              <select name="tipo" id="editarInfraTipo" class="form-select" required>
-                <option value="Puente/Poste">Puente/Poste</option>
-                <option value="Sitio/Torre">Sitio/Torre</option>
-              </select>
+        <div class="modal-body p-0">
+          <div class="modal-arcos-grid">
+            <div class="modal-arcos-form-panel">
+              <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Nombre</label>
+                  <input type="text" name="nombre" id="editarInfraNombre" class="form-control" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Tipo</label>
+                  <select name="tipo" id="editarInfraTipo" class="form-select" required>
+                    <option value="Puente/Poste">Puente/Poste</option>
+                    <option value="Sitio/Torre">Sitio/Torre</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Ubicación</label>
+                  <select name="ubicacion_id" id="editarInfraUbicacion" class="form-select" required>
+                    <option value="">Seleccione...</option>
+                    <?php foreach ($pdo->query('SELECT * FROM ubicaciones ORDER BY nombre') as $u): ?>
+                      <option value="<?= htmlspecialchars($u['id'], ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars($u['nombre'], ENT_QUOTES, 'UTF-8') ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+              </div>
+
+              <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Latitud</label>
+                  <input type="text" name="lat" id="editarInfraLat" class="form-control">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Longitud</label>
+                  <input type="text" name="lng" id="editarInfraLng" class="form-control">
+                </div>
+              </div>
+
+              <div class="border-top pt-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label class="form-label fw-semibold mb-0">Arcos vinculados</label>
+                  <span class="badge bg-primary" id="editarInfraArcosCount">0 seleccionados</span>
+                </div>
+                <input type="search" class="form-control form-control-sm mb-2" id="buscarEditarInfraArcos" placeholder="Buscar arco...">
+                <div id="editarInfraArcosLista" class="infra-arcos-selector">
+                  <?php foreach ($pdo->query("SELECT id, nombre, ubicacion_id FROM arcos WHERE COALESCE(estado, 'Activo') <> 'Baja' ORDER BY nombre") as $arcoOption): ?>
+                    <label class="infra-arco-option" data-ubicacion-id="<?= htmlspecialchars($arcoOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>">
+                      <input type="checkbox" class="form-check-input editar-infra-arco-check"
+                        name="arcos_vinculados[]"
+                        value="<?= htmlspecialchars($arcoOption['id'], ENT_QUOTES, 'UTF-8') ?>">
+                      <span><?= htmlspecialchars($arcoOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
+                    </label>
+                  <?php endforeach; ?>
+                  <div class="infra-arcos-empty d-none" id="editarInfraArcosEmpty">No hay arcos para esta ubicación.</div>
+                </div>
+              </div>
             </div>
 
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">Latitud</label>
-              <input type="text" name="lat" id="editarInfraLat" class="form-control">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label fw-semibold">Longitud</label>
-              <input type="text" name="lng" id="editarInfraLng" class="form-control">
-            </div>
-            <div class="col-12">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <label class="form-label fw-semibold mb-0">Arcos vinculados</label>
-                <span class="badge bg-primary" id="editarInfraArcosCount">0 seleccionados</span>
-              </div>
-              <input type="search" class="form-control form-control-sm mb-2" id="buscarEditarInfraArcos" placeholder="Buscar arco...">
-              <div id="editarInfraArcosLista" class="infra-arcos-selector">
-                <?php foreach ($pdo->query("SELECT id, nombre, ubicacion_id FROM arcos WHERE COALESCE(estado, 'Activo') <> 'Baja' ORDER BY nombre") as $arcoOption): ?>
-                  <label class="infra-arco-option" data-ubicacion-id="<?= htmlspecialchars($arcoOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="checkbox" class="form-check-input editar-infra-arco-check"
-                      name="arcos_vinculados[]"
-                      value="<?= htmlspecialchars($arcoOption['id'], ENT_QUOTES, 'UTF-8') ?>">
-                    <span><?= htmlspecialchars($arcoOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
-                  </label>
-                <?php endforeach; ?>
-                <div class="infra-arcos-empty d-none" id="editarInfraArcosEmpty">No hay arcos para esta ubicaciÃ³n.</div>
-              </div>
-            </div>
-
-              </div>
-            </div>
-
-            <div class="col-12 col-lg-6">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <label class="form-label fw-semibold mb-0">Componentes</label>
+            <div class="modal-arcos-materials-panel">
+              <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center"
+                    style="width:32px; height:32px;">
+                    <i class="bi bi-box-seam"></i>
+                  </div>
+                  <h6 class="mb-0 fw-bold text-primary">Componentes / Materiales</h6>
+                </div>
                 <button type="button" class="btn btn-sm btn-outline-primary" id="btnEditarInfraAddMaterial">
                   <i class="bi bi-plus-lg"></i> Material
                 </button>
               </div>
-              <div id="editarInfraMateriales" class="materiales-grid-added"></div>
+              <div class="materiales-container-added">
+                <div id="editarInfraMateriales" class="materiales-grid-added"></div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Guardar cambios</button>
+        <div class="modal-footer bg-light py-2">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-1"></i> Guardar cambios</button>
         </div>
       </form>
     </div>
@@ -1390,33 +1417,29 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
 
 <!-- ===================== MODAL EDITAR ARCO ===================== -->
 <div class="modal fade modalEditarArco" id="modalEditarArco" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content shadow-lg">
       <div class="modal-header bg-warning text-dark">
-        <h5 class="modal-title"><i class="bi bi-pencil-square"></i> Editar Arco</h5>
+        <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i> Editar Arco</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form id="formEditarArco" method="post" action="../controllers/arcos_controller.php"
-        enctype="multipart/form-data">
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-
+        enctype="multipart/form-data" class="d-flex flex-column h-100 mb-0">
+        <div class="modal-body p-0">
           <input type="hidden" name="action" value="update">
           <input type="hidden" name="id" id="editar_id">
 
-          <div class="row g-3">
-
+          <div class="modal-arcos-grid">
             <!-- ================== COLUMNA IZQUIERDA (FORMULARIO) ================== -->
-            <div class="col-12 col-lg-6">
-
-              <!-- FILA 1 -->
-              <div class="row mb-3">
+            <div class="modal-arcos-form-panel">
+              <div class="row g-2 mb-3">
                 <div class="col-md-6">
-                  <label class="form-label">Nombre del Arco</label>
+                  <label class="form-label fw-semibold">Nombre del Arco</label>
                   <input name="nombre" id="editar_nombre" class="form-control" required>
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Ubicación</label>
+                  <label class="form-label fw-semibold">Ubicación</label>
                   <select name="ubicacion_id" id="editar_ubicacion" class="form-select" required>
                     <option value="">Seleccione...</option>
                     <?php foreach ($pdo->query('SELECT * FROM ubicaciones ORDER BY nombre') as $u): ?>
@@ -1429,48 +1452,44 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                 </div>
               </div>
 
-              <!-- FILA 2 -->
-              <div class="row mb-3">
-                <div class="col-md-4">
-                  <label class="form-label">Fecha de Instalación</label>
+              <div class="row g-2 mb-2">
+                <div class="col-12">
+                  <label class="form-label fw-semibold">Fecha de Instalación</label>
                   <input type="datetime-local" name="fecha_instalacion" id="editar_fecha" class="form-control" required>
                 </div>
 
-                <div class="col-md-3">
-                  <label class="form-label">Latitud</label>
+                <div class="col-5">
+                  <label class="form-label fw-semibold">Latitud</label>
                   <input type="text" name="lat" id="editar_lat" class="form-control">
                 </div>
 
-                <div class="col-md-3">
-                  <label class="form-label">Longitud</label>
+                <div class="col-5">
+                  <label class="form-label fw-semibold">Longitud</label>
                   <input type="text" name="lng" id="editar_lng" class="form-control">
                 </div>
 
-                <div class="col-md-2 d-grid">
+                <div class="col-2 d-grid">
                   <label class="form-label">&nbsp;</label>
                   <button type="button" class="btn btn-outline-warning abrirMapa" id="btnAbrirMapaEditar"
-                    data-lat="editar_lat" data-lng="editar_lng">
+                    data-lat="editar_lat" data-lng="editar_lng" title="Seleccionar en mapa">
                     <i class="bi bi-map"></i>
                   </button>
                 </div>
               </div>
-
             </div>
 
             <!-- ================== COLUMNA DERECHA (MATERIALES) ================== -->
-            <div class="col-12 col-lg-6 border-start">
-              <div class="col-12 d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                <!-- Título -->
+            <div class="modal-arcos-materials-panel">
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2 border-bottom pb-2">
                 <div class="d-flex align-items-center gap-2">
-                  <div class="bg-warning text-white rounded-circle d-flex justify-content-center align-items-center"
-                    style="width:36px; height:36px;">
+                  <div class="bg-warning text-dark rounded-circle d-flex justify-content-center align-items-center"
+                    style="width:32px; height:32px;">
                     <i class="bi bi-tools"></i>
                   </div>
-                  <h5 class="mb-0 fw-semibold text-warning">Materiales</h5>
+                  <h6 class="mb-0 fw-bold text-dark">Componentes / Materiales</h6>
                 </div>
-                <!-- Botón -->
                 <button type="button"
-                  class="btn btn-warning d-flex align-items-center gap-2 px-3 py-2 shadow-sm text-white"
+                  class="btn btn-warning d-flex align-items-center gap-1 px-3 py-1 shadow-sm text-dark btn-sm fw-semibold"
                   id="editarAddMaterial"
                   data-material-context="editar">
                   <i class="bi bi-plus-lg"></i>
@@ -1486,14 +1505,13 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-warning"><i class="bi bi-save"></i> Actualizar</button>
+        <div class="modal-footer bg-light py-2">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-warning px-4"><i class="bi bi-save me-1"></i> Actualizar</button>
         </div>
       </form>
     </div>
@@ -1506,6 +1524,7 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
 
       <form action="../controllers/bitacora_controller.php" method="POST">
         <input type="hidden" name="arco_id" id="bitacoraArcoId">
+        <input type="hidden" name="infraestructura_id" id="bitacoraInfraId">
 
         <!-- HEADER -->
         <div class="modal-header bg-primary text-white rounded-top-4">

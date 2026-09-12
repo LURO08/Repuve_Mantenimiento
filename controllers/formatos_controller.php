@@ -68,39 +68,69 @@ if ($action !== 'generate' || $_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $arcoId = (int)($_POST['arco_id'] ?? 0);
+$infraId = (int)($_POST['infraestructura_id'] ?? $_POST['infra_id'] ?? 0);
+$revisionId = (int)($_POST['revision_id'] ?? 0);
+$infraRevisionId = (int)($_POST['infraestructura_revision_id'] ?? $_POST['infra_revision_id'] ?? 0);
 $formatoId = (int)($_POST['formato_id'] ?? 0);
 $tecnicoId = (int)($_POST['tecnico_id'] ?? $_POST['tecnico'] ?? 0);
 $tecnicoRow = obtenerTecnicoPorId($pdo, $tecnicoId);
 $tecnico = $tecnicoRow['nombre'] ?? '';
 $fecha = cleanValue($_POST['fecha'] ?? '');
 $hora = cleanValue($_POST['hora'] ?? '');
-if ($arcoId <= 0 || !$tecnicoRow || $fecha === '' || $hora === '') {
-    $message = urlencode('Selecciona ubicación, arco, técnico, fecha y hora.');
-    header("Location: ../views/formato_llenar.php?type={$type}&error={$message}");
+if (($arcoId <= 0 && $infraId <= 0) || !$tecnicoRow || $fecha === '' || $hora === '') {
+    $message = urlencode('Selecciona ubicación, arco o sitio, técnico, fecha y hora.');
+    $backUrl = "../views/formato_llenar.php?type={$type}&error={$message}";
+    if ($revisionId > 0) $backUrl .= "&revision_id={$revisionId}";
+    if ($infraRevisionId > 0) $backUrl .= "&infraestructura_revision_id={$infraRevisionId}";
+    header("Location: {$backUrl}");
     exit;
 }
 
-$arcoStmt = $pdo->prepare("
-    SELECT
-        a.nombre AS arco,
-        COALESCE(u.nombre, '') AS ubicacion
-    FROM arcos a
-    LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
-    WHERE a.id = ? AND COALESCE(a.estado, 'Activo') <> 'Baja'
-");
-$arcoStmt->execute([$arcoId]);
-$arco = $arcoStmt->fetch(PDO::FETCH_ASSOC);
+$nombreObjetivo = '';
+$nombreUbicacion = '';
 
-if (!$arco) {
-    $message = urlencode('El arco seleccionado no existe o está dado de baja.');
-    header("Location: ../views/formato_llenar.php?type={$type}&error={$message}");
-    exit;
+if ($infraId > 0) {
+    $infStmt = $pdo->prepare("
+        SELECT n.nombre AS infraestructura, COALESCE(u.nombre, '') AS ubicacion
+        FROM infraestructura_nodos n
+        LEFT JOIN ubicaciones u ON u.id = n.ubicacion_id
+        WHERE n.id = ?
+    ");
+    $infStmt->execute([$infraId]);
+    $infra = $infStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$infra) {
+        $message = urlencode('El puente o sitio seleccionado no existe.');
+        header("Location: ../views/formato_llenar.php?type={$type}&error={$message}");
+        exit;
+    }
+    $nombreObjetivo = $infra['infraestructura'];
+    $nombreUbicacion = $infra['ubicacion'];
+} else {
+    $arcoStmt = $pdo->prepare("
+        SELECT
+            a.nombre AS arco,
+            COALESCE(u.nombre, '') AS ubicacion
+        FROM arcos a
+        LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
+        WHERE a.id = ? AND COALESCE(a.estado, 'Activo') <> 'Baja'
+    ");
+    $arcoStmt->execute([$arcoId]);
+    $arco = $arcoStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$arco) {
+        $message = urlencode('El arco seleccionado no existe o está dado de baja.');
+        header("Location: ../views/formato_llenar.php?type={$type}&error={$message}");
+        exit;
+    }
+    $nombreObjetivo = $arco['arco'];
+    $nombreUbicacion = $arco['ubicacion'];
 }
 
 $fechaServicio = $fecha . ' ' . $hora . ':00';
 $datos = [
-    'arco' => $arco['arco'],
-    'ubicacion' => $arco['ubicacion'],
+    'arco' => $nombreObjetivo,
+    'ubicacion' => $nombreUbicacion,
+    'es_infra' => ($infraId > 0),
     'tecnico_id' => $tecnicoId,
     'tecnico' => $tecnico,
     'fecha_servicio' => $fechaServicio,
@@ -178,30 +208,43 @@ if ($type === 'tools') {
 }
 
 try {
+    $finalArcoId = $arcoId > 0 ? $arcoId : null;
+    $finalInfraId = $infraId > 0 ? $infraId : null;
+    $finalRevisionId = $revisionId > 0 ? $revisionId : null;
+    $finalInfraRevisionId = $infraRevisionId > 0 ? $infraRevisionId : null;
+
+    $datos['revision_id'] = $finalRevisionId;
+    $datos['infraestructura_revision_id'] = $finalInfraRevisionId;
     $json = json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
     if ($formatoId > 0) {
         $update = $pdo->prepare("
             UPDATE formatos_mantenimiento
-            SET arco_id = ?, tipo = ?, datos = CAST(? AS JSONB), tecnico_id = ?, creado_por = ?, created_at = CURRENT_TIMESTAMP
+            SET arco_id = ?, infraestructura_id = ?, revision_id = ?, infraestructura_revision_id = ?, tipo = ?, datos = CAST(? AS JSONB), tecnico_id = ?, creado_por = ?, created_at = CURRENT_TIMESTAMP
             WHERE id = ? AND tipo = ?
         ");
-        $update->execute([$arcoId, $type, $json, $tecnicoId, $_SESSION['user'] ?? null, $formatoId, $type]);
+        $update->execute([$finalArcoId, $finalInfraId, $finalRevisionId, $finalInfraRevisionId, $type, $json, $tecnicoId, $_SESSION['user'] ?? null, $formatoId, $type]);
         if ($update->rowCount() === 0) {
             throw new RuntimeException('El formato no existe.');
         }
     } else {
         $insert = $pdo->prepare("
-            INSERT INTO formatos_mantenimiento (arco_id, tipo, datos, tecnico_id, creado_por)
-            VALUES (?, ?, CAST(? AS JSONB), ?, ?)
+            INSERT INTO formatos_mantenimiento (arco_id, infraestructura_id, revision_id, infraestructura_revision_id, tipo, datos, tecnico_id, creado_por)
+            VALUES (?, ?, ?, ?, ?, CAST(? AS JSONB), ?, ?)
             RETURNING id
         ");
-        $insert->execute([$arcoId, $type, $json, $tecnicoId, $_SESSION['user'] ?? null]);
+        $insert->execute([$finalArcoId, $finalInfraId, $finalRevisionId, $finalInfraRevisionId, $type, $json, $tecnicoId, $_SESSION['user'] ?? null]);
         $formatoId = (int)$insert->fetchColumn();
     }
     header("Location: formato_servicio_pdf.php?id={$formatoId}");
     exit;
 } catch (Throwable $e) {
     $message = urlencode('No fue posible generar el formato: ' . $e->getMessage());
-    header("Location: ../views/formato_llenar.php?type={$type}&arco_id={$arcoId}&formato_id={$formatoId}&error={$message}");
+    $redirectUrl = "../views/formato_llenar.php?type={$type}&formato_id={$formatoId}&error={$message}";
+    if ($arcoId > 0) $redirectUrl .= "&arco_id={$arcoId}";
+    if ($infraId > 0) $redirectUrl .= "&infraestructura_id={$infraId}";
+    if ($revisionId > 0) $redirectUrl .= "&revision_id={$revisionId}";
+    if ($infraRevisionId > 0) $redirectUrl .= "&infraestructura_revision_id={$infraRevisionId}";
+    header("Location: {$redirectUrl}");
     exit;
 }

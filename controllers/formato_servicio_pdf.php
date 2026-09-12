@@ -27,14 +27,16 @@ $stmt = $pdo->prepare("
         r.fecha_mantenimiento,
         r.tipo_mantenimiento,
         COALESCE(tf.nombre, tr.nombre) AS tecnico_nombre,
-        a.nombre AS arco,
-        COALESCE(u.nombre, '') AS ubicacion
+        COALESCE(a.nombre, n.nombre, 'Sitio / Arco') AS arco,
+        COALESCE(u.nombre, un.nombre, '') AS ubicacion
     FROM formatos_mantenimiento fm
     LEFT JOIN revisiones r ON r.id = fm.revision_id
     LEFT JOIN tecnicos tf ON tf.id = fm.tecnico_id
     LEFT JOIN tecnicos tr ON tr.id = r.tecnico_id
-    JOIN arcos a ON a.id = COALESCE(fm.arco_id, r.arco_id)
+    LEFT JOIN arcos a ON a.id = COALESCE(fm.arco_id, r.arco_id)
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
+    LEFT JOIN infraestructura_nodos n ON n.id = fm.infraestructura_id
+    LEFT JOIN ubicaciones un ON un.id = n.ubicacion_id
     WHERE fm.id = ?
 ");
 $stmt->execute([$id]);
@@ -85,9 +87,22 @@ $canvas->page_text(111, 746, 'TEL. 747 141 5434', $boldFont, 8.5, [0.20, 0.20, 0
 $canvas->page_text(367, 731, 'GONZALO N. RAMÍREZ, MANZANA 1', $font, 8, [0.20, 0.20, 0.20]);
 $canvas->page_text(394, 746, 'LOTE 167, COL. TRIBUNA', $font, 8, [0.20, 0.20, 0.20]);
 
-$safeArc = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $registro['arco']) ?: 'arco';
+$prefijoFormato = $config['file_prefix'] ?? match ($registro['tipo']) {
+    'checklist' => 'Check_List_Diagnostico_Inicial',
+    'quality'   => 'Formato_Pruebas_Calidad',
+    'tools'     => 'Formato_Herramientas',
+    default     => 'Formato_Servicio'
+};
+
+$safeArc = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $registro['arco'] ?: 'Arco') ?: 'Arco';
 $safeArc = trim(preg_replace('/[^a-zA-Z0-9_-]+/', '_', $safeArc), '_');
-$filename = $registro['tipo'] . '_' . $safeArc . '_' . $registro['id'] . '.pdf';
+
+$fechaTimestamp = !empty($registro['fecha_mantenimiento'])
+    ? strtotime($registro['fecha_mantenimiento'])
+    : (!empty($registro['created_at']) ? strtotime($registro['created_at']) : time());
+$fechaFormato = date('Y-m-d', $fechaTimestamp);
+
+$filename = "{$prefijoFormato}_{$safeArc}_{$fechaFormato}.pdf";
 
 $download = isset($_GET['download']) && in_array(strtolower((string)$_GET['download']), ['1', 'true', 'yes'], true);
 

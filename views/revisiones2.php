@@ -363,6 +363,6 @@ include('../config/db.php');
   </div>
 </div>
 
-<script src="../js/revisiones2.js"></script>
+<script src="../js/revisiones2.js?v=<?= file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtime(__DIR__ . '/../js/revisiones2.js') : time() ?>"></script>
 
 <?php include('../views/footer.php'); ?>

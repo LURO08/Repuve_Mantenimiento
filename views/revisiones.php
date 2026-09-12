@@ -205,6 +205,21 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
                 </button>
               </td>
               <td class="text-center">
+                <button type="button" class="btn btn-outline-success btn-sm verFormatosRevisionBtn"
+                  data-revision-id="<?= $r['id'] ?>"
+                  data-arco-id="<?= $r['arco_id'] ?>"
+                  data-objetivo="<?= htmlspecialchars($r['arco'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-tipo-objetivo="Arco"
+                  data-ubicacion="<?= htmlspecialchars($r['ubic'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-fecha="<?= htmlspecialchars($r['fecha_mantenimiento'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-tipo-mant="<?= htmlspecialchars($r['tipo_mantenimiento'] ?? 'Correctivo', ENT_QUOTES, 'UTF-8') ?>"
+                  data-tecnico-id="<?= (int)($r['tecnico_id'] ?? 0) ?>"
+                  data-tecnico-nombre="<?= htmlspecialchars($r['tecnicoresponsable'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                  data-bs-toggle="modal" data-bs-target="#modalFormatosMantenimiento"
+                  title="Formatos de servicio (Checklist, Calidad, Herramientas)">
+                  <i class="bi bi-file-earmark-check"></i>
+                </button>
+
                 <button type="button" class="btn btn-outline-secondary btn-sm verDetalleMantenimientoBtn"
                   data-detalle='<?= htmlspecialchars(json_encode($detalleMantenimiento, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, "UTF-8") ?>'
                   data-bs-toggle="modal" data-bs-target="#modalDetalleMantenimiento"
@@ -237,20 +252,20 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
   </div>
 
   <div class="card shadow-sm rounded revisiones-table-view d-none" id="revisionViewInfra">
-    <div class="p-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-broadcast-pin"></i> Mantenimientos de Puentes / Sitios</h5>
-      <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-success shadow-sm" style="padding: 8px 10px;" data-bs-toggle="modal"
-          data-bs-target="#modalRevision">
-          <i class="bi bi-plus-circle me-1"></i> Registrar Mantenimiento
-        </button>
-        <div class="input-group revision-search-input">
-          <span class="input-group-text bg-primary text-white">
-            <i class="bi bi-search"></i>
-          </span>
-          <input type="search" id="searchInfraRevisiones" class="form-control shadow-sm" placeholder="Buscar Puente/Sitio..."
-            onkeyup="filterTable('searchInfraRevisiones', 'infraRevisionesTable')">
-        </div>
+    <div class="interfaz justify-content-between align-items-center gap-1 p-2 border-bottom d-flex">
+      <!-- BOTÓN IZQUIERDA -->
+      <button class="btn btn-success shadow-sm" style="padding: 8px 14px;" data-bs-toggle="modal"
+        data-bs-target="#modalRevision">
+        <i class="bi bi-plus-circle me-1"></i> Registrar Mantenimiento
+      </button>
+
+      <!-- BUSCADOR DERECHA -->
+      <div class="input-group" style="max-width: 320px; width: 100%;">
+        <span class="input-group-text bg-primary text-white">
+          <i class="bi bi-search"></i>
+        </span>
+        <input type="search" id="searchInfraRevisiones" class="form-control shadow-sm" placeholder="Buscar Puente / Sitio..."
+          onkeyup="filterTable('searchInfraRevisiones', 'infraRevisionesTable')">
       </div>
     </div>
     <div class="revision-tabla-scroll">
@@ -334,7 +349,22 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
                   <i class="bi bi-box-seam"></i> Componentes
                 </button>
               </td>
-              <td>
+              <td class="text-center">
+                <button type="button" class="btn btn-outline-success btn-sm verFormatosRevisionBtn"
+                  data-infra-revision-id="<?= $ir['id'] ?>"
+                  data-infraestructura-id="<?= $ir['infraestructura_id'] ?>"
+                  data-objetivo="<?= htmlspecialchars($ir['infraestructura'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-tipo-objetivo="<?= htmlspecialchars($ir['tipo_infraestructura'] ?? 'Puente/Sitio', ENT_QUOTES, 'UTF-8') ?>"
+                  data-ubicacion="<?= htmlspecialchars($ir['ubicacion'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                  data-fecha="<?= htmlspecialchars($ir['fecha_mantenimiento'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-tipo-mant="<?= htmlspecialchars($ir['tipo_mantenimiento'] ?? 'Correctivo', ENT_QUOTES, 'UTF-8') ?>"
+                  data-tecnico-id="<?= (int)($ir['tecnico_id'] ?? 0) ?>"
+                  data-tecnico-nombre="<?= htmlspecialchars($ir['tecnico_nombre'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                  data-bs-toggle="modal" data-bs-target="#modalFormatosMantenimiento"
+                  title="Formatos de servicio (Checklist, Calidad, Herramientas)">
+                  <i class="bi bi-file-earmark-check"></i>
+                </button>
+
                 <button type="button" class="btn btn-outline-secondary btn-sm verDetalleMantenimientoBtn"
                   data-detalle='<?= htmlspecialchars(json_encode($detalleInfraMantenimiento, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, "UTF-8") ?>'
                   data-bs-toggle="modal" data-bs-target="#modalDetalleMantenimiento"
@@ -348,6 +378,12 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
                     <i class="bi bi-trash"></i>
                   </button>
                 </form>
+                <a href="../views/pdf/revision_pdf.php?tipo=infra&id=<?= $ir['id'] ?>" 
+                  target="_blank"
+                  class="btn btn-danger btn-sm"
+                  title="Ver / Imprimir PDF">
+                  <i class="bi bi-file-earmark-pdf"></i>
+                </a>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -358,36 +394,38 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
     <div id="pagination-infraRevisiones" class="d-flex justify-content-center mt-3"></div>
   </div>
 
-  <div class="modal fade" id="modalRevision" tabindex="-1">
+  <div class="modal fade" id="modalRevision" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
-      <div class="modal-content">
+      <div class="modal-content shadow-lg border-0">
 
-        <form action="../controllers/revisiones_controller.php" method="POST" enctype="multipart/form-data">
+        <form action="../controllers/revisiones_controller.php" method="POST" enctype="multipart/form-data" class="d-flex flex-column m-0 flex-fill" style="min-height: 0;">
           <input type="hidden" name="action" value="add">
 
-          <div class="modal-header bg-success text-white">
-            <h5 class="modal-title"><i class="bi bi-tools me-2"></i> Registrar Mantenimiento</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <div class="modal-header bg-success text-white py-2 px-3">
+            <h5 class="modal-title fs-5 fw-bold d-flex align-items-center gap-2">
+              <i class="bi bi-tools"></i> Registrar Mantenimiento
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
 
           <!-- Body: dos columnas (form / materiales) -->
           <div class="modal-body p-0">
-            <div class=" d-flex flex-row">
-              <!-- Left: formulario -->
-              <div class="col col-xl-6 border-top bg-light p-3 lado-izquierdo flex-fill " >
-                <div class="form-check form-switch mb-3">
-                  <input class="form-check-input" type="checkbox" id="checkMantenimientoInfra" name="es_infraestructura_revision" value="1">
-                  <label class="form-check-label fw-semibold" for="checkMantenimientoInfra">
-                    Mantenimiento de Puente/Sitio
+            <div class="modal-revision-grid">
+              <!-- Left: formulario optimizado y compacto -->
+              <div class="modal-revision-form-panel p-2 p-md-3">
+                <div class="form-check form-switch mb-2 bg-white px-3 py-1.5 rounded border shadow-xs d-flex align-items-center justify-content-between">
+                  <label class="form-check-label fw-bold text-dark small mb-0 cursor-pointer" for="checkMantenimientoInfra">
+                    <i class="bi bi-broadcast-pin text-primary me-1"></i> Mantenimiento de Puente / Sitio
                   </label>
+                  <input class="form-check-input m-0 cursor-pointer" type="checkbox" id="checkMantenimientoInfra" name="es_infraestructura_revision" value="1">
                 </div>
 
-                <div class="row">
+                <div class="row g-2 mb-2">
                   <!-- UBICACIÓN -->
-                  <div class="col mb-3">
-                    <label class="form-label fw-semibold">Ubicación</label>
-                    <select id="ubicacionSelect" class="form-select" required>
-                      <option value="">Seleccione una ubicación...</option>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label fw-bold small text-secondary mb-1">Ubicación</label>
+                    <select id="ubicacionSelect" class="form-select form-select-sm" required>
+                      <option value="">Seleccione ubicación...</option>
                       <?php
                         $ubic = $pdo->query("SELECT * FROM ubicaciones ORDER BY nombre")->fetchAll();
                         foreach ($ubic as $u)
@@ -395,74 +433,83 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
                       ?>
                     </select>
                   </div>
-                  <!-- ARCO -->
-                  <div class="col mb-3">
-                          <label class="form-label fw-semibold" id="objetivoMantenimientoLabel">Arco</label>
-                          <select name="arco_id" id="arcoSelect" class="form-select" required>
-                            <option value="">Seleccione una ubicación primero...</option>
-                          </select>
-                        </div>
+                  <!-- ARCO / SITIO -->
+                  <div class="col-12 col-md-6">
+                    <label class="form-label fw-bold small text-secondary mb-1" id="objetivoMantenimientoLabel">Arco</label>
+                    <select name="arco_id" id="arcoSelect" class="form-select form-select-sm" required>
+                      <option value="">Seleccione ubicación...</option>
+                    </select>
+                  </div>
+                </div>
 
-                        <!-- FECHA -->
-                        <div class="col mb-2">
-                              <label class="form-label fw-semibold">Fecha mantenimiento</label>
-                              <input type="datetime-local" name="fecha_mantenimiento" class="form-control" required>
-                        </div>
-                      </div>
+                <div class="row g-2 mb-2">
+                  <!-- FECHA -->
+                  <div class="col-12 col-md-6">
+                    <label class="form-label fw-bold small text-secondary mb-1">Fecha mantenimiento</label>
+                    <input type="datetime-local" name="fecha_mantenimiento" class="form-control form-control-sm" required>
+                  </div>
 
-                      <div class="row align-items-end mantenimiento-tipo-tecnico-row">
-                      <div class="col-md-5 mb-3 mantenimiento-field">
-                        <label class="form-label fw-semibold">Tipo de mantenimiento</label>
-                        <select name="tipo_mantenimiento" class="form-select" required>
-                          <option value="Preventivo">Preventivo</option>
-                          <option value="Correctivo" selected>Correctivo</option>
-                        </select>
-                      </div>
+                  <!-- TIPO -->
+                  <div class="col-12 col-md-6">
+                    <label class="form-label fw-bold small text-secondary mb-1">Tipo de mantenimiento</label>
+                    <select name="tipo_mantenimiento" class="form-select form-select-sm" required>
+                      <option value="Preventivo">Preventivo</option>
+                      <option value="Correctivo" selected>Correctivo</option>
+                    </select>
+                  </div>
+                </div>
 
-                      <div class="col-md-7 mb-3 mantenimiento-field">
-                        <label for="tecnico_id">Técnico responsable</label>
-                        <select name="tecnico_id" id="tecnico_id" class="form-select" required>
-                          <option value="">Seleccione tecnico...</option>
-                          <?php foreach ($tecnicosActivos as $tecnico): ?>
-                            <option value="<?= htmlspecialchars((string)$tecnico['id'], ENT_QUOTES, 'UTF-8') ?>">
-                              <?= htmlspecialchars($tecnico['nombre']) ?>
-                            </option>
-                          <?php endforeach; ?>
-                        </select>
-                      </div>
-                      </div>
+                <!-- TÉCNICO -->
+                <div class="mb-2">
+                  <label class="form-label fw-bold small text-secondary mb-1" for="tecnico_id">Técnico responsable</label>
+                  <select name="tecnico_id" id="tecnico_id" class="form-select form-select-sm" required>
+                    <option value="">Seleccione técnico...</option>
+                    <?php foreach ($tecnicosActivos as $tecnico): ?>
+                      <option value="<?= htmlspecialchars((string)$tecnico['id'], ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars($tecnico['nombre']) ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
 
-                      <!-- OBSERVACIONES -->
-                      <div class=" col mb-3">
-                        <label class="form-label fw-semibold">Observaciones</label>
-                        <textarea name="observaciones" class="form-control" rows="2" cols="1"></textarea>
-                      </div>
+                <!-- OBSERVACIONES -->
+                <div class="mb-2">
+                  <label class="form-label fw-bold small text-secondary mb-1">Observaciones</label>
+                  <textarea name="observaciones" class="form-control form-control-sm" rows="2" placeholder="Detalles de la revisión o trabajo realizado..."></textarea>
+                </div>
 
-                      <div class="row mb-3">
-                      <!-- EVIDENCIAS (IMÁGENES / PDF) -->
-                      <div class="col mb-3">
-                        <label class="form-label fw-semibold">Evidencias (imágenes o PDF)</label>
-                        <input type="file" name="evidencias[]" id="evidenciasInput"
-                          accept="image/*,application/pdf"
-                          multiple class="form-control">
-                        <small class="form-text text-muted">Puedes subir varias evidencias (opcional).</small>
-                      </div>
+                <!-- EVIDENCIAS -->
+                <div class="mb-1">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label fw-bold small text-secondary mb-0">Evidencias (imágenes o PDF)</label>
+                    <small class="text-muted" style="font-size: 0.72rem;">Opcional</small>
+                  </div>
+                  <input type="file" name="evidencias[]" id="evidenciasInput"
+                    accept="image/*,application/pdf"
+                    multiple class="form-control form-control-sm">
 
-                      <div id="previewEvidencias" class="preview-evidencias"></div>
-
+                  <div id="previewEvidencias" class="preview-evidencias mt-1"></div>
                 </div>
               </div>
 
-              <!-- Right: materiales (scroll independiente) -->
-              <div class="col col-xl-6 border-top bg-light p-3 lado-derecho flex-fill">
-                <div class="d-flex justify-content-between align-items-center gap-2">
-                  <h6 class="fw-semibold mb-0" id="tituloMaterialesMantenimiento">Material(es) cambiados / agregados</h6>
-                  <button type="button" class="btn btn-sm btn-outline-success d-none" id="btnAgregarMaterialMantenimiento">
+              <!-- Right: materiales -->
+              <div class="modal-revision-materials-panel p-3">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2 pb-2 border-bottom">
+                  <div>
+                    <h6 class="fw-bold text-success mb-0" id="tituloMaterialesMantenimiento">
+                      <i class="bi bi-box-seam me-1"></i> Componentes del Arco
+                    </h6>
+                    <small class="text-muted" style="font-size: 0.78rem;">Cambiados / Agregados / Retirados</small>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-success d-none shadow-sm fw-semibold" id="btnAgregarMaterialMantenimiento">
                     <i class="bi bi-plus-lg"></i> Agregar material
                   </button>
                 </div>
-                <div id="materialesContainer" class=" mt-3">
-                  Seleccione un arco para mostrar sus materiales...
+                <div id="materialesContainer" class="materiales-maintenance-scroll">
+                  <div class="text-center text-muted py-5">
+                    <i class="bi bi-arrow-left-circle fs-3 d-block mb-2 text-secondary"></i>
+                    Seleccione una ubicación y un objetivo para mostrar sus componentes...
+                  </div>
                 </div>
               </div>
 
@@ -470,13 +517,18 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
             </div>
           </div>
 
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-              Cancelar
-            </button>
-            <button type="submit" class="btn btn-success">
-              Guardar Registro
-            </button>
+          <div class="modal-footer bg-white border-top py-2 px-3 justify-content-between">
+            <span class="text-muted small d-none d-md-inline">
+              <i class="bi bi-info-circle me-1"></i> Complete los campos y guarde los cambios.
+            </span>
+            <div class="d-flex gap-2 ms-auto">
+              <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">
+                Cancelar
+              </button>
+              <button type="submit" class="btn btn-success px-4 fw-bold shadow-sm">
+                <i class="bi bi-check-lg me-1"></i> Guardar Registro
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -585,111 +637,139 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
     </div>
   </div>
 
-<div class="modal" id="modalSerie" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-      <div class="modal-content">
+<div class="modal fade" id="modalSerie" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content shadow-lg border-0">
 
-        <div class="modal-header bg-success text-white">
-          <h6 class="modal-title">
-            <i class="bi bi-pencil"></i> Editar material cambiado
-          </h6>
-          <button class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
+      <div class="modal-header bg-success text-white py-2 px-3">
+        <h6 class="modal-title fw-bold fs-6 mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-pencil-square"></i> <span>Editar material</span>
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
 
-        <div class="modal-body bg-light">
-          <input type="hidden" id="modalSelectMaterial">
-          <input type="hidden" id="modalMaterialId">
+      <div class="modal-body p-0 bg-light">
+        <input type="hidden" id="modalSelectMaterial">
+        <input type="hidden" id="modalMaterialId">
 
-          <div class="modal-material-layout">
-            <div class="modal-material-list-panel">
-              <label class="form-label fw-semibold">Material</label>
-              <div class="input-group input-group-sm mb-2">
-                <span class="input-group-text bg-success text-white"><i class="bi bi-search"></i></span>
-                <input type="search" id="modalBuscarMaterial" class="form-control" placeholder="Buscar material...">
+        <div class="modal-material-layout">
+          <!-- PANEL IZQUIERDO: LISTA / GRID DE MATERIALES -->
+          <div class="modal-material-list-panel p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label fw-bold small text-secondary mb-0">Catálogo de Materiales</label>
+              <small class="text-muted" style="font-size: 0.75rem;">Haz clic para seleccionar</small>
+            </div>
+            <div class="input-group input-group-sm mb-2 shadow-sm">
+              <span class="input-group-text bg-success text-white border-success"><i class="bi bi-search"></i></span>
+              <input type="search" id="modalBuscarMaterial" class="form-control" placeholder="Buscar material por nombre...">
+            </div>
+            <div id="modalMaterialGrid" class="modal-material-grid">
+              <div class="text-center text-muted py-4">
+                <div class="spinner-border spinner-border-sm text-success me-2"></div> Cargando materiales...
               </div>
-              <div id="modalMaterialGrid" class="modal-material-grid">
-                <div class="text-center text-muted py-3">Cargando materiales...</div>
+            </div>
+          </div>
+
+          <!-- PANEL DERECHO: CONFIGURACIÓN -->
+          <aside class="modal-material-config-panel p-3">
+            <div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
+              <i class="bi bi-sliders text-success fs-5"></i>
+              <div>
+                <h6 class="fw-bold text-dark mb-0" style="font-size: 0.92rem;">Configuración</h6>
+                <small class="text-muted" style="font-size: 0.75rem;">Detalles del material seleccionado</small>
               </div>
             </div>
 
-            <aside class="modal-material-config-panel">
-              <div class="modal-material-config-head">
-                <div class="rounded-circle bg-success bg-opacity-10 d-inline-flex align-items-center justify-content-center">
-                  <i class="bi bi-sliders text-success"></i>
+            <div id="modalMaterialSeleccionado" class="modal-material-selected mb-3">
+              Selecciona el material que quedará instalado.
+            </div>
+
+            <div class="modal-material-fields">
+              <div id="DatosSeries" class="d-none">
+                <!-- SERIE -->
+                <div class="config-field-group mb-2 p-2 border rounded bg-white shadow-xs">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-check-label small fw-semibold text-secondary mb-0 cursor-pointer" for="modalCheckSerie">
+                      <i class="bi bi-upc-scan me-1 text-primary"></i> Número de Serie
+                    </label>
+                    <div class="form-check form-switch m-0">
+                      <input class="form-check-input" type="checkbox" id="modalCheckSerie">
+                    </div>
+                  </div>
+                  <div id="modalSerieField" class="modal-serie-input d-none mt-2">
+                    <input type="text" id="modalSerieInput" class="form-control form-control-sm" placeholder="Ingrese el número de serie">
+                  </div>
                 </div>
-                <h6 class="fw-bold text-success mb-1">Configuracion</h6>
-                <small class="text-muted">Complete los datos del material</small>
-              </div>
 
-              <div id="modalMaterialSeleccionado" class="modal-material-selected mb-3">
-                Selecciona el material que quedara instalado.
-              </div>
-
-              <div class="modal-material-fields">
-                <div id="DatosSeries" class="d-none">
-                  <!-- SERIE -->
-                  <div class="form-check form-switch modal-serie-switch mb-2">
-                    <input class="form-check-input" type="checkbox" id="modalCheckSerie">
-                    <label class="form-check-label fw-semibold" for="modalCheckSerie">
-                      Este material tiene numero de serie
+                <!-- IP -->
+                <div class="config-field-group mb-2 p-2 border rounded bg-white shadow-xs">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-check-label small fw-semibold text-secondary mb-0 cursor-pointer" for="modalCheckIp">
+                      <i class="bi bi-hdd-network me-1 text-info"></i> Dirección IP
                     </label>
+                    <div class="form-check form-switch m-0">
+                      <input class="form-check-input" type="checkbox" id="modalCheckIp">
+                    </div>
                   </div>
-                  <div id="modalSerieField" class="modal-serie-input d-none mb-3">
-                    <label class="form-label small text-muted"><i class="bi bi-upc-scan me-1"></i> Número de serie</label>
-                    <input type="text" id="modalSerieInput" class="form-control form-control-sm" placeholder="Ingrese el numero de serie">
-                  </div>
-
-                  <!-- IP -->
-                  <div class="form-check form-switch modal-serie-switch mb-2">
-                    <input class="form-check-input" type="checkbox" id="modalCheckIp">
-                    <label class="form-check-label fw-semibold" for="modalCheckIp">
-                      Tiene dirección IP asignada
-                    </label>
-                  </div>
-                  <div id="modalIpField" class="modal-serie-input d-none mb-3">
+                  <div id="modalIpField" class="modal-serie-input d-none mt-2">
                     <div class="input-group input-group-sm">
                       <span class="input-group-text bg-light text-primary"><i class="bi bi-hdd-network"></i></span>
                       <input type="text" id="modalIpInput" class="form-control form-control-sm" placeholder="Ej. 192.168.1.50">
                     </div>
                   </div>
+                </div>
 
-                  <!-- MAC -->
-                  <div class="form-check form-switch modal-serie-switch mb-2">
-                    <input class="form-check-input" type="checkbox" id="modalCheckMac">
-                    <label class="form-check-label fw-semibold" for="modalCheckMac">
-                      Tiene dirección MAC
+                <!-- MAC -->
+                <div class="config-field-group mb-2 p-2 border rounded bg-white shadow-xs">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-check-label small fw-semibold text-secondary mb-0 cursor-pointer" for="modalCheckMac">
+                      <i class="bi bi-ethernet me-1 text-success"></i> Dirección MAC
                     </label>
+                    <div class="form-check form-switch m-0">
+                      <input class="form-check-input" type="checkbox" id="modalCheckMac">
+                    </div>
                   </div>
-                  <div id="modalMacField" class="modal-serie-input d-none mb-3">
+                  <div id="modalMacField" class="modal-serie-input d-none mt-2">
                     <div class="input-group input-group-sm">
                       <span class="input-group-text bg-light text-success"><i class="bi bi-ethernet"></i></span>
                       <input type="text" id="modalMacInput" class="form-control form-control-sm text-uppercase" placeholder="Ej. AA:BB:CC:DD:EE:FF" maxlength="17">
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div class="d-none" id="DatosCantidad">
-                  <label class="form-label small">Cantidad</label>
+              <!-- CANTIDAD -->
+              <div class="d-none" id="DatosCantidad">
+                <div class="config-field-group p-2 border rounded bg-white shadow-xs">
+                  <label class="form-label small fw-semibold text-secondary mb-1">
+                    <i class="bi bi-rulers me-1 text-warning"></i> Cantidad
+                  </label>
                   <div class="input-group input-group-sm">
-                    <input type="number" id="modalCantidadInput" class="form-control" min="1">
-                    <span class="input-group-text text-muted" id="medida-label">
-                      pz
-                    </span>
+                    <input type="number" id="modalCantidadInput" class="form-control form-control-sm" min="0.1" step="0.1" value="1">
+                    <span class="input-group-text text-muted" id="medida-label">pz</span>
                   </div>
                 </div>
               </div>
-            </aside>
-          </div>
-          
+            </div>
+          </aside>
         </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <a class="btn btn-sm btn-primary" id="btnGuardarSerie">Guardar</a>
-        </div>
-
+        
       </div>
+
+      <div class="modal-footer bg-white py-2 px-3 justify-content-between">
+        <span class="text-muted small">
+          <i class="bi bi-info-circle me-1"></i> Selecciona el material y ajusta sus datos.
+        </span>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-sm btn-success px-4 fw-bold shadow-sm" id="btnGuardarSerie">
+            <i class="bi bi-check-lg me-1"></i> Guardar
+          </button>
+        </div>
+      </div>
+
     </div>
+  </div>
 </div>
 
 <!-- ===================== MODAL VER MATERIALES ===================== -->
@@ -721,6 +801,37 @@ $revisionesJsVersion = file_exists(__DIR__ . '/../js/revisiones2.js') ? filemtim
       <div class="modal-body" id="detalleMantenimientoContenido"></div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL FORMATOS DE SERVICIO ===================== -->
+<div class="modal fade" id="modalFormatosMantenimiento" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-success text-white py-2 px-3">
+        <h5 class="modal-title fs-5 fw-bold d-flex align-items-center gap-2">
+          <i class="bi bi-file-earmark-check-fill"></i> Formatos de Servicio del Mantenimiento
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3 p-md-4 bg-light">
+        <div id="formatosModalHeader" class="formatos-modal-header mb-3">
+          <div class="text-center text-muted py-3">
+            <div class="spinner-border spinner-border-sm text-success me-2"></div> Cargando datos del mantenimiento...
+          </div>
+        </div>
+
+        <div class="formatos-mantenimiento-grid" id="formatosMantenimientoGrid">
+          <!-- Will render 3 cards: Checklist, Calidad, Herramientas -->
+        </div>
+      </div>
+      <div class="modal-footer bg-white py-2 px-3 justify-content-between">
+        <span class="text-muted small">
+          <i class="bi bi-info-circle text-success me-1"></i> Información sincronizada automáticamente entre el mantenimiento y sus formatos.
+        </span>
+        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>

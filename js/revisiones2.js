@@ -283,7 +283,7 @@ function actualizarModoMantenimiento() {
     label.textContent = esInfra ? 'Puente/Sitio' : 'Arco';
   }
   if (titulo) {
-    titulo.textContent = esInfra ? 'Material(es) cambiados del Puente/Sitio' : 'Material(es) cambiados / agregados';
+    titulo.textContent = esInfra ? 'Material(es) del Puente/Sitio (Cambiados / Agregados)' : 'Material(es) del Arco (Cambiados / Agregados)';
   }
   btnAgregar?.classList.add('d-none');
   if (hidden) {
@@ -291,7 +291,7 @@ function actualizarModoMantenimiento() {
   }
   if (cont) {
     cont.innerHTML = esInfra
-      ? 'Seleccione una ubicacion para mostrar puentes/sitios...'
+      ? 'Seleccione una ubicación para mostrar puentes/sitios...'
       : 'Seleccione un arco para mostrar sus materiales...';
   }
 
@@ -336,7 +336,7 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
     const btnAgregar = document.getElementById('btnAgregarMaterialMantenimiento');
 
     hidden.innerHTML = '';
-    btnAgregar?.classList.toggle('d-none', !objetivoId || esInfra);
+    btnAgregar?.classList.toggle('d-none', !objetivoId);
 
     if (!objetivoId) {
       cont.innerHTML = esInfra
@@ -346,8 +346,9 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
     }
 
     cont.innerHTML = `
-        <div class="text-center">
+        <div class="text-center py-4">
             <div class="spinner-border text-success"></div>
+            <p class="text-muted small mt-2">Cargando materiales...</p>
         </div>
     `;
 
@@ -360,7 +361,7 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
         .then(data => {
             const botonAgregarHtml = `
               <div class="materiales-maintenance-toolbar">
-                <span class="text-muted small">${esInfra ? 'Materiales instalados' : 'Selecciona, cambia, retira o agrega material al arco.'}</span>
+                <span class="text-muted small">${esInfra ? 'Selecciona, cambia, retira o agrega material al puente/sitio.' : 'Selecciona, cambia, retira o agrega material al arco.'}</span>
               </div>
             `;
 
@@ -740,16 +741,16 @@ function bindAddMaterialButton() {
   btn.dataset.addBound = '1';
 
   btn.addEventListener('click', () => {
-    if (esMantenimientoInfraestructura()) return;
-    const arcoId = document.getElementById('arcoSelect')?.value || '';
-    if (!arcoId) {
-      alert('Seleccione un arco antes de agregar material.');
+    const esInfra = esMantenimientoInfraestructura();
+    const objetivoId = document.getElementById('arcoSelect')?.value || '';
+    if (!objetivoId) {
+      alert(`Seleccione un ${esInfra ? 'puente/sitio' : 'arco'} antes de agregar material.`);
       return;
     }
 
     const modalEl = document.getElementById('modalSerie');
     modalEl.dataset.mode = 'agregado';
-    document.querySelector('#modalSerie .modal-title').innerHTML = '<i class="bi bi-plus-circle"></i> Agregar material al arco';
+    document.querySelector('#modalSerie .modal-title').innerHTML = `<i class="bi bi-plus-circle"></i> Agregar material al ${esInfra ? 'puente/sitio' : 'arco'}`;
 
     const uid = `agregado_${Date.now()}_${++contadorMaterialAgregadoRevision}`;
     document.getElementById('modalMaterialId').value = uid;
@@ -1709,6 +1710,66 @@ async function cargarEvidenciasDetalle(detalle) {
   }
 }
 
+async function cargarFormatosDetalle(detalle) {
+  const grid = document.getElementById("detalleFormatosGrid");
+  if (!grid) return;
+
+  const isInfra = detalle.origen !== 'Arco';
+  let url = `../controllers/formatos_ajax.php?action=get_revision_formatos`;
+  if (isInfra) {
+    url += `&infraestructura_revision_id=${encodeURIComponent(detalle.id || '')}`;
+  } else {
+    url += `&revision_id=${encodeURIComponent(detalle.id || '')}`;
+  }
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const formatos = (data && data.ok && Array.isArray(data.formatos)) ? data.formatos : [];
+
+    const items = ['checklist', 'quality', 'tools'].map(typeKey => {
+      const cfg = FORMATOS_CONFIG[typeKey];
+      const existing = formatos.find(f => f.tipo === typeKey);
+      let fillUrl = `../views/formato_llenar.php?type=${typeKey}`;
+      if (existing) {
+        fillUrl += `&formato_id=${existing.id}`;
+      }
+      if (isInfra) {
+        fillUrl += `&infraestructura_revision_id=${encodeURIComponent(detalle.id || '')}`;
+      } else {
+        fillUrl += `&revision_id=${encodeURIComponent(detalle.id || '')}`;
+      }
+
+      return `
+        <div class="detalle-formato-item ${existing ? 'is-active' : ''}">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fw-bold small text-dark"><i class="bi ${cfg.icon} me-1" style="color: ${cfg.color}"></i> ${escapeHtmlRevision(cfg.shortTitle)}</span>
+            <span class="badge ${existing ? 'bg-success' : 'bg-secondary'} small">${existing ? 'Generado' : 'Pendiente'}</span>
+          </div>
+          <div class="d-flex gap-1 mt-1">
+            ${existing ? `
+              <a href="../controllers/formato_servicio_pdf.php?id=${existing.id}" target="_blank" class="btn btn-sm btn-danger py-0 px-2 flex-fill" style="font-size: 0.75rem;">
+                <i class="bi bi-file-earmark-pdf"></i> PDF
+              </a>
+              <a href="${escapeHtmlRevision(fillUrl)}" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-2 flex-fill" style="font-size: 0.75rem;">
+                <i class="bi bi-pencil"></i> Editar
+              </a>
+            ` : `
+              <a href="${escapeHtmlRevision(fillUrl)}" target="_blank" class="btn btn-sm btn-outline-success py-0 px-2 flex-fill" style="font-size: 0.75rem;">
+                <i class="bi bi-plus-circle"></i> Llenar
+              </a>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    grid.innerHTML = items;
+  } catch (e) {
+    grid.innerHTML = `<div class="text-muted small py-1">No se pudieron cargar los formatos.</div>`;
+  }
+}
+
 function renderDetalleMantenimiento(btn) {
   const contenedor = document.getElementById("detalleMantenimientoContenido");
   if (!contenedor) return;
@@ -1720,6 +1781,7 @@ function renderDetalleMantenimiento(btn) {
     detalle = {};
   }
 
+  const isInfra = detalle.origen !== "Arco";
   const tipoClase = detalle.tipo === "Correctivo" ? "bg-warning text-dark" : "bg-success";
   const downloadUrl = detalle.pdf_download || (detalle.id ? `../controllers/pdf_controller.php?action=mantenimiento&id=${detalle.id}&download=1` : "");
   const pdfHtml = detalle.pdf
@@ -1731,6 +1793,24 @@ function renderDetalleMantenimiento(btn) {
          <i class="bi bi-download"></i> Descargar
        </a>` : ""}`
     : "";
+
+  const formatosBtnModal = `
+    <button type="button" class="btn btn-sm btn-outline-success verFormatosRevisionBtn"
+      data-revision-id="${!isInfra ? escapeHtmlRevision(detalle.id || '') : ''}"
+      data-infra-revision-id="${isInfra ? escapeHtmlRevision(detalle.id || '') : ''}"
+      data-arco-id="${escapeHtmlRevision(detalle.arco_id || '')}"
+      data-infraestructura-id="${escapeHtmlRevision(detalle.infraestructura_id || '')}"
+      data-objetivo="${escapeHtmlRevision(detalle.objetivo || '')}"
+      data-tipo-objetivo="${escapeHtmlRevision(detalle.origen || 'Mantenimiento')}"
+      data-ubicacion="${escapeHtmlRevision(detalle.ubicacion || '')}"
+      data-fecha="${escapeHtmlRevision(detalle.fecha || '')}"
+      data-tipo-mant="${escapeHtmlRevision(detalle.tipo || 'Correctivo')}"
+      data-tecnico-id="${escapeHtmlRevision(detalle.tecnico_id || '')}"
+      data-bs-toggle="modal" data-bs-target="#modalFormatosMantenimiento"
+      title="Formatos de Servicio">
+      <i class="bi bi-file-earmark-check"></i> Formatos de Servicio
+    </button>
+  `;
 
   contenedor.innerHTML = `
     <div class="detalle-mantenimiento">
@@ -1744,6 +1824,7 @@ function renderDetalleMantenimiento(btn) {
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <span class="badge ${tipoClase}">${escapeHtmlRevision(detalle.tipo || "Correctivo")}</span>
+          ${formatosBtnModal}
           ${pdfHtml}
         </div>
       </div>
@@ -1781,14 +1862,255 @@ function renderDetalleMantenimiento(btn) {
       </div>
 
       <div class="mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="fw-bold mb-0"><i class="bi bi-file-earmark-check text-success"></i> Formatos de Servicio</h6>
+        </div>
+        <div class="detalle-formatos-grid" id="detalleFormatosGrid">
+          <div class="text-muted small py-2"><div class="spinner-border spinner-border-sm text-success me-1"></div> Consultando formatos...</div>
+        </div>
+      </div>
+
+      <div class="mt-3">
         <h6 class="fw-bold mb-2"><i class="bi bi-camera"></i> Evidencias</h6>
         <div class="detalle-evidencias-grid" id="detalleEvidenciasGrid"></div>
       </div>
     </div>
   `;
 
-  window.requestAnimationFrame(() => cargarEvidenciasDetalle(detalle));
+  window.requestAnimationFrame(() => {
+    cargarEvidenciasDetalle(detalle);
+    cargarFormatosDetalle(detalle);
+  });
 }
+
+// ==================== FORMATOS DE MANTENIMIENTO ====================
+
+// ==================== FORMATOS DE MANTENIMIENTO ====================
+
+const FORMATOS_CONFIG = {
+  checklist: {
+    key: 'checklist',
+    title: 'Check List de Diagnóstico Inicial',
+    shortTitle: 'Check List Diagnóstico',
+    icon: 'bi-card-checklist',
+    badgeClass: 'bg-success',
+    color: '#198754',
+    lightBg: '#e9f7ef',
+    description: 'Diagnóstico inicial de componentes, serie, IP, MAC y estado operativo.',
+    blankFile: 'CHECK_LIST_DIAGNOSTICO_INICIAL.docx'
+  },
+  quality: {
+    key: 'quality',
+    title: 'Formato de Pruebas de Calidad',
+    shortTitle: 'Pruebas de Calidad',
+    icon: 'bi-patch-check',
+    badgeClass: 'bg-primary',
+    color: '#0d6efd',
+    lightBg: '#e7f1ff',
+    description: 'Verificación de lectura por carril, alimentación eléctrica y enlace.',
+    blankFile: 'FORMATO_PRUEBAS_CALIDAD.docx'
+  },
+  tools: {
+    key: 'tools',
+    title: 'Formato de Herramientas y EPP',
+    shortTitle: 'Herramientas y EPP',
+    icon: 'bi-tools',
+    badgeClass: 'bg-warning',
+    color: '#d97706',
+    lightBg: '#fef3c7',
+    description: 'Control de herramientas, consumibles y equipo de protección personal.',
+    blankFile: 'FORMATO_HERRAMIENTAS.docx'
+  }
+};
+
+async function abrirModalFormatosMantenimiento(btn) {
+  const headerContainer = document.getElementById("formatosModalHeader");
+  const gridContainer = document.getElementById("formatosMantenimientoGrid");
+  if (!headerContainer || !gridContainer) return;
+
+  const dataset = btn.dataset || {};
+  const revisionId = parseInt(dataset.revisionId || "0", 10);
+  const infraRevisionId = parseInt(dataset.infraRevisionId || "0", 10);
+  const arcoId = parseInt(dataset.arcoId || "0", 10);
+  const infraId = parseInt(dataset.infraestructuraId || "0", 10);
+  const objetivo = dataset.objetivo || "Mantenimiento";
+  const tipoObjetivo = dataset.tipoObjetivo || (infraRevisionId > 0 || infraId > 0 ? "Puente/Sitio" : "Arco");
+  const ubicacion = dataset.ubicacion || "";
+  const fecha = dataset.fecha || "";
+  const tipoMant = dataset.tipoMant || "Correctivo";
+  const tecnicoId = dataset.tecnicoId || "";
+  let tecnicoNombre = dataset.tecnicoNombre || "";
+
+  // Render initial loading state
+  headerContainer.innerHTML = `
+    <div class="formatos-banner-card p-3 p-md-4 rounded-3 bg-white border shadow-sm">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2 pb-2 border-bottom">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span class="badge ${tipoObjetivo === 'Arco' ? 'bg-success' : 'bg-primary'} px-2.5 py-1.5"><i class="bi ${tipoObjetivo === 'Arco' ? 'bi-bounding-box-circles' : 'bi-broadcast-pin'} me-1"></i>${escapeHtmlRevision(tipoObjetivo)}</span>
+            <span class="badge ${tipoMant === 'Correctivo' ? 'bg-warning text-dark' : 'bg-info text-dark'} px-2.5 py-1.5">${escapeHtmlRevision(tipoMant)}</span>
+            ${revisionId > 0 ? `<span class="badge bg-secondary px-2.5 py-1.5">Folio #${revisionId}</span>` : ''}
+            ${infraRevisionId > 0 ? `<span class="badge bg-secondary px-2.5 py-1.5">Folio #${infraRevisionId}</span>` : ''}
+          </div>
+          <h4 class="fw-bold mb-1 text-dark">${escapeHtmlRevision(objetivo)}</h4>
+          ${ubicacion ? `<div class="text-muted"><i class="bi bi-geo-alt-fill text-danger me-1"></i>${escapeHtmlRevision(ubicacion)}</div>` : ''}
+        </div>
+        <div class="text-md-end">
+          <div class="formatos-progress-pill px-3 py-1.5 rounded-pill border bg-light text-secondary">
+            <div class="spinner-border spinner-border-sm text-success me-1"></div> Consultando formatos...
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  gridContainer.innerHTML = `
+    <div class="text-center text-muted py-5 w-100 bg-white rounded-3 border">
+      <div class="spinner-border text-success spinner-border-sm me-2"></div> Consultando formatos vinculados y datos del servicio...
+    </div>
+  `;
+
+  let linkedFormats = [];
+  try {
+    let url = `../controllers/formatos_ajax.php?action=get_revision_formatos`;
+    if (revisionId > 0) {
+      url += `&revision_id=${revisionId}`;
+    } else if (infraRevisionId > 0) {
+      url += `&infraestructura_revision_id=${infraRevisionId}`;
+    } else if (arcoId > 0) {
+      url += `&arco_id=${arcoId}`;
+    } else if (infraId > 0) {
+      url += `&infraestructura_id=${infraId}`;
+    }
+
+    const response = await fetch(url);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.ok && Array.isArray(data.formatos)) {
+        linkedFormats = data.formatos;
+      }
+      if (data.ok && data.revision && data.revision.tecnico) {
+        tecnicoNombre = data.revision.tecnico;
+      }
+    }
+  } catch (err) {
+    console.error("Error al obtener formatos de revisión:", err);
+  }
+
+  const countGenerated = linkedFormats.filter(f => ['checklist', 'quality', 'tools'].includes(f.tipo)).length;
+
+  // Render finalized header banner
+  headerContainer.innerHTML = `
+    <div class="formatos-banner-card p-3 p-md-4 rounded-3 bg-white border shadow-sm">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2 pb-2 border-bottom">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span class="badge ${tipoObjetivo === 'Arco' ? 'bg-success' : 'bg-primary'} px-2.5 py-1.5"><i class="bi ${tipoObjetivo === 'Arco' ? 'bi-bounding-box-circles' : 'bi-broadcast-pin'} me-1"></i>${escapeHtmlRevision(tipoObjetivo)}</span>
+            <span class="badge ${tipoMant === 'Correctivo' ? 'bg-warning text-dark' : 'bg-info text-dark'} px-2.5 py-1.5">${escapeHtmlRevision(tipoMant)}</span>
+            ${revisionId > 0 ? `<span class="badge bg-secondary px-2.5 py-1.5">Folio #${revisionId}</span>` : ''}
+            ${infraRevisionId > 0 ? `<span class="badge bg-secondary px-2.5 py-1.5">Folio #${infraRevisionId}</span>` : ''}
+          </div>
+          <h4 class="fw-bold mb-1 text-dark">${escapeHtmlRevision(objetivo)}</h4>
+          ${ubicacion ? `<div class="text-muted"><i class="bi bi-geo-alt-fill text-danger me-1"></i>${escapeHtmlRevision(ubicacion)}</div>` : ''}
+        </div>
+        <div class="text-md-end">
+          <div class="formatos-progress-pill px-3 py-1.5 rounded-pill border ${countGenerated === 3 ? 'bg-success-subtle text-success border-success' : 'bg-light text-secondary'}">
+            <i class="bi ${countGenerated === 3 ? 'bi-check-all text-success' : 'bi-hourglass-split'} me-1"></i><strong>${countGenerated} de 3</strong> formatos completados
+          </div>
+        </div>
+      </div>
+      <div class="row g-2 pt-1 text-secondary small align-items-center">
+        <div class="col-12 col-md-5">
+          <i class="bi bi-person-badge text-primary me-1"></i><strong>Técnico encargado:</strong> ${escapeHtmlRevision(tecnicoNombre || 'Asignado')}
+        </div>
+        <div class="col-12 col-md-4">
+          <i class="bi bi-calendar-check text-success me-1"></i><strong>Fecha servicio:</strong> ${fecha ? escapeHtmlRevision(formatearFechaHoraRevision(fecha)) : 'No especificada'}
+        </div>
+        <div class="col-12 col-md-3 text-md-end text-muted">
+          <i class="bi bi-arrow-repeat text-info me-1"></i>Reutilización activa
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Render cards for all 3 formats
+  let cardsHtml = '';
+  ['checklist', 'quality', 'tools'].forEach(typeKey => {
+    const formatCfg = FORMATOS_CONFIG[typeKey];
+    const existingFormat = linkedFormats.find(f => f.tipo === typeKey);
+
+    // Build URL for creating or editing
+    let fillUrl = `../views/formato_llenar.php?type=${typeKey}`;
+    if (existingFormat) {
+      fillUrl += `&formato_id=${existingFormat.id}`;
+    }
+    if (revisionId > 0) fillUrl += `&revision_id=${revisionId}`;
+    if (infraRevisionId > 0) fillUrl += `&infraestructura_revision_id=${infraRevisionId}`;
+    if (arcoId > 0) fillUrl += `&arco_id=${arcoId}`;
+    if (infraId > 0) fillUrl += `&infraestructura_id=${infraId}`;
+    if (tecnicoId) fillUrl += `&tecnico_id=${encodeURIComponent(tecnicoId)}`;
+
+    const blankDownloadUrl = `../controllers/formatos_controller.php?action=download_blank&type=${typeKey}`;
+
+    cardsHtml += `
+      <div class="formato-mantenimiento-card ${existingFormat ? 'is-created' : 'is-pending'} p-3 p-md-4 bg-white d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="formato-card-icon shadow-xs" style="color: ${formatCfg.color}; background: ${formatCfg.lightBg};">
+              <i class="bi ${formatCfg.icon} fs-4"></i>
+            </span>
+            <div>
+              <h5 class="fw-bold mb-0 text-dark" style="font-size: 1.05rem;">${escapeHtmlRevision(formatCfg.title)}</h5>
+              <small class="text-muted d-block mt-1" style="font-size: 0.8rem; line-height: 1.35;">${escapeHtmlRevision(formatCfg.description)}</small>
+            </div>
+          </div>
+          <div>
+            ${existingFormat ? `
+              <span class="badge bg-success text-white px-2.5 py-1.5 shadow-xs">
+                <i class="bi bi-check-circle-fill me-1"></i> Generado
+              </span>
+            ` : `
+              <span class="badge bg-secondary-subtle text-secondary border px-2.5 py-1.5">
+                <i class="bi bi-hourglass-split me-1"></i> Pendiente
+              </span>
+            `}
+          </div>
+        </div>
+
+        <div class="formato-card-meta mb-3 p-2.5 rounded-2 ${existingFormat ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-light text-muted border'} small">
+          ${existingFormat ? `
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
+              <span><i class="bi bi-person-fill me-1 text-success"></i>${escapeHtmlRevision(existingFormat.creado_por || 'Sistema')}</span>
+              <span><i class="bi bi-clock-history me-1 text-success"></i>${escapeHtmlRevision(existingFormat.fecha_servicio ? formatearFechaHoraRevision(existingFormat.fecha_servicio) : (existingFormat.created_at ? formatearFechaHoraRevision(existingFormat.created_at) : ''))}</span>
+            </div>
+          ` : `
+            <div class="d-flex align-items-center gap-1.5 text-secondary">
+              <i class="bi bi-magic text-success"></i> Precarga técnico, fecha y componentes del mantenimiento.
+            </div>
+          `}
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-auto pt-3 border-top">
+          ${existingFormat ? `
+            <a href="../controllers/formato_servicio_pdf.php?id=${existingFormat.id}" target="_blank" class="btn btn-danger flex-fill shadow-xs fw-semibold py-2">
+              <i class="bi bi-file-earmark-pdf me-1"></i> Ver PDF
+            </a>
+            <a href="${escapeHtmlRevision(fillUrl)}" target="_blank" class="btn btn-outline-primary flex-fill shadow-xs py-2">
+              <i class="bi bi-pencil-square me-1"></i> Editar
+            </a>
+          ` : `
+            <a href="${escapeHtmlRevision(fillUrl)}" target="_blank" class="btn btn-success flex-fill shadow-xs fw-bold py-2">
+              <i class="bi bi-pencil-fill me-1"></i> Llenar Formato
+            </a>
+          `}
+        </div>
+      </div>
+    `;
+  });
+
+  gridContainer.innerHTML = cardsHtml;
+}
+
 
 document.addEventListener('click', function (e) {
   const btnMaterial = e.target.closest('.verMaterialesBtn, .verInfraMaterialesBtn');
@@ -1799,6 +2121,11 @@ document.addEventListener('click', function (e) {
   const btnDetalle = e.target.closest('.verDetalleMantenimientoBtn');
   if (btnDetalle) {
     renderDetalleMantenimiento(btnDetalle);
+  }
+
+  const btnFormatos = e.target.closest('.verFormatosRevisionBtn');
+  if (btnFormatos) {
+    abrirModalFormatosMantenimiento(btnFormatos);
   }
 });
 

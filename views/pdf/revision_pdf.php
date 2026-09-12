@@ -7,36 +7,83 @@ if (!isset($_GET['id'])) {
 
 $id = (int)$_GET['id'];
 
-/* =========================
-   DATOS DE LA REVISIÓN
-========================= */
-$stmt = $pdo->prepare("
-    SELECT r.*, t.nombre AS tecnico_responsable, a.nombre AS arco, u.nombre AS ubicacion, fecha_mantenimiento AS fecha_mantenimiento
-    FROM revisiones r
-    JOIN arcos a ON r.arco_id = a.id
-    JOIN ubicaciones u ON a.ubicacion_id = u.id
-    LEFT JOIN tecnicos t ON t.id = r.tecnico_id
-    WHERE r.id = ?
-");
-$stmt->execute([$id]);
-$revision = $stmt->fetch(PDO::FETCH_ASSOC);
-$fechaMantenimiento = $revision ? date("d/m/Y", strtotime($revision['fecha_mantenimiento'])) : '';
+$tipo = $_GET['tipo'] ?? '';
+$revision = null;
+$materiales = [];
 
-if (!$revision) {
-    die("Revisión no encontrada");
+if ($tipo === 'infra') {
+    $stmt = $pdo->prepare("
+        SELECT ir.*, t.nombre AS tecnico_responsable, n.nombre AS arco, n.tipo AS tipo_infra, u.nombre AS ubicacion, fecha_mantenimiento AS fecha_mantenimiento
+        FROM infraestructura_revisiones ir
+        JOIN infraestructura_nodos n ON ir.infraestructura_id = n.id
+        LEFT JOIN ubicaciones u ON n.ubicacion_id = u.id
+        LEFT JOIN tecnicos t ON t.id = ir.tecnico_id
+        WHERE ir.id = ?
+    ");
+    $stmt->execute([$id]);
+    $revision = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$revision) {
+        die("Mantenimiento de sitio no encontrado");
+    }
+
+    $matStmt = $pdo->prepare("
+        SELECT irm.*, m.nombre AS material, m.medida
+        FROM infraestructura_revision_material irm
+        JOIN materiales m ON irm.material_id = m.id
+        WHERE irm.revision_id = ?
+    ");
+    $matStmt->execute([$id]);
+    $materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $stmt = $pdo->prepare("
+        SELECT r.*, t.nombre AS tecnico_responsable, a.nombre AS arco, u.nombre AS ubicacion, fecha_mantenimiento AS fecha_mantenimiento
+        FROM revisiones r
+        JOIN arcos a ON r.arco_id = a.id
+        JOIN ubicaciones u ON a.ubicacion_id = u.id
+        LEFT JOIN tecnicos t ON t.id = r.tecnico_id
+        WHERE r.id = ?
+    ");
+    $stmt->execute([$id]);
+    $revision = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$revision) {
+        $stmt = $pdo->prepare("
+            SELECT ir.*, t.nombre AS tecnico_responsable, n.nombre AS arco, n.tipo AS tipo_infra, u.nombre AS ubicacion, fecha_mantenimiento AS fecha_mantenimiento
+            FROM infraestructura_revisiones ir
+            JOIN infraestructura_nodos n ON ir.infraestructura_id = n.id
+            LEFT JOIN ubicaciones u ON n.ubicacion_id = u.id
+            LEFT JOIN tecnicos t ON t.id = ir.tecnico_id
+            WHERE ir.id = ?
+        ");
+        $stmt->execute([$id]);
+        $revision = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$revision) {
+            die("Revisión no encontrada");
+        }
+        $tipo = 'infra';
+        $matStmt = $pdo->prepare("
+            SELECT irm.*, m.nombre AS material, m.medida
+            FROM infraestructura_revision_material irm
+            JOIN materiales m ON irm.material_id = m.id
+            WHERE irm.revision_id = ?
+        ");
+        $matStmt->execute([$id]);
+        $materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $matStmt = $pdo->prepare("
+            SELECT rm.*, m.nombre AS material, m.medida
+            FROM revision_material rm
+            JOIN materiales m ON rm.material_id = m.id
+            WHERE rm.revision_id = ?
+        ");
+        $matStmt->execute([$id]);
+        $materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
 
-/* =========================
-   MATERIALES CAMBIADOS / AGREGADOS
-========================= */
-$matStmt = $pdo->prepare("
-    SELECT rm.*, m.nombre AS material, m.medida
-    FROM revision_material rm
-    JOIN materiales m ON rm.material_id = m.id
-    WHERE rm.revision_id = ?
-");
-$matStmt->execute([$id]);
-$materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
+$fechaMantenimiento = $revision ? date("d/m/Y", strtotime($revision['fecha_mantenimiento'])) : '';
 
 $logoPath = '../../assets/LOGO INNOVATEC.png';
 date_default_timezone_set('America/Mexico_City');
@@ -45,7 +92,7 @@ $codigoFormato = 'INN-FOR-002';
 
 $safeArc = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($revision['arco'] ?? 'arco'));
 $nombreArchivoPdf = "Diagnostico_Inicial_{$safeArc}_{$fechaMantenimiento}.pdf";
-$urlDescargaServidor = "../../controllers/pdf_controller.php?action=mantenimiento&id={$id}&download=1";
+$urlDescargaServidor = "../../controllers/pdf_controller.php?action=mantenimiento&id={$id}" . ($tipo === 'infra' ? '&tipo=infra' : '') . "&download=1";
 
 ?>
 

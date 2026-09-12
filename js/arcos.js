@@ -2911,10 +2911,44 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-  document.querySelectorAll('.generarBitacoraBtn').forEach(btn => {
-    btn.addEventListener('click', function () {
-      document.getElementById('bitacoraArcoId').value = this.dataset.id;
-    });
+  document.addEventListener('click', function (e) {
+    const btnArco = e.target.closest('.generarBitacoraBtn');
+    if (btnArco) {
+      const bitArco = document.getElementById('bitacoraArcoId');
+      const bitInfra = document.getElementById('bitacoraInfraId');
+      if (bitArco) bitArco.value = btnArco.dataset.id || '';
+      if (bitInfra) bitInfra.value = '';
+      const title = document.querySelector('#modalBitacora .modal-title');
+      if (title) title.innerHTML = '<i class="bi bi-file-earmark-text me-2"></i>Generar Bitácora de Instalación (Arco)';
+    }
+
+    const btnInfra = e.target.closest('.generarBitacoraInfraBtn');
+    if (btnInfra) {
+      const bitArco = document.getElementById('bitacoraArcoId');
+      const bitInfra = document.getElementById('bitacoraInfraId');
+      if (bitArco) bitArco.value = '';
+      if (bitInfra) bitInfra.value = btnInfra.dataset.id || '';
+      const title = document.querySelector('#modalBitacora .modal-title');
+      if (title) title.innerHTML = '<i class="bi bi-file-earmark-text me-2"></i>Generar Bitácora de Instalación (' + (btnInfra.dataset.nombre || 'Puente / Sitio') + ')';
+    }
+
+    const btnModalInfra = e.target.closest('#btnModalAgregarInfra');
+    if (btnModalInfra) {
+      const chk = document.getElementById('checkPuenteSitio');
+      if (chk) {
+        chk.checked = true;
+        chk.dispatchEvent(new Event('change'));
+      }
+    }
+
+    const btnModalArco = e.target.closest('#btnModalAgregarArco');
+    if (btnModalArco) {
+      const chk = document.getElementById('checkPuenteSitio');
+      if (chk && chk.checked) {
+        chk.checked = false;
+        chk.dispatchEvent(new Event('change'));
+      }
+    }
   });
 
 
@@ -3436,38 +3470,50 @@ document.addEventListener("DOMContentLoaded", () => {
   // });
 
 // El modal de mapa se abre con data-bs-toggle desde la celda del arco.
+// El modal de formatos se abre desde la tabla de arcos o de sitios.
 document.addEventListener("click", async (event) => {
-  const button = event.target.closest(".verFormatosArcoBtn");
+  const button = event.target.closest(".verFormatosArcoBtn, .verFormatosInfraBtn");
   if (!button) return;
 
-  const arcId = button.dataset.id;
+  const isInfra = button.classList.contains("verFormatosInfraBtn") || Boolean(button.dataset.infraId);
+  const targetId = isInfra ? button.dataset.infraId : button.dataset.id;
   const container = document.getElementById("formatosArcoContenido");
   const title = document.getElementById("formatosArcoNombre");
   const createLink = document.getElementById("crearFormatoArco");
   const downloadAllButton = document.getElementById("descargarFormatosArco");
   const labels = {
     checklist: "Check List de Diagnóstico Inicial",
-    quality: "Pruebas de Calidad",
+    quality: "Formato de Pruebas de Calidad",
     tools: "Formato de Herramientas"
   };
 
   title.textContent = button.dataset.nombre || "";
-  createLink.href = `formatos.php?arco_id=${encodeURIComponent(arcId)}`;
+  createLink.href = isInfra 
+    ? `formatos.php?infraestructura_id=${encodeURIComponent(targetId)}` 
+    : `formatos.php?arco_id=${encodeURIComponent(targetId)}`;
   downloadAllButton.disabled = true;
   downloadAllButton.dataset.urls = "[]";
   container.innerHTML = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando formatos...</div>';
 
   try {
-    const response = await fetch(`../controllers/formatos_ajax.php?arco_id=${encodeURIComponent(arcId)}`);
+    const url = isInfra 
+      ? `../controllers/formatos_ajax.php?infraestructura_id=${encodeURIComponent(targetId)}`
+      : `../controllers/formatos_ajax.php?arco_id=${encodeURIComponent(targetId)}`;
+    const response = await fetch(url);
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error(data.message || "No se pudieron cargar los formatos.");
 
+    const entityObj = isInfra ? (data.infra || data.arco || {}) : (data.arco || {});
     const cards = [];
-    if (data.arco.tiene_bitacora) {
+    const bitacoraPdfUrl = isInfra 
+      ? `../views/pdf/bitacora_arco.php?tipo=infra&id=${targetId}` 
+      : `../views/pdf/bitacora_arco.php?id=${targetId}`;
+
+    if (entityObj.tiene_bitacora) {
       cards.push(`
-        <a class="formato-arco-card formato-arco-card--primary" href="../views/pdf/bitacora_arco.php?id=${arcId}" target="_blank">
+        <a class="formato-arco-card formato-arco-card--primary" href="${bitacoraPdfUrl}" target="_blank">
           <i class="bi bi-file-earmark-check"></i>
-          <span><strong>Diagnóstico / Bitácora de instalación</strong><small>Documento base del arco</small></span>
+          <span><strong>Diagnóstico / Bitácora de instalación</strong><small>Documento base del ${isInfra ? "sitio" : "arco"}</small></span>
           <i class="bi bi-box-arrow-up-right"></i>
         </a>
       `);
@@ -3481,15 +3527,21 @@ document.addEventListener("click", async (event) => {
     }
 
     data.formatos.forEach((format) => {
-      const date = new Date(String(format.created_at).replace(" ", "T"));
-      const formattedDate = Number.isNaN(date.getTime()) ? format.created_at : date.toLocaleString("es-MX");
+      const rawDate = format.fecha_servicio || format.created_at;
+      const date = new Date(String(rawDate).replace(" ", "T"));
+      const formattedDate = Number.isNaN(date.getTime())
+        ? rawDate
+        : date.toLocaleDateString("es-MX", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+      const editParams = isInfra 
+        ? `type=${encodeURIComponent(format.tipo)}&infraestructura_id=${targetId}&formato_id=${format.id}`
+        : `type=${encodeURIComponent(format.tipo)}&arco_id=${targetId}&formato_id=${format.id}`;
       cards.push(`
         <div class="formato-arco-card">
           <i class="bi bi-file-earmark-pdf-fill text-danger"></i>
-          <span><strong>${labels[format.tipo] || "Formato de servicio"}</strong><small>${formattedDate}</small></span>
+          <span><strong>${labels[format.tipo] || "Formato de servicio"}</strong><small><i class="bi bi-calendar-event me-1"></i>${formattedDate}</small></span>
           <div class="formato-arco-card__actions">
             <a class="btn btn-outline-primary btn-sm" href="../controllers/formato_servicio_pdf.php?id=${format.id}" target="_blank" title="Ver PDF"><i class="bi bi-eye"></i></a>
-            <a class="btn btn-outline-warning btn-sm" href="formato_llenar.php?type=${encodeURIComponent(format.tipo)}&arco_id=${arcId}&formato_id=${format.id}" title="Editar"><i class="bi bi-pencil"></i></a>
+            <a class="btn btn-outline-warning btn-sm" href="formato_llenar.php?${editParams}" title="Editar"><i class="bi bi-pencil"></i></a>
           </div>
         </div>
       `);

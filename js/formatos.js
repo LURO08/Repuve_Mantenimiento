@@ -11,12 +11,45 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!locationSelect || !arcSelect) return;
     const locationId = locationSelect.value;
     const selectedArcId = arcSelect.value;
-    arcSelect.innerHTML = `<option value="">${locationId ? 'Selecciona un arco...' : 'Selecciona una ubicación...'}</option>`;
+    arcSelect.innerHTML = `<option value="">${locationId ? 'Selecciona un arco o sitio...' : 'Selecciona una ubicación...'}</option>`;
     arcOptions
       .filter((option) => option.dataset.locationId === locationId)
       .forEach((option) => arcSelect.appendChild(option.cloneNode(true)));
     if ([...arcSelect.options].some((option) => option.value === selectedArcId)) {
       arcSelect.value = selectedArcId;
+    }
+    updateHiddenIds();
+  };
+
+  const updateHiddenIds = () => {
+    const hiddenArco = document.getElementById('hidden_arco_id');
+    const hiddenInfra = document.getElementById('hidden_infra_id');
+    if (!arcSelect || !hiddenArco || !hiddenInfra) return;
+
+    const val = arcSelect.value || '';
+    if (!val) return;
+
+    const opt = arcSelect.options[arcSelect.selectedIndex];
+    const tipo = opt?.dataset?.tipo;
+    const id = opt?.dataset?.id || '';
+
+    if (tipo === 'infra') {
+      hiddenInfra.value = id;
+      hiddenArco.value = '';
+    } else if (tipo === 'arco') {
+      hiddenArco.value = id;
+      hiddenInfra.value = '';
+    } else {
+      if (val.startsWith('infra_')) {
+        hiddenInfra.value = val.replace('infra_', '');
+        hiddenArco.value = '';
+      } else if (val.startsWith('arco_')) {
+        hiddenArco.value = val.replace('arco_', '');
+        hiddenInfra.value = '';
+      } else if (val) {
+        hiddenArco.value = val;
+        hiddenInfra.value = '';
+      }
     }
   };
 
@@ -27,6 +60,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     filterArcsByLocation();
   }
+
+  updateHiddenIds();
 
   document.querySelectorAll('.js-toggle-group').forEach((button) => {
     button.addEventListener('click', () => {
@@ -62,48 +97,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renumberChecklist = () => {
     if (!checklistRows) return;
-    [...checklistRows.children].forEach((row, index) => {
-      row.querySelector('.checklist-relation').name = `componente[${index}][relacion_id]`;
-      row.querySelector('.checklist-name').name = `componente[${index}][nombre]`;
-      row.querySelector('.checklist-series').name = `componente[${index}][serie]`;
-      if (row.querySelector('.checklist-ip')) row.querySelector('.checklist-ip').name = `componente[${index}][ip]`;
-      if (row.querySelector('.checklist-mac')) row.querySelector('.checklist-mac').name = `componente[${index}][mac]`;
-      row.querySelector('.checklist-quantity').name = `componente[${index}][cantidad]`;
-      row.querySelector('.checklist-measure').name = `componente[${index}][medida]`;
-      row.querySelector('.status-good').name = `componente[${index}][estado]`;
-      row.querySelector('.status-bad').name = `componente[${index}][estado]`;
-      row.querySelector('.checklist-observation').name = `componente[${index}][observacion]`;
-      row.querySelector('.checklist-changed').name = `componente[${index}][cambiado]`;
+    [...checklistRows.querySelectorAll('.checklist-row')].forEach((row, index) => {
+      const rel = row.querySelector('.checklist-relation');
+      const name = row.querySelector('.checklist-name');
+      const ser = row.querySelector('.checklist-series');
+      const ip = row.querySelector('.checklist-ip');
+      const mac = row.querySelector('.checklist-mac');
+      const qty = row.querySelector('.checklist-quantity');
+      const med = row.querySelector('.checklist-measure');
+      const good = row.querySelector('.status-good');
+      const bad = row.querySelector('.status-bad');
+      const obs = row.querySelector('.checklist-observation');
+      const chg = row.querySelector('.checklist-changed');
+
+      if (rel) rel.name = `componente[${index}][relacion_id]`;
+      if (name) name.name = `componente[${index}][nombre]`;
+      if (ser) ser.name = `componente[${index}][serie]`;
+      if (ip) ip.name = `componente[${index}][ip]`;
+      if (mac) mac.name = `componente[${index}][mac]`;
+      if (qty) qty.name = `componente[${index}][cantidad]`;
+      if (med) med.name = `componente[${index}][medida]`;
+      if (good) good.name = `componente[${index}][estado]`;
+      if (bad) bad.name = `componente[${index}][estado]`;
+      if (obs) obs.name = `componente[${index}][observacion]`;
+      if (chg) chg.name = `componente[${index}][cambiado]`;
     });
   };
 
   const addChecklistRow = (material, saved = {}) => {
     if (!checklistRows || !checklistTemplate) return;
-    const row = checklistTemplate.content.firstElementChild.cloneNode(true);
+    const row = checklistTemplate.content.firstElementChild?.cloneNode(true);
+    if (!row) return;
     const documentedSeries = saved.serie ?? material.serie ?? '';
     const documentedIp = saved.ip ?? material.ip ?? '';
     const documentedMac = saved.mac ?? material.mac ?? '';
 
     row.dataset.relationId = material.relacion_id;
-    row.querySelector('.checklist-material-name').textContent = material.material;
+    const nameEl = row.querySelector('.checklist-material-name');
+    if (nameEl) nameEl.textContent = material.material;
 
     let subDetails = [];
-    if (documentedSeries) subDetails.push(`Serie: ${documentedSeries}`);
-    if (documentedIp) subDetails.push(`IP: ${documentedIp}`);
-    if (documentedMac) subDetails.push(`MAC: ${documentedMac}`);
+    if (documentedSeries) subDetails.push(`<span class="badge bg-light text-dark border"><i class="bi bi-upc-scan text-primary me-1"></i>${documentedSeries}</span>`);
+    if (documentedIp) subDetails.push(`<span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-info me-1"></i>${documentedIp}</span>`);
+    if (documentedMac) subDetails.push(`<span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>${documentedMac}</span>`);
 
-    row.querySelector('.checklist-material-series').textContent = subDetails.join(' | ');
-    row.querySelector('.checklist-relation').value = material.relacion_id;
-    row.querySelector('.checklist-name').value = material.material;
-    row.querySelector('.checklist-series').value = documentedSeries;
-    if (row.querySelector('.checklist-ip')) row.querySelector('.checklist-ip').value = documentedIp;
-    if (row.querySelector('.checklist-mac')) row.querySelector('.checklist-mac').value = documentedMac;
-    row.querySelector('.checklist-quantity').value = material.cantidad || 1;
-    row.querySelector('.checklist-measure').value = material.medida || 'pz';
-    row.querySelector('.status-good').checked = saved.estado !== 'Malo';
-    row.querySelector('.status-bad').checked = saved.estado === 'Malo';
-    row.querySelector('.checklist-observation').value = saved.observacion || '';
-    row.querySelector('.checklist-changed').checked = Boolean(saved.cambiado);
+    const seriesEl = row.querySelector('.checklist-material-series');
+    if (seriesEl) {
+      seriesEl.innerHTML = subDetails.join(' ');
+      seriesEl.style.display = subDetails.length ? 'flex' : 'none';
+    }
+
+    const rel = row.querySelector('.checklist-relation');
+    const name = row.querySelector('.checklist-name');
+    const ser = row.querySelector('.checklist-series');
+    const ip = row.querySelector('.checklist-ip');
+    const mac = row.querySelector('.checklist-mac');
+    const qty = row.querySelector('.checklist-quantity');
+    const med = row.querySelector('.checklist-measure');
+    const good = row.querySelector('.status-good');
+    const bad = row.querySelector('.status-bad');
+    const obs = row.querySelector('.checklist-observation');
+    const chg = row.querySelector('.checklist-changed');
+
+    if (rel) rel.value = material.relacion_id;
+    if (name) name.value = material.material;
+    if (ser) ser.value = documentedSeries;
+    if (ip) ip.value = documentedIp;
+    if (mac) mac.value = documentedMac;
+    if (qty) qty.value = material.cantidad || 1;
+    if (med) med.value = material.medida || 'pz';
+    if (good) good.checked = saved.estado !== 'Malo';
+    if (bad) bad.checked = saved.estado === 'Malo';
+    if (obs) obs.value = saved.observacion || '';
+    if (chg) chg.checked = Boolean(saved.cambiado);
+
     checklistRows.appendChild(row);
     renumberChecklist();
   };
@@ -119,14 +186,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const renderChecklistMaterials = () => {
-    if (!checklistSelector || !checklistRows) return;
+    if (!checklistRows) return;
     const currentRows = new Map();
-    [...checklistRows.children].forEach((row) => {
+    [...checklistRows.querySelectorAll('.checklist-row')].forEach((row) => {
+      if (!row.dataset.relationId) return;
       currentRows.set(row.dataset.relationId, {
-        estado: row.querySelector('.status-bad').checked ? 'Malo' : 'Bueno',
-        observacion: row.querySelector('.checklist-observation').value,
-        cambiado: row.querySelector('.checklist-changed').checked,
-        serie: row.querySelector('.checklist-series').value,
+        estado: row.querySelector('.status-bad')?.checked ? 'Malo' : 'Bueno',
+        observacion: row.querySelector('.checklist-observation')?.value || '',
+        cambiado: Boolean(row.querySelector('.checklist-changed')?.checked),
+        serie: row.querySelector('.checklist-series')?.value || '',
         ip: row.querySelector('.checklist-ip')?.value || '',
         mac: row.querySelector('.checklist-mac')?.value || ''
       });
@@ -137,52 +205,67 @@ document.addEventListener('DOMContentLoaded', () => {
     const hasStructure = selected.some((material) => normalizeText(material.material).includes('estructura'));
     if (!hasStructure) selected.push(virtualMaterial('structure', 'Estructura metálica'));
 
-    checklistSelector.innerHTML = '';
+    const countBadge = document.getElementById('checklistCount');
+    if (countBadge) {
+      countBadge.textContent = `${selected.length} componentes activos`;
+    }
+
     selected.forEach((material) => {
-      const card = document.createElement('div');
-      card.className = 'checklist-material-option is-included';
-      card.innerHTML = '<span><i class="bi bi-check2"></i><strong></strong><small></small></span>';
-      card.querySelector('strong').textContent = material.material;
-
-      let cardParts = [];
-      if (material.serie) cardParts.push(`Serie: ${material.serie}`);
-      if (material.ip) cardParts.push(`IP: ${material.ip}`);
-      if (material.mac) cardParts.push(`MAC: ${material.mac}`);
-      if (!cardParts.length) {
-        cardParts.push(`${material.cantidad || 1} ${material.medida === 'm' ? 'm' : 'pz'}`);
-      }
-
-      card.querySelector('small').textContent = cardParts.join(' | ');
-      checklistSelector.appendChild(card);
-
       const saved = currentRows.get(String(material.relacion_id)) || getSavedComponent(material) || {};
       addChecklistRow(material, saved);
     });
   };
 
   async function loadChecklistMaterials() {
-    if (!checklistSelector || !arcSelect) return;
-    const arcId = arcSelect.value;
+    if (!checklistRows) return;
+    updateHiddenIds();
+    const hiddenArco = document.getElementById('hidden_arco_id');
+    const hiddenInfra = document.getElementById('hidden_infra_id');
+    const hiddenRev = document.getElementById('hidden_revision_id');
+    const hiddenInfraRev = document.getElementById('hidden_infra_revision_id');
+    const countBadge = document.getElementById('checklistCount');
+
+    const arcId = hiddenArco?.value || '';
+    const infraId = hiddenInfra?.value || '';
+    const revId = hiddenRev?.value || '';
+    const infraRevId = hiddenInfraRev?.value || '';
+
     currentChecklistMaterials = [];
-    checklistRows.innerHTML = '';
-    if (!arcId) {
-      checklistSelector.innerHTML = '<div class="text-muted text-center py-3">Selecciona un arco para cargar sus materiales.</div>';
+    if (!arcId && !infraId && !revId && !infraRevId) {
+      checklistRows.innerHTML = '<div class="text-muted text-center py-3">Selecciona un arco o sitio para cargar sus materiales.</div>';
+      if (countBadge) countBadge.textContent = 'Sin objetivo';
       return;
     }
 
-    checklistSelector.innerHTML = '<div class="text-muted text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Cargando materiales...</div>';
+    if (countBadge) countBadge.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Cargando...';
+    checklistRows.innerHTML = '<div class="text-muted text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>Cargando componentes...</div>';
     try {
-      const response = await fetch(`../controllers/formatos_ajax.php?action=materials&arco_id=${encodeURIComponent(arcId)}`);
+      let url = '../controllers/formatos_ajax.php?action=materials';
+      if (revId) {
+        url += `&revision_id=${encodeURIComponent(revId)}`;
+      } else if (infraRevId) {
+        url += `&infraestructura_revision_id=${encodeURIComponent(infraRevId)}`;
+      } else if (infraId) {
+        url += `&infraestructura_id=${encodeURIComponent(infraId)}`;
+      } else if (arcId) {
+        url += `&arco_id=${encodeURIComponent(arcId)}`;
+      }
+
+      const response = await fetch(url);
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || 'No se pudieron cargar los materiales.');
       currentChecklistMaterials = data.materials || [];
       renderChecklistMaterials();
     } catch (error) {
-      checklistSelector.innerHTML = `<div class="alert alert-danger py-2 mb-0">${error.message}</div>`;
+      if (countBadge) countBadge.textContent = 'Error';
+      checklistRows.innerHTML = `<div class="alert alert-danger py-2 m-2">${error.message}</div>`;
     }
   }
 
-  arcSelect?.addEventListener('change', loadChecklistMaterials);
+  arcSelect?.addEventListener('change', () => {
+    updateHiddenIds();
+    loadChecklistMaterials();
+  });
 
   const lanesContainer = document.getElementById('carrilesContainer');
   const laneTemplate = document.getElementById('carrilTemplate');
@@ -190,27 +273,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renumberLanes = () => {
     if (!lanesContainer) return;
-    [...lanesContainer.children].forEach((lane, index) => {
-      lane.querySelector('.lane-number').textContent = index + 1;
-      lane.querySelector('.lane-name').name = `carril[${index}][nombre]`;
-      lane.querySelector('.lane-reading').name = `carril[${index}][lectura]`;
-      lane.querySelector('.lane-monitor').name = `carril[${index}][monitoreo]`;
-      lane.querySelector('.lane-observation').name = `carril[${index}][observacion]`;
-      lane.querySelector('.remove-lane').disabled = lanesContainer.children.length <= 2;
+    [...lanesContainer.querySelectorAll('.lane-card')].forEach((lane, index) => {
+      const num = lane.querySelector('.lane-number');
+      const name = lane.querySelector('.lane-name');
+      const read = lane.querySelector('.lane-reading');
+      const mon = lane.querySelector('.lane-monitor');
+      const obs = lane.querySelector('.lane-observation');
+      const rem = lane.querySelector('.remove-lane');
+
+      if (num) num.textContent = index + 1;
+      if (name) name.name = `carril[${index}][nombre]`;
+      if (read) read.name = `carril[${index}][lectura]`;
+      if (mon) mon.name = `carril[${index}][monitoreo]`;
+      if (obs) obs.name = `carril[${index}][observacion]`;
+      if (rem) rem.disabled = lanesContainer.children.length <= 2;
     });
   };
 
   const addLane = (saved = {}) => {
     if (!lanesContainer || !laneTemplate || lanesContainer.children.length >= 8) return;
-    const lane = laneTemplate.content.firstElementChild.cloneNode(true);
-    lane.querySelector('.lane-name').value = saved.nombre || '';
-    lane.querySelector('.lane-reading').value = saved.lectura || '';
-    lane.querySelector('.lane-monitor').value = saved.monitoreo || '';
-    lane.querySelector('.lane-observation').value = saved.observacion || '';
-    lane.querySelector('.remove-lane').addEventListener('click', () => {
-      lane.remove();
-      renumberLanes();
-    });
+    const lane = laneTemplate.content.firstElementChild?.cloneNode(true);
+    if (!lane) return;
+
+    const name = lane.querySelector('.lane-name');
+    const read = lane.querySelector('.lane-reading');
+    const mon = lane.querySelector('.lane-monitor');
+    const obs = lane.querySelector('.lane-observation');
+    const rem = lane.querySelector('.remove-lane');
+
+    if (name) name.value = saved.nombre || '';
+    if (read) read.value = saved.lectura || '';
+    if (mon) mon.value = saved.monitoreo || '';
+    if (obs) obs.value = saved.observacion || '';
+    if (rem) {
+      rem.addEventListener('click', () => {
+        lane.remove();
+        renumberLanes();
+      });
+    }
     lanesContainer.appendChild(lane);
     renumberLanes();
   };
@@ -259,7 +359,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  if (checklistSelector && arcSelect?.value) loadChecklistMaterials();
+  if (checklistSelector) {
+    const hiddenArco = document.getElementById('hidden_arco_id');
+    const hiddenInfra = document.getElementById('hidden_infra_id');
+    const hiddenRev = document.getElementById('hidden_revision_id');
+    const hiddenInfraRev = document.getElementById('hidden_infra_revision_id');
+    if (arcSelect?.value || hiddenArco?.value || hiddenInfra?.value || hiddenRev?.value || hiddenInfraRev?.value) {
+      loadChecklistMaterials();
+    }
+  }
 
   const form = document.querySelector('.js-stepped-form');
   if (!form) return;
@@ -277,6 +385,15 @@ document.addEventListener('DOMContentLoaded', () => {
     previousButton.disabled = activeStep === 0;
     nextButton.classList.toggle('d-none', activeStep === sections.length - 1);
     submitButton.classList.toggle('d-none', activeStep !== sections.length - 1);
+
+    if (sections.length <= 1) {
+      previousButton.classList.add('d-none');
+      nextButton.classList.add('d-none');
+      submitButton.classList.remove('d-none');
+      if (navigation) navigation.classList.add('d-none');
+    } else {
+      if (navigation) navigation.classList.remove('d-none');
+    }
   };
 
   sections.forEach((section, index) => {
@@ -288,9 +405,17 @@ document.addEventListener('DOMContentLoaded', () => {
     navigation.appendChild(button);
   });
 
-  previousButton.addEventListener('click', () => showStep(activeStep - 1));
-  nextButton.addEventListener('click', () => showStep(activeStep + 1));
+  previousButton?.addEventListener('click', () => showStep(activeStep - 1));
+  nextButton?.addEventListener('click', () => showStep(activeStep + 1));
   form.addEventListener('invalid', (event) => {
+    const collapse = document.getElementById('collapseGeneralData');
+    if (collapse && collapse.contains(event.target)) {
+      if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+        bootstrap.Collapse.getOrCreateInstance(collapse, { toggle: false }).show();
+      } else {
+        collapse.classList.add('show');
+      }
+    }
     const index = sections.findIndex((section) => section.contains(event.target));
     if (index >= 0) showStep(index);
   }, true);

@@ -27,8 +27,16 @@ function asegurarTablaFormatosMantenimiento(PDO $pdo): void
         )
     ");
     $pdo->exec("ALTER TABLE formatos_mantenimiento ADD COLUMN IF NOT EXISTS arco_id INTEGER REFERENCES arcos(id) ON DELETE CASCADE");
+    $pdo->exec("ALTER TABLE formatos_mantenimiento ADD COLUMN IF NOT EXISTS infraestructura_id INTEGER REFERENCES infraestructura_nodos(id) ON DELETE CASCADE");
+    $pdo->exec("ALTER TABLE formatos_mantenimiento ADD COLUMN IF NOT EXISTS infraestructura_revision_id INTEGER REFERENCES infraestructura_revisiones(id) ON DELETE CASCADE");
     $pdo->exec("ALTER TABLE formatos_mantenimiento ADD COLUMN IF NOT EXISTS tecnico_id INTEGER REFERENCES tecnicos(id) ON DELETE SET NULL");
     $pdo->exec("ALTER TABLE formatos_mantenimiento ALTER COLUMN revision_id DROP NOT NULL");
+    $pdo->exec("ALTER TABLE formatos_mantenimiento ALTER COLUMN arco_id DROP NOT NULL");
+
+    // Asegurar compatibilidad de bitacoras para sitios/puentes
+    $pdo->exec("ALTER TABLE bitacoras_arco ADD COLUMN IF NOT EXISTS infraestructura_id INTEGER REFERENCES infraestructura_nodos(id) ON DELETE CASCADE");
+    $pdo->exec("ALTER TABLE bitacoras_arco ALTER COLUMN arco_id DROP NOT NULL");
+
     $pdo->exec("
         UPDATE formatos_mantenimiento fm
         SET arco_id = r.arco_id
@@ -36,15 +44,33 @@ function asegurarTablaFormatosMantenimiento(PDO $pdo): void
         WHERE fm.revision_id = r.id AND fm.arco_id IS NULL
     ");
     $pdo->exec("
+        UPDATE formatos_mantenimiento fm
+        SET infraestructura_id = ir.infraestructura_id
+        FROM infraestructura_revisiones ir
+        WHERE fm.infraestructura_revision_id = ir.id AND fm.infraestructura_id IS NULL
+    ");
+    $pdo->exec("
         CREATE INDEX IF NOT EXISTS idx_formatos_mantenimiento_revision
         ON formatos_mantenimiento (revision_id, created_at DESC)
+    ");
+    $pdo->exec("
+        CREATE INDEX IF NOT EXISTS idx_formatos_mantenimiento_infra_rev
+        ON formatos_mantenimiento (infraestructura_revision_id, created_at DESC)
     ");
     $pdo->exec("
         CREATE INDEX IF NOT EXISTS idx_formatos_mantenimiento_arco
         ON formatos_mantenimiento (arco_id, created_at DESC)
     ");
     $pdo->exec("
+        CREATE INDEX IF NOT EXISTS idx_formatos_mantenimiento_infra
+        ON formatos_mantenimiento (infraestructura_id, created_at DESC)
+    ");
+    $pdo->exec("
         CREATE INDEX IF NOT EXISTS idx_formatos_mantenimiento_tecnico_id
         ON formatos_mantenimiento (tecnico_id)
+    ");
+    $pdo->exec("
+        CREATE INDEX IF NOT EXISTS idx_bitacoras_infra_id
+        ON bitacoras_arco (infraestructura_id)
     ");
 }

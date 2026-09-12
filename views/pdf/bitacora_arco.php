@@ -13,53 +13,133 @@ $fechaFormato = date("d M Y");
 $codigoFormato = 'INN-FOR-001';
 $tituloFormato = 'BITÁCORA';
 
-/* DATOS DEL ARCO */
-$stmt = $pdo->prepare("
-    SELECT a.*, u.nombre AS ubicacion, a.fecha_instalacion AS fecha_instalacion
-    FROM arcos a
-    JOIN ubicaciones u ON a.ubicacion_id = u.id
-    WHERE a.id = ?
-");
-$stmt->execute([$id]);
-$arco = $stmt->fetch(PDO::FETCH_ASSOC);
-$fechaInstalacion = $arco ? date("d/m/Y", strtotime($arco['fecha_instalacion'])) : '';
+$tipo = $_GET['tipo'] ?? '';
+$arco = null;
+$bitacora = null;
+$materiales = [];
 
+if ($tipo === 'infra') {
+    $stmt = $pdo->prepare("
+        SELECT n.*, n.nombre AS nombre, n.tipo AS tipo_infra, u.nombre AS ubicacion, CURRENT_TIMESTAMP AS fecha_instalacion
+        FROM infraestructura_nodos n
+        LEFT JOIN ubicaciones u ON n.ubicacion_id = u.id
+        WHERE n.id = ?
+    ");
+    $stmt->execute([$id]);
+    $arco = $stmt->fetch(PDO::FETCH_ASSOC);
 
+    if (!$arco) {
+        die("Puente/Sitio no encontrado");
+    }
 
-if (!$arco) {
-    die("Arco no encontrado");
+    $bitStmt = $pdo->prepare("
+        SELECT 
+            b.id,
+            t.nombre AS encargado,
+            b.observaciones,
+            b.fecha_registro
+        FROM bitacoras_arco b
+        LEFT JOIN tecnicos t ON t.id = b.tecnico_id
+        WHERE b.infraestructura_id = ?
+        ORDER BY b.fecha_registro DESC
+        LIMIT 1
+    ");
+    $bitStmt->execute([$id]);
+    $bitacora = $bitStmt->fetch(PDO::FETCH_ASSOC);
+
+    $matStmt = $pdo->prepare("
+        SELECT 
+            im.*,
+            m.nombre AS material,
+            m.medida AS medida
+        FROM infraestructura_material im
+        JOIN materiales m ON im.material_id = m.id
+        WHERE im.infraestructura_id = ?
+    ");
+    $matStmt->execute([$id]);
+    $materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $stmt = $pdo->prepare("
+        SELECT a.*, u.nombre AS ubicacion, a.fecha_instalacion AS fecha_instalacion
+        FROM arcos a
+        JOIN ubicaciones u ON a.ubicacion_id = u.id
+        WHERE a.id = ?
+    ");
+    $stmt->execute([$id]);
+    $arco = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$arco) {
+        $stmt = $pdo->prepare("
+            SELECT n.*, n.nombre AS nombre, n.tipo AS tipo_infra, u.nombre AS ubicacion, CURRENT_TIMESTAMP AS fecha_instalacion
+            FROM infraestructura_nodos n
+            LEFT JOIN ubicaciones u ON n.ubicacion_id = u.id
+            WHERE n.id = ?
+        ");
+        $stmt->execute([$id]);
+        $arco = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$arco) {
+            die("Arco o sitio no encontrado");
+        }
+        $tipo = 'infra';
+
+        $bitStmt = $pdo->prepare("
+            SELECT 
+                b.id,
+                t.nombre AS encargado,
+                b.observaciones,
+                b.fecha_registro
+            FROM bitacoras_arco b
+            LEFT JOIN tecnicos t ON t.id = b.tecnico_id
+            WHERE b.infraestructura_id = ?
+            ORDER BY b.fecha_registro DESC
+            LIMIT 1
+        ");
+        $bitStmt->execute([$id]);
+        $bitacora = $bitStmt->fetch(PDO::FETCH_ASSOC);
+
+        $matStmt = $pdo->prepare("
+            SELECT 
+                im.*,
+                m.nombre AS material,
+                m.medida AS medida
+            FROM infraestructura_material im
+            JOIN materiales m ON im.material_id = m.id
+            WHERE im.infraestructura_id = ?
+        ");
+        $matStmt->execute([$id]);
+        $materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $bitStmt = $pdo->prepare("
+            SELECT 
+                b.id,
+                t.nombre AS encargado,
+                b.observaciones,
+                b.fecha_registro
+            FROM bitacoras_arco b
+            LEFT JOIN tecnicos t ON t.id = b.tecnico_id
+            WHERE b.arco_id = ?
+            ORDER BY b.fecha_registro DESC
+            LIMIT 1
+        ");
+        $bitStmt->execute([$id]);
+        $bitacora = $bitStmt->fetch(PDO::FETCH_ASSOC);
+
+        $matStmt = $pdo->prepare("
+            SELECT 
+                am.*,
+                m.nombre AS material,
+                m.medida AS medida
+            FROM arco_material am
+            JOIN materiales m ON am.material_id = m.id
+            WHERE am.arco_id = ?
+        ");
+        $matStmt->execute([$id]);
+        $materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
 
-/* DATOS DE BITÁCORA */
-$bitStmt = $pdo->prepare("
-    SELECT 
-        b.id,
-        t.nombre AS encargado,
-        b.observaciones,
-        b.fecha_registro
-    FROM bitacoras_arco b
-    LEFT JOIN tecnicos t ON t.id = b.tecnico_id
-    WHERE b.arco_id = ?
-    ORDER BY b.fecha_registro DESC
-    LIMIT 1
-");
-$bitStmt->execute([$id]);
-$bitacora = $bitStmt->fetch(PDO::FETCH_ASSOC);
-
-
-/* MATERIALES DEL ARCO */
-$matStmt = $pdo->prepare("
-    SELECT 
-        am.*,
-        m.nombre AS material,
-        m.medida AS medida
-    FROM arco_material am
-    JOIN materiales m ON am.material_id = m.id
-    WHERE am.arco_id = ?
-");
-$matStmt->execute([$id]);
-$materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
-
+$fechaInstalacion = $arco && !empty($arco['fecha_instalacion']) ? date("d/m/Y", strtotime($arco['fecha_instalacion'])) : date("d/m/Y");
 
 $checks = [];
 
@@ -85,7 +165,7 @@ if ($bitacora) {
 
 $safeArc = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($arco['nombre'] ?? 'arco'));
 $nombreArchivoPdf = "Bitacora_{$safeArc}_{$fechaInstalacion}.pdf";
-$urlDescargaServidor = "../../controllers/pdf_controller.php?action=bitacora_pdf&id={$id}&download=1";
+$urlDescargaServidor = "../../controllers/pdf_controller.php?action=bitacora_pdf&id={$id}" . ($tipo === 'infra' ? '&tipo=infra' : '') . "&download=1";
 
 ?>
 

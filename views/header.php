@@ -63,50 +63,52 @@ $currentRole = $_SESSION['role'] ?? '';
 </head>
 
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container-fluid px-4">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+    <div class="container-fluid px-3 px-md-4">
       <a class="navbar-brand" href="/views/dashboard.php">
         <i class="bi bi-broadcast-pin"></i> REPUVE
       </a>
 
+      <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu" aria-controls="navbarMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
 
       <div class="collapse navbar-collapse" id="navbarMenu">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item">
-          <a class="nav-link active" href="dashboard.php"><i class="bi bi-house-door"></i> Inicio</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="materiales_ubicaciones.php"><i class="bi bi-geo-alt"></i> Materiales & Ciudades</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="arcos.php"><i class="bi bi-diagram-3"></i> Arcos</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="revisiones.php"><i class="bi bi-tools"></i> Mantenimientos</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="reportes.php"><i class="bi bi-speedometer2"></i> Reportes</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="formatos.php"><i class="bi bi-speedometer2"></i> Formatos</a>
-        </li>
-        <li class="nav-item">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0 py-2 py-lg-0">
+          <li class="nav-item">
+            <a class="nav-link" href="dashboard.php"><i class="bi bi-house-door"></i> Inicio</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="materiales_ubicaciones.php"><i class="bi bi-geo-alt"></i> Materiales & Ciudades</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="arcos.php"><i class="bi bi-diagram-3"></i> Arcos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="revisiones.php"><i class="bi bi-tools"></i> Mantenimientos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="reportes.php"><i class="bi bi-speedometer2"></i> Reportes</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="formatos.php"><i class="bi bi-file-earmark-text"></i> Formatos</a>
+          </li>
           <?php if ($currentRole === 'admin'): ?>
-          <a href="usuarios.php" class="nav-link"><i class="bi bi-person-circle"></i> Usuarios / Tecnicos</a>
+          <li class="nav-item">
+            <a href="usuarios.php" class="nav-link"><i class="bi bi-person-circle"></i> Usuarios / Técnicos</a>
+          </li>
           <?php endif; ?>
-        </li>
-      </ul>
+        </ul>
 
-    </div>
-
-      <div class="d-flex align-items-center">
-        <a class="user-badge me-3 text-white" href="perfil.php" title="Abrir mi cuenta">
-          <i class="bi bi-person-circle"></i>
-          <?= htmlspecialchars($currentUser) ?>
-        </a>
-        <a class="btn btn-sm logout-btn" href="/views/logout.php">
-          <i class="bi bi-box-arrow-right"></i> Salir
-        </a>
+        <div class="d-flex align-items-center gap-2 mt-2 mt-lg-0 pt-2 pt-lg-0 border-top border-secondary border-opacity-50 border-lg-0">
+          <a class="user-badge text-white" href="perfil.php" title="Abrir mi cuenta">
+            <i class="bi bi-person-circle"></i>
+            <span><?= htmlspecialchars($currentUser) ?></span>
+          </a>
+          <a class="btn btn-sm logout-btn" href="/views/logout.php">
+            <i class="bi bi-box-arrow-right"></i> Salir
+          </a>
+        </div>
       </div>
     </div>
   </nav>

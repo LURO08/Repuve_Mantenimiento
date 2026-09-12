@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
@@ -117,20 +117,45 @@ function generarBitacora($pdo)
 function generarMantenimiento($pdo)
 {
     $revision_id = (int)($_GET['id'] ?? 0);
+    $tipo = $_GET['tipo'] ?? '';
     $download = isset($_GET['download']) && in_array(strtolower((string)$_GET['download']), ['1', 'true', 'yes'], true);
 
     if ($revision_id <= 0) {
         die("ID de revisión no válido");
     }
 
-    $stmt = $pdo->prepare("
-        SELECT r.*, a.nombre AS arco, fecha_mantenimiento AS fecha_mantenimiento
-        FROM revisiones r
-        JOIN arcos a ON r.arco_id = a.id
-        WHERE r.id = ?
-    ");
-    $stmt->execute([$revision_id]);
-    $revision = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($tipo === 'infra') {
+        $stmt = $pdo->prepare("
+            SELECT ir.*, n.nombre AS arco, fecha_mantenimiento AS fecha_mantenimiento
+            FROM infraestructura_revisiones ir
+            JOIN infraestructura_nodos n ON ir.infraestructura_id = n.id
+            WHERE ir.id = ?
+        ");
+        $stmt->execute([$revision_id]);
+        $revision = $stmt->fetch(PDO::FETCH_ASSOC);
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT r.*, a.nombre AS arco, fecha_mantenimiento AS fecha_mantenimiento
+            FROM revisiones r
+            JOIN arcos a ON r.arco_id = a.id
+            WHERE r.id = ?
+        ");
+        $stmt->execute([$revision_id]);
+        $revision = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$revision) {
+            $stmt = $pdo->prepare("
+                SELECT ir.*, n.nombre AS arco, fecha_mantenimiento AS fecha_mantenimiento
+                FROM infraestructura_revisiones ir
+                JOIN infraestructura_nodos n ON ir.infraestructura_id = n.id
+                WHERE ir.id = ?
+            ");
+            $stmt->execute([$revision_id]);
+            $revision = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($revision) $tipo = 'infra';
+        }
+    }
+
     $fechaRegistroMantenimiento = $revision ? date("d/m/Y H:i A", strtotime($revision['fecha_mantenimiento'])) : '';
 
     if (!$revision) {
@@ -138,6 +163,7 @@ function generarMantenimiento($pdo)
     }
 
     $_GET['id'] = $revision_id;
+    $_GET['tipo'] = $tipo;
     $id = $revision_id;
 
     ob_start();
@@ -173,22 +199,38 @@ function generarMantenimiento($pdo)
 function generarBitacoraPdf($pdo)
 {
     $arco_id = (int)($_GET['id'] ?? $_GET['arco_id'] ?? 0);
+    $tipo = $_GET['tipo'] ?? '';
     $download = isset($_GET['download']) && in_array(strtolower((string)$_GET['download']), ['1', 'true', 'yes'], true);
 
     if ($arco_id <= 0) {
         die("ID de arco no válido");
     }
 
-    $stmt = $pdo->prepare("SELECT id, nombre, fecha_instalacion AS fecha_instalacion FROM arcos WHERE id = ?");
-    $stmt->execute([$arco_id]);
-    $arco = $stmt->fetch(PDO::FETCH_ASSOC);
-    $fechaInstalacion = $arco ? date("d/m/Y", strtotime($arco['fecha_instalacion'])) : '';
+    if ($tipo === 'infra') {
+        $stmt = $pdo->prepare("SELECT id, nombre, CURRENT_TIMESTAMP AS fecha_instalacion FROM infraestructura_nodos WHERE id = ?");
+        $stmt->execute([$arco_id]);
+        $arco = $stmt->fetch(PDO::FETCH_ASSOC);
+    } else {
+        $stmt = $pdo->prepare("SELECT id, nombre, fecha_instalacion AS fecha_instalacion FROM arcos WHERE id = ?");
+        $stmt->execute([$arco_id]);
+        $arco = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$arco) {
+            $stmt = $pdo->prepare("SELECT id, nombre, CURRENT_TIMESTAMP AS fecha_instalacion FROM infraestructura_nodos WHERE id = ?");
+            $stmt->execute([$arco_id]);
+            $arco = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($arco) $tipo = 'infra';
+        }
+    }
+
+    $fechaInstalacion = $arco && !empty($arco['fecha_instalacion']) ? date("d/m/Y", strtotime($arco['fecha_instalacion'])) : date("d/m/Y");
 
     if (!$arco) {
-        die("Arco no encontrado");
+        die("Arco o sitio no encontrado");
     }
 
     $_GET['id'] = $arco_id;
+    $_GET['tipo'] = $tipo;
     $id = $arco_id;
 
     ob_start();

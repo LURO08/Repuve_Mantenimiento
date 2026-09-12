@@ -1,28 +1,34 @@
 <?php
-function pdfText($value, string $fallback = 'N/A'): string
-{
-    $text = trim((string)$value);
-    return $text !== ''
-        ? htmlspecialchars($text, ENT_QUOTES, 'UTF-8')
-        : $fallback;
+if (!function_exists('pdfText')) {
+    function pdfText($value, string $fallback = 'N/A'): string
+    {
+        $text = trim((string)$value);
+        return $text !== ''
+            ? htmlspecialchars($text, ENT_QUOTES, 'UTF-8')
+            : $fallback;
+    }
 }
 
-function pdfMark(bool $checked): string
-{
-    return $checked ? 'X' : '&nbsp;';
+if (!function_exists('pdfMark')) {
+    function pdfMark(bool $checked): string
+    {
+        return $checked ? 'X' : '&nbsp;';
+    }
 }
 
-function pdfToolItem($item): string
-{
-    if (!is_array($item)) return pdfText($item);
-    $name = pdfText($item['nombre'] ?? '');
-    $quantity = (int)($item['cantidad'] ?? 0);
-    $unit = pdfText($item['unidad'] ?? '', '');
-    return $quantity > 0 ? $quantity . ' ' . $unit . ' - ' . $name : $name;
+if (!function_exists('pdfToolItem')) {
+    function pdfToolItem($item): string
+    {
+        if (!is_array($item)) return pdfText($item);
+        $name = pdfText($item['nombre'] ?? '');
+        $quantity = (int)($item['cantidad'] ?? 0);
+        $unit = pdfText($item['unidad'] ?? '', '');
+        return $quantity > 0 ? $quantity . ' ' . $unit . ' - ' . $name : $name;
+    }
 }
 
-$fechaMantenimiento = strtotime($registro['fecha_mantenimiento']);
-$fechaDocumento = strtotime($registro['created_at']);
+$fechaMantenimiento = !empty($registro['fecha_mantenimiento']) ? strtotime($registro['fecha_mantenimiento']) : null;
+$fechaDocumento = $fechaMantenimiento ?: (!empty($registro['created_at']) ? strtotime($registro['created_at']) : time());
 ?>
 <!doctype html>
 <html lang="es">
@@ -132,6 +138,41 @@ $fechaDocumento = strtotime($registro['created_at']);
     }
     table.grid tbody tr:nth-child(even) td {
       background: #fff;
+    }
+    .checklist-dual-grid {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin-top: 3px;
+    }
+    .checklist-table-compact {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .checklist-table-compact th {
+      padding: 3px 2px;
+      background: #f1f5f9;
+      color: #003865;
+      font-size: 7px;
+      font-weight: bold;
+      border-bottom: 1.5px solid #003865;
+      text-align: center;
+    }
+    .checklist-table-compact td {
+      padding: 2.5px 3px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+    .checklist-table-compact tbody tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    .checklist-table-compact .mark {
+      width: 11px;
+      height: 11px;
+      font-size: 8px;
+      line-height: 9px;
+      margin: 0;
     }
     .center { text-align: center; }
     .mark {
@@ -289,45 +330,124 @@ $fechaDocumento = strtotime($registro['created_at']);
   </div>
 
   <?php if ($registro['tipo'] === 'checklist'): ?>
+    <?php
+    $componentes = array_values($datos['componentes'] ?? []);
+    $totalComp = count($componentes);
+    $half = (int)ceil($totalComp / 2);
+    $leftCol = array_slice($componentes, 0, $half);
+    $rightCol = array_slice($componentes, $half);
+
+    $allObservations = [];
+    foreach ($componentes as $comp) {
+        $obs = trim((string)($comp['observacion'] ?? ''));
+        if ($obs !== '') {
+            $allObservations[] = '<strong>' . pdfText($comp['nombre']) . ':</strong> ' . pdfText($obs);
+        }
+    }
+    ?>
     <div class="section">
       <div class="section-title">II. DIAGNÓSTICO DE COMPONENTES</div>
-      <table class="grid">
-        <thead>
-          <tr>
-            <th style="width:30%">Componente</th>
-            <th style="width:11%">Bueno</th>
-            <th style="width:11%">Malo</th>
-            <th style="width:38%">Observaciones</th>
-            <th style="width:10%">Cambiado</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach (($datos['componentes'] ?? []) as $component): ?>
-            <tr>
-              <td>
-                <?= pdfText($component['nombre'] ?? '') ?>
-                <?php
-                $details = [];
-                if (trim((string)($component['serie'] ?? '')) !== '') {
-                    $details[] = '<strong>Serie:</strong> ' . pdfText($component['serie']);
-                }
-                if (trim((string)($component['ip'] ?? '')) !== '') {
-                    $details[] = '<strong>IP:</strong> ' . pdfText($component['ip']);
-                }
-                if (trim((string)($component['mac'] ?? '')) !== '') {
-                    $details[] = '<strong>MAC:</strong> ' . pdfText($component['mac']);
-                }
-                if (!empty($details)): ?>
-                  <br><span class="muted" style="font-size:7.5px;"><?= implode(' &nbsp;•&nbsp; ', $details) ?></span>
+      <table class="checklist-dual-grid">
+        <tr>
+          <!-- Columna Izquierda (1 de 2) -->
+          <td style="width: 49%; vertical-align: top; padding: 0;">
+            <table class="checklist-table-compact">
+              <thead>
+                <tr>
+                  <th style="width: 52%; text-align: left; padding-left: 4px;">Componente</th>
+                  <th style="width: 16%;">Bueno</th>
+                  <th style="width: 16%;">Malo</th>
+                  <th style="width: 16%;">Camb.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (empty($leftCol)): ?>
+                  <tr><td colspan="4" class="center muted" style="padding: 6px;">Sin componentes</td></tr>
+                <?php else: ?>
+                  <?php foreach ($leftCol as $component): ?>
+                    <tr>
+                      <td style="padding: 3px 4px; font-size: 7.5px; vertical-align: top;">
+                        <strong><?= pdfText($component['nombre'] ?? '') ?></strong>
+                        <?php
+                        $details = [];
+                        if (trim((string)($component['serie'] ?? '')) !== '') {
+                            $details[] = 'S: ' . pdfText($component['serie']);
+                        }
+                        if (trim((string)($component['ip'] ?? '')) !== '') {
+                            $details[] = 'IP: ' . pdfText($component['ip']);
+                        }
+                        if (trim((string)($component['mac'] ?? '')) !== '') {
+                            $details[] = 'MAC: ' . pdfText($component['mac']);
+                        }
+                        if (!empty($details)): ?>
+                          <span class="muted" style="display:block; font-size:6.5px; line-height: 1.15; margin-top: 1px;"><?= implode(' | ', $details) ?></span>
+                        <?php endif; ?>
+                        <?php if (trim((string)($component['observacion'] ?? '')) !== ''): ?>
+                          <span style="display:block; font-size:6.5px; color:#854d0e; line-height: 1.15; margin-top: 1px;">
+                            <em>Obs: <?= pdfText($component['observacion']) ?></em>
+                          </span>
+                        <?php endif; ?>
+                      </td>
+                      <td class="center" style="vertical-align: middle;"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Bueno') ?></span></td>
+                      <td class="center" style="vertical-align: middle;"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Malo') ?></span></td>
+                      <td class="center" style="vertical-align: middle;"><span class="mark"><?= pdfMark(!empty($component['cambiado'])) ?></span></td>
+                    </tr>
+                  <?php endforeach; ?>
                 <?php endif; ?>
-              </td>
-              <td class="center"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Bueno') ?></span></td>
-              <td class="center"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Malo') ?></span></td>
-              <td><?= pdfText($component['observacion'] ?? '', '&nbsp;') ?></td>
-              <td class="center"><span class="mark"><?= pdfMark(!empty($component['cambiado'])) ?></span></td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
+              </tbody>
+            </table>
+          </td>
+          <!-- Separador Central -->
+          <td style="width: 2%;"></td>
+          <!-- Columna Derecha (2 de 2) -->
+          <td style="width: 49%; vertical-align: top; padding: 0;">
+            <table class="checklist-table-compact">
+              <thead>
+                <tr>
+                  <th style="width: 52%; text-align: left; padding-left: 4px;">Componente</th>
+                  <th style="width: 16%;">Bueno</th>
+                  <th style="width: 16%;">Malo</th>
+                  <th style="width: 16%;">Camb.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (empty($rightCol)): ?>
+                  <tr><td colspan="4" class="center muted" style="padding: 6px;">&nbsp;</td></tr>
+                <?php else: ?>
+                  <?php foreach ($rightCol as $component): ?>
+                    <tr>
+                      <td style="padding: 3px 4px; font-size: 7.5px; vertical-align: top;">
+                        <strong><?= pdfText($component['nombre'] ?? '') ?></strong>
+                        <?php
+                        $details = [];
+                        if (trim((string)($component['serie'] ?? '')) !== '') {
+                            $details[] = 'S: ' . pdfText($component['serie']);
+                        }
+                        if (trim((string)($component['ip'] ?? '')) !== '') {
+                            $details[] = 'IP: ' . pdfText($component['ip']);
+                        }
+                        if (trim((string)($component['mac'] ?? '')) !== '') {
+                            $details[] = 'MAC: ' . pdfText($component['mac']);
+                        }
+                        if (!empty($details)): ?>
+                          <span class="muted" style="display:block; font-size:6.5px; line-height: 1.15; margin-top: 1px;"><?= implode(' | ', $details) ?></span>
+                        <?php endif; ?>
+                        <?php if (trim((string)($component['observacion'] ?? '')) !== ''): ?>
+                          <span style="display:block; font-size:6.5px; color:#854d0e; line-height: 1.15; margin-top: 1px;">
+                            <em>Obs: <?= pdfText($component['observacion']) ?></em>
+                          </span>
+                        <?php endif; ?>
+                      </td>
+                      <td class="center" style="vertical-align: middle;"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Bueno') ?></span></td>
+                      <td class="center" style="vertical-align: middle;"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Malo') ?></span></td>
+                      <td class="center" style="vertical-align: middle;"><span class="mark"><?= pdfMark(!empty($component['cambiado'])) ?></span></td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </td>
+        </tr>
       </table>
     </div>
   <?php endif; ?>
@@ -355,9 +475,15 @@ $fechaDocumento = strtotime($registro['created_at']);
             ?>
             <tr>
               <td><?= pdfText($lane['nombre'] ?? '', 'Carril ' . ($index + 1)) ?></td>
-              <td class="center"><?= pdfText($lane['lectura'] ?? '') ?></td>
-              <td class="center"><?= pdfText($lane['monitoreo'] ?? '') ?></td>
-              <td><?= pdfText($lane['observacion'] ?? '', '&nbsp;') ?></td>
+              <td class="center">
+                <span class="mark"><?= pdfMark(($lane['lectura'] ?? '') === 'Sí' || ($lane['lectura'] ?? '') === 'Si') ?></span> Sí &nbsp;
+                <span class="mark"><?= pdfMark(($lane['lectura'] ?? '') === 'No') ?></span> No
+              </td>
+              <td class="center">
+                <span class="mark"><?= pdfMark(($lane['monitoreo'] ?? '') === 'Sí' || ($lane['monitoreo'] ?? '') === 'Si') ?></span> Sí &nbsp;
+                <span class="mark"><?= pdfMark(($lane['monitoreo'] ?? '') === 'No') ?></span> No
+              </td>
+              <td><?= trim((string)($lane['observacion'] ?? '')) !== '' ? pdfText($lane['observacion']) : '&nbsp;' ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>
@@ -373,23 +499,28 @@ $fechaDocumento = strtotime($registro['created_at']);
             <span class="mark"><?= pdfMark(!empty($datos['energia_solar'])) ?></span> Paneles solares / baterías
           </td>
           <td>
-            <strong>Enlace funcionando</strong>
-            <?= pdfText($datos['enlace'] ?? '') ?>
+            <strong>Enlace funcionando</strong><br>
+            <span class="mark"><?= pdfMark(($datos['enlace'] ?? '') === 'Si' || ($datos['enlace'] ?? '') === 'Sí') ?></span> Sí &nbsp;
+            <span class="mark"><?= pdfMark(($datos['enlace'] ?? '') === 'No') ?></span> No
           </td>
           <td>
-            <strong>Sistema de monitoreo</strong>
-            <?= pdfText($datos['sistema_monitoreo'] ?? '') ?>
+            <strong>Sistema de monitoreo</strong><br>
+            <span class="mark"><?= pdfMark(($datos['sistema_monitoreo'] ?? '') === 'Si' || ($datos['sistema_monitoreo'] ?? '') === 'Sí') ?></span> Sí &nbsp;
+            <span class="mark"><?= pdfMark(($datos['sistema_monitoreo'] ?? '') === 'No') ?></span> No
           </td>
           <td>
-            <strong>Resultado de la prueba</strong>
-            <?= pdfText($datos['resultado'] ?? '') ?>
+            <strong>Resultado de la prueba</strong><br>
+            <span class="mark"><?= pdfMark(($datos['resultado'] ?? '') === 'Exitosa') ?></span> Exitosa &nbsp;
+            <span class="mark"><?= pdfMark(($datos['resultado'] ?? '') === 'Fallida') ?></span> Fallida
           </td>
         </tr>
       </table>
-      <div class="observation-box">
-        <strong>Acciones correctivas realizadas:</strong><br>
-        <?= pdfText($datos['acciones_correctivas'] ?? '', 'Sin acciones registradas') ?>
-      </div>
+      <?php if (!empty(trim((string)($datos['acciones_correctivas'] ?? '')))): ?>
+        <div class="observation-box" style="margin-top: 5px; padding: 4px 6px; font-size: 7.5px; border-left: 3px solid #003865; background: #f8fafc; min-height: 20px;">
+          <strong style="color: #003865; font-size: 7px; text-transform: uppercase; margin-bottom: 2px;">Acciones correctivas realizadas:</strong><br>
+          <?= pdfText($datos['acciones_correctivas']) ?>
+        </div>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
 

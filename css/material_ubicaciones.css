@@ -1,104 +1,104 @@
-  html, body {
-    height: 100%;
-    overflow: hidden; /* 🔒 bloquea scroll general */
-  }
-
-  .td-material-nombre {
-      white-space: normal;        /* permite saltos de línea */
-      word-break: break-word;     /* corta palabras largas */
-      max-width: 180px;           /* límite visual */
-  }
-
-
-  .custom-modal {
-    display: none;
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-  }
-
-  .img-material {
-    max-width: 70px;
-    max-height: 50px;
-    width: auto;
-    height: auto;
-    object-fit: contain; 
-    border-radius: 10px;
-    transition: transform .2s ease;
+html, body {
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
+.td-material-nombre {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 180px;
+}
 
-  .custom-modal-content {
-    background: white;
-    width: 450px;
-    border-radius: 10px;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
-    animation: fadeIn .2s ease-in-out;
+.custom-modal {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 12px;
+}
+
+.img-material {
+  max-width: 70px;
+  max-height: 50px;
+  width: auto;
+  height: auto;
+  object-fit: contain; 
+  border-radius: 10px;
+  transition: transform .2s ease;
+}
+
+.custom-modal-content {
+  background: white;
+  width: 480px;
+  max-width: 95vw;
+  border-radius: 12px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
+  animation: fadeIn .2s ease-in-out;
+  overflow: hidden;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
   }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: scale(0.9);
-    }
-
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
+}
 
-  /* HEADER DEL MODAL */
-  .modal-header-custom {
-    background: linear-gradient(135deg, #28a745, #1e7e34);
-    color: white;
-    padding: 10px 8px;
-    border-radius: 10px 10px 0 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.15);
-  }
+/* HEADER DEL MODAL */
+.modal-header-custom {
+  background: linear-gradient(135deg, #198754, #146c43);
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-  .modal-header-customEditar {
-    background: linear-gradient(135deg, #ffc107, #e0a800);
-    color: white;
-    padding: 10px 10px;
-    border-radius: 10px 10px 0 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.15);
-  }
+.modal-header-customEditar {
+  background: linear-gradient(135deg, #ffc107, #d39e00);
+  color: #212529;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-  /* TÍTULO */
-  .modal-header-custom h5 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: bold;
-  }
+/* TÍTULO */
+.modal-header-custom h5,
+.modal-header-customEditar h5 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
 
-  /* BOTÓN DE CIERRE */
-  .close-modal {
-    font-size: 28px;
-    cursor: pointer;
-    padding: 4px 12px;
-    border-radius: 8px;
-    transition: 0.2s;
-    background: rgba(255, 255, 255, 0.15);
-    font-weight: bold;
-  }
+/* BOTÓN DE CIERRE */
+.close-modal {
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: 0.2s;
+  background: rgba(0, 0, 0, 0.1);
+  font-weight: bold;
+}
 
-  .close-modal:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.1);
-  }
+.close-modal:hover {
+  background: rgba(0, 0, 0, 0.2);
+  transform: scale(1.05);
+}
 
   .preview-img {
     max-width: 150px;

@@ -1,19 +1,14 @@
 
-.modal{
-   overflow: hidden;
+.modal {
+  overflow-x: hidden;
 }
 
-.modalAgregarArco .modal-dialog{
-  max-width: min(1200px, calc(100vw - 2rem));
-}
-
-.modalEditarArco .modal-dialog{
-  max-width: 200vh;
-}
-
-
+.modalAgregarArco .modal-dialog,
+.modalEditarArco .modal-dialog,
+.modalEditarInfraestructura .modal-dialog,
 .modalMateriales .modal-dialog {
-   max-width: 400vh;
+  max-width: min(1200px, calc(100vw - 1rem));
+  margin: 0.5rem auto;
 }
 
   .arco-nombre {
@@ -1528,3 +1523,136 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ========================================================
+   MODAL AGREGAR / EDITAR ARCO / SITIO - ESTRUCTURA MODERNA
+   ======================================================== */
+.modalAgregarArco .modal-content,
+.modalEditarArco .modal-content,
+.modalEditarInfraestructura .modal-content {
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 992px) {
+  .modalAgregarArco .modal-dialog,
+  .modalEditarArco .modal-dialog,
+  .modalEditarInfraestructura .modal-dialog {
+    max-width: 1100px;
+    height: 82vh;
+    max-height: 750px;
+    margin: auto;
+  }
+
+  .modalAgregarArco .modal-content,
+  .modalEditarArco .modal-content,
+  .modalEditarInfraestructura .modal-content {
+    height: 100%;
+    max-height: 82vh;
+  }
+
+  .modalAgregarArco .modal-body,
+  .modalEditarArco .modal-body,
+  .modalEditarInfraestructura .modal-body {
+    overflow: hidden !important;
+    padding: 0 !important;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-arcos-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.9fr) minmax(380px, 1.1fr);
+    height: 100%;
+    min-height: 0;
+    flex: 1;
+    background-color: #f8fafc;
+  }
+
+  .modal-arcos-form-panel {
+    background-color: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+    min-height: 0;
+    padding: 1rem 1.25rem !important;
+  }
+
+  .modal-arcos-materials-panel {
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+    height: 100%;
+    min-height: 0;
+    padding: 1rem 1.25rem !important;
+  }
+
+  .modal-arcos-materials-panel .materiales-container-added {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .modalAgregarArco .modal-dialog,
+  .modalEditarArco .modal-dialog,
+  .modalEditarInfraestructura .modal-dialog {
+    max-width: calc(100vw - 1rem);
+    margin: 0.5rem auto;
+  }
+
+  .modalAgregarArco .modal-body,
+  .modalEditarArco .modal-body,
+  .modalEditarInfraestructura .modal-body {
+    overflow-y: auto !important;
+    padding: 0.75rem !important;
+    max-height: calc(90vh - 120px);
+  }
+
+  .modal-arcos-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .modal-arcos-form-panel {
+    padding: 0.5rem 0 !important;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .modal-arcos-materials-panel {
+    padding: 0.5rem 0 !important;
+  }
+
+  .modal-arcos-materials-panel .materiales-container-added {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+}
+
+/* Scrollbars pulidos para los paneles */
+.modal-arcos-form-panel::-webkit-scrollbar,
+.modal-arcos-materials-panel .materiales-container-added::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-arcos-form-panel::-webkit-scrollbar-thumb,
+.modal-arcos-materials-panel .materiales-container-added::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.modal-arcos-form-panel::-webkit-scrollbar-thumb:hover,
+.modal-arcos-materials-panel .materiales-container-added::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+

@@ -1,4 +1,5 @@
 import datetime
+import importlib
 import threading
 import time
 import tkinter as tk
@@ -6,10 +7,15 @@ from tkinter import messagebox, scrolledtext, ttk
 from urllib.parse import urlparse
 
 import psycopg2
-from psycopg2.extras import execute_values
+from psycopg2.extensions import register_adapter
+from psycopg2.extras import Json, execute_values
 
+# Adaptador para serializar columnas JSON/JSONB automáticamente
+register_adapter(dict, Json)
+
+mysql = None
 try:
-    import mysql.connector
+    mysql = importlib.import_module("mysql.connector")
 except ImportError:
     mysql = None
 
@@ -52,6 +58,7 @@ class UniversalMigratorApp:
         self.dark_mode = True
         self.datos_tablas = {}
         self.target_sql = tk.StringVar(value="destino")
+        self.modo_migracion = tk.StringVar(value="upsert")
 
         self._configurar_estilos()
         self.crear_interfaz()
@@ -268,8 +275,33 @@ class UniversalMigratorApp:
         self.tree.bind("<Button-1>", self._on_tree_click)
         self.tree.bind("<space>", self._on_tree_space)
 
+        # Selector de modo de sincronización
+        frame_modo = ttk.LabelFrame(frame_izq, text=" Modo de Sincronización ", padding=(6, 3))
+        frame_modo.pack(fill="x", pady=(6, 3))
+
+        ttk.Radiobutton(
+            frame_modo,
+            text="🔄 Actualizar existentes y agregar nuevos (Reemplazar cambios)",
+            value="upsert",
+            variable=self.modo_migracion
+        ).pack(anchor="w", pady=1)
+
+        ttk.Radiobutton(
+            frame_modo,
+            text="➕ Solo agregar nuevos (Ignorar existentes)",
+            value="ignore",
+            variable=self.modo_migracion
+        ).pack(anchor="w", pady=1)
+
+        ttk.Radiobutton(
+            frame_modo,
+            text="🗑️ Reemplazo total (Vaciar tabla antes de insertar)",
+            value="truncate",
+            variable=self.modo_migracion
+        ).pack(anchor="w", pady=1)
+
         self.btn_migrar = ttk.Button(frame_izq, text="🚀 Iniciar Migración a PostgreSQL", style="Success.TButton", command=self.iniciar_migracion_thread, state="disabled")
-        self.btn_migrar.pack(fill="x", pady=(6, 0), ipady=5)
+        self.btn_migrar.pack(fill="x", pady=(4, 0), ipady=5)
 
         # Panel Derecho: Terminal
         frame_der = ttk.Frame(paned, style="Card.TFrame")
@@ -633,6 +665,7 @@ class UniversalMigratorApp:
     def clonar_estructura_tabla(self, motor, cur_origen, cur_remota, conn_remota, tabla):
         col_defs = []
         pk_cols = []
+        col_info_list = []
 
         if motor == "mysql":
             cur_origen.execute(f"DESCRIBE `{tabla}`;")
@@ -640,17 +673,18 @@ class UniversalMigratorApp:
 
             for col_name, data_type, is_null, key, default_val, extra in columnas:
                 tipo_pg = self._mapear_tipo_mysql_a_postgres(data_type, extra)
+                null_str = "NOT NULL" if is_null == "NO" else "NULL"
+                default_str = ""
+                if default_val is not None:
+                    default_str = f"DEFAULT '{default_val}'" if not str(default_val).isdigit() else f"DEFAULT {default_val}"
 
                 if "SERIAL" in tipo_pg:
                     col_def = f'"{col_name}" {tipo_pg}'
                 else:
-                    null_str = "NOT NULL" if is_null == "NO" else "NULL"
-                    default_str = ""
-                    if default_val is not None:
-                        default_str = f"DEFAULT '{default_val}'" if not str(default_val).isdigit() else f"DEFAULT {default_val}"
                     col_def = f'"{col_name}" {tipo_pg} {default_str} {null_str}'.strip()
 
                 col_defs.append(col_def)
+                col_info_list.append((col_name, tipo_pg, default_str, null_str, False))
                 if key == "PRI":
                     pk_cols.append(f'"{col_name}"')
         else:
@@ -697,31 +731,82 @@ class UniversalMigratorApp:
                 ]:
                     tipo_sql = data_type
 
+                null_str = "NOT NULL" if is_null == "NO" else "NULL"
+                default_str = f"DEFAULT {default_val}" if default_val else ""
+
                 # Manejo de IDENTITY y SERIAL en PostgreSQL
                 if is_identity == "YES":
                     gen = "BY DEFAULT" if "BY DEFAULT" in identity_gen.upper() else "BY DEFAULT"
                     col_def = f'"{col_name}" {tipo_sql} GENERATED {gen} AS IDENTITY'
+                    col_info_list.append((col_name, f"{tipo_sql} GENERATED {gen} AS IDENTITY", "", "NOT NULL", True))
                 elif default_val and "nextval" in str(default_val):
                     tipo_sql = "BIGSERIAL" if "bigint" in tipo_sql else "SERIAL"
                     col_def = f'"{col_name}" {tipo_sql}'
+                    col_info_list.append((col_name, tipo_sql, "", "NOT NULL", False))
                 else:
-                    null_str = "NOT NULL" if is_null == "NO" else "NULL"
-                    default_str = f"DEFAULT {default_val}" if default_val else ""
                     col_def = f'"{col_name}" {tipo_sql} {default_str} {null_str}'.strip()
+                    col_info_list.append((col_name, tipo_sql, default_str, null_str, False))
 
                 col_defs.append(col_def)
 
         if pk_cols:
             col_defs.append(f'PRIMARY KEY ({", ".join(pk_cols)})')
 
+        # 1. Crear tabla si no existe
         ddl = f'CREATE TABLE IF NOT EXISTS "{tabla}" (\n  ' + ",\n  ".join(col_defs) + "\n);"
         cur_remota.execute(ddl)
         conn_remota.commit()
 
+        # 2. Sincronizar columnas faltantes o cambios de nullability si la tabla ya existía
+        try:
+            cur_remota.execute("""
+                SELECT column_name, is_nullable 
+                FROM information_schema.columns 
+                WHERE table_schema = 'public' AND table_name = %s;
+            """, (tabla,))
+            cols_remotas_map = {r[0].lower(): r[1] for r in cur_remota.fetchall()}
+
+            for c_name, t_sql, def_val, n_str, is_id in col_info_list:
+                c_lower = c_name.lower()
+                if c_lower not in cols_remotas_map:
+                    try:
+                        if is_id:
+                            alter_col = f'ALTER TABLE "{tabla}" ADD COLUMN IF NOT EXISTS "{c_name}" {t_sql};'
+                        else:
+                            d_str = f" {def_val}" if def_val else ""
+                            alter_col = f'ALTER TABLE "{tabla}" ADD COLUMN IF NOT EXISTS "{c_name}" {t_sql}{d_str};'
+                        cur_remota.execute(alter_col)
+                        conn_remota.commit()
+                        self.log(f"    [+] Columna nueva agregada en destino: '{tabla}.{c_name}' ({t_sql})")
+                    except Exception as e_col:
+                        conn_remota.rollback()
+                        self.log(f"    [!] Advertencia al agregar columna '{c_name}' a '{tabla}': {e_col}")
+                else:
+                    # Si en origen permite NULL pero en destino todavía es NOT NULL, actualizar destino (excepto PKs e identity)
+                    if not is_id and f'"{c_name}"' not in pk_cols and n_str != "NOT NULL" and cols_remotas_map.get(c_lower) == "NO":
+                        try:
+                            cur_remota.execute(f'ALTER TABLE "{tabla}" ALTER COLUMN "{c_name}" DROP NOT NULL;')
+                            conn_remota.commit()
+                            self.log(f"    [+] Sincronizado: '{tabla}.{c_name}' ahora permite NULL en destino.")
+                        except Exception as e_nn:
+                            conn_remota.rollback()
+                            self.log(f"    [!] Advertencia al actualizar nullability en '{tabla}.{c_name}': {e_nn}")
+        except Exception as e_sync_cols:
+            conn_remota.rollback()
+            self.log(f"    [!] Advertencia al verificar columnas de '{tabla}': {e_sync_cols}")
+
     def ejecutar_migracion(self, tablas):
         try:
             motor, cfg_o, uri_o, uri_d = self._obtener_configuraciones()
+            modo = self.modo_migracion.get()
+            desc_modo = {
+                "upsert": "Actualizar existentes + Agregar nuevos (Reemplaza cambios)",
+                "ignore": "Solo nuevos (Ignorar existentes)",
+                "truncate": "Reemplazo total (Vaciar tabla antes de insertar)"
+            }.get(modo, "Actualizar existentes + Nuevos")
+
             self.log(f"\n================ Iniciando Migración [{motor.upper()} -> POSTGRESQL] ================")
+            self.log(f"-> Modo de Sincronización: {desc_modo}")
 
             conn_origen = self._conectar_origen(motor, cfg_o, uri_o)
             conn_remota = psycopg2.connect(uri_d)
@@ -735,6 +820,12 @@ class UniversalMigratorApp:
 
                 self.log(f"\n[+] Verificando/Creando estructura para '{tabla}'...")
                 self.clonar_estructura_tabla(motor, cur_origen, cur_remota, conn_remota, tabla)
+
+                # Si el modo es vaciar tabla antes de insertar
+                if modo == "truncate":
+                    self.log(f"    -> Vaciando tabla '{tabla}' en destino (TRUNCATE CASCADE)...")
+                    cur_remota.execute(f'TRUNCATE TABLE "{tabla}" CASCADE;')
+                    conn_remota.commit()
 
                 # Extraer datos
                 if motor == "mysql":
@@ -752,7 +843,24 @@ class UniversalMigratorApp:
 
                 columnas = [f'"{desc[0]}"' for desc in cur_origen.description]
                 nombres_cols = ", ".join(columnas)
-                query_insert = f'INSERT INTO "{tabla}" ({nombres_cols}) VALUES %s ON CONFLICT DO NOTHING;'
+
+                # Consultar clave(s) primaria(s) en destino para UPSERT
+                cur_remota.execute("""
+                    SELECT kcu.column_name
+                    FROM information_schema.table_constraints tc
+                    JOIN information_schema.key_column_usage kcu 
+                      ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+                    WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = 'public' AND tc.table_name = %s
+                    ORDER BY kcu.ordinal_position;
+                """, (tabla,))
+                pk_cols = [f'"{r[0]}"' for r in cur_remota.fetchall()]
+                cols_to_update = [c for c in columnas if c not in pk_cols]
+
+                if modo == "upsert" and pk_cols and cols_to_update:
+                    update_clause = ", ".join([f"{c} = EXCLUDED.{c}" for c in cols_to_update])
+                    query_insert = f'INSERT INTO "{tabla}" ({nombres_cols}) VALUES %s ON CONFLICT ({", ".join(pk_cols)}) DO UPDATE SET {update_clause};'
+                else:
+                    query_insert = f'INSERT INTO "{tabla}" ({nombres_cols}) VALUES %s ON CONFLICT DO NOTHING;'
 
                 batch_size = 1000
                 for i in range(0, len(filas), batch_size):
@@ -762,7 +870,12 @@ class UniversalMigratorApp:
                 conn_remota.commit()
                 self.datos_tablas[tabla]["status"] = "Completado"
                 self.root.after(0, lambda t=tabla: self._actualizar_fila_tree(t))
-                self.log(f"    -> Éxito: {len(filas)} filas pasadas a '{tabla}'.")
+                if modo == "upsert":
+                    self.log(f"    -> Éxito: {len(filas)} filas sincronizadas (insertadas / actualizadas) en '{tabla}'.")
+                elif modo == "truncate":
+                    self.log(f"    -> Éxito: {len(filas)} filas reemplazadas limpiamente en '{tabla}'.")
+                else:
+                    self.log(f"    -> Éxito: {len(filas)} filas pasadas (solo nuevos) a '{tabla}'.")
 
             # Sincronización robusta de secuencias e identidades en PostgreSQL
             self.log("\n[+] Sincronizando secuencias de IDs en destino...")
@@ -772,14 +885,17 @@ class UniversalMigratorApp:
                         SELECT column_name 
                         FROM information_schema.columns 
                         WHERE table_schema = 'public' AND table_name = %s
-                          AND (is_identity = 'YES' OR column_default LIKE '%nextval%');
+                          AND (is_identity = 'YES' OR column_default LIKE '%%nextval%%');
                     """, (tab,))
                     cols_seq = cur_remota.fetchall()
                     for (c_name,) in cols_seq:
-                        cur_remota.execute(f"""
-                            SELECT setval(pg_get_serial_sequence('"{tab}"', '{c_name}'), 
-                                          COALESCE((SELECT MAX("{c_name}") FROM "{tab}"), 1));
-                        """)
+                        cur_remota.execute("SELECT pg_get_serial_sequence(%s, %s);", (f'"{tab}"', c_name))
+                        res_seq = cur_remota.fetchone()
+                        seq_name = res_seq[0] if res_seq else None
+                        if seq_name:
+                            cur_remota.execute(f"""
+                                SELECT setval(%s, COALESCE((SELECT MAX("{c_name}") FROM "{tab}"), 1));
+                            """, (seq_name,))
                 except Exception as seq_err:
                     self.log(f"    [!] Advertencia al sincronizar secuencia en '{tab}': {seq_err}")
             conn_remota.commit()
