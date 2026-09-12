@@ -190,33 +190,29 @@ body.format-editor-page {
 
 .saved-formats__list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.saved-formats__list a {
-  display: flex;
-  align-items: center;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 10px;
-  padding: 9px 11px;
-  border: 1px solid #e1e5e8;
-  border-radius: 7px;
-  color: #212529;
-  text-decoration: none;
 }
 
-.saved-formats__list a > i:first-child {
-  color: #dc3545;
-  font-size: 21px;
+.saved-format-card {
+  transition: all 0.2s ease;
+  border-color: #e2e8f0;
 }
 
-.saved-formats__list a > span {
-  display: grid;
-  flex: 1;
+.saved-format-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  border-color: #cbd5e1;
 }
 
-.saved-formats__list small {
-  color: #6c757d;
+.saved-format-card .btn-group .btn {
+  padding: 4px 8px;
+}
+
+@media (max-width: 768px) {
+  .saved-formats__list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .editor-heading {
