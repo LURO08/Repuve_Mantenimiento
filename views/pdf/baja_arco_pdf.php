@@ -7,6 +7,12 @@ if (!isset($_GET['id'])) {
 
 $id = (int)$_GET['id'];
 
+if (empty($GLOBALS['DOMPDF_RENDERING'])) {
+    $downloadParam = isset($_GET['download']) ? '&download=1' : '';
+    header("Location: ../../controllers/pdf_controller.php?action=baja_pdf&id={$id}{$downloadParam}");
+    exit;
+}
+
 $stmt = $pdo->prepare("
     SELECT
         b.*,
@@ -16,7 +22,8 @@ $stmt = $pdo->prepare("
         a.lng,
         a.estado,
         u.nombre AS ubicacion,
-        t.nombre AS tecnico_responsable
+        t.nombre AS tecnico_responsable,
+        t.firma AS tecnico_firma
     FROM arcos_bajas b
     JOIN arcos a ON a.id = b.arco_id
     LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
@@ -43,346 +50,424 @@ $matStmt = $pdo->prepare("
 $matStmt->execute([$baja['arco_id']]);
 $materiales = $matStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$logoPath = '../../assets/LOGO INNOVATEC.png';
+$logoDiskPath = __DIR__ . '/../../assets/LOGO INNOVATEC PDF.jpg';
+if (!file_exists($logoDiskPath)) {
+    $logoDiskPath = __DIR__ . '/../../assets/LOGO INNOVATEC.png';
+}
+$logoData = file_exists($logoDiskPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoDiskPath)) : '';
+
+$piePaginaDiskPath = __DIR__ . '/../../assets/img/PiePagina.jpg';
+if (!file_exists($piePaginaDiskPath)) {
+    $piePaginaDiskPath = __DIR__ . '/../../assets/img/PiePagina.png';
+}
+$piePaginaData = file_exists($piePaginaDiskPath)
+    ? 'data:image/' . (pathinfo($piePaginaDiskPath, PATHINFO_EXTENSION) === 'png' ? 'png' : 'jpeg') . ';base64,' . base64_encode(file_get_contents($piePaginaDiskPath))
+    : '';
+
+$firmaTecnicoData = '';
+if (!empty($baja['tecnico_firma'])) {
+    $firmaDisk = __DIR__ . '/../../' . $baja['tecnico_firma'];
+    if (file_exists($firmaDisk)) {
+        $extF = strtolower(pathinfo($firmaDisk, PATHINFO_EXTENSION));
+        $mimeF = ($extF === 'png') ? 'image/png' : 'image/jpeg';
+        $firmaTecnicoData = 'data:' . $mimeF . ';base64,' . base64_encode(file_get_contents($firmaDisk));
+    }
+}
+
 date_default_timezone_set('America/Mexico_City');
-$fechaFormato = date("d M Y");
-$codigoFormato = 'INN-FOR-002';
+$fechaFormato = "08 - Sep - 2026";
+$codigoFormato = 'INN-FOR-002-06';
+$tituloFormato = 'BITÁCORA DE BAJA<br>DE ARCO LECTOR';
 
 $safeArc = preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($baja['arco'] ?? 'arco'));
 $nombreArchivoPdf = "Baja_Arco_{$safeArc}_{$id}.pdf";
-$urlDescargaServidor = "../../controllers/pdf_controller.php?action=baja_pdf&id={$id}&download=1";
 
+$totalMat = count($materiales);
+$mitadMat = (int)ceil($totalMat / 2);
+$matCol1 = array_slice($materiales, 0, $mitadMat);
+$matCol2 = array_slice($materiales, $mitadMat);
 ?>
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-
 <head>
-    <meta charset="UTF-8">
-    <title>Formato de Baja de Arco - <?= htmlspecialchars($baja['arco']) ?></title>
-    <link rel="stylesheet" href="../../css/bitacora_arco.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-</head>
+  <meta charset="UTF-8">
+  <title>Bitácora de Baja - <?= htmlspecialchars($baja['arco']) ?></title>
+  <style>
+    @page { margin: 20px 30px 65px; }
+    * { box-sizing: border-box; }
 
-<body>
-
-    <div class="no-print">
-        <button type="button" class="btn-print" onclick="window.print()">🖨️ Imprimir</button>
-        <button type="button" class="btn-download" onclick="descargarFormatoPDF()">📥 Descargar PDF</button>
-    </div>
-
-    <div class="Diseño">
-        <div class="hoja">
-            <div class="encabezado-formato">
-                <div class="encabezado-logo">
-                    <img src="<?= $logoPath ?>" alt="Innovacion y Tecnologia">
-                </div>
-                <div class="encabezado-titulo">
-                    BAJA DE ARCO
-                </div>
-
-                <div class="encabezado-info">
-                    <table>
-                        <tr>
-                            <th>Codigo:</th>
-                            <td><?= htmlspecialchars($codigoFormato) ?></td>
-                        </tr>
-                        <tr>
-                            <th>Fecha:</th>
-                            <td><?= htmlspecialchars($fechaFormato) ?></td>
-                        </tr>
-                        <tr>
-                            <th>Pagina:</th>
-                            <td>1 de 1</td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-
-            <div class="seccion">
-                <div class="titulo-seccion">I. DATOS DEL ARCO</div>
-
-                <table class="tabla-servicio">
-                    <tr>
-                        <td colspan="2">
-                            <strong>Nombre del Arco:</strong>
-                            <span><?= htmlspecialchars($baja['arco']) ?></span>
-                        </td>
-                        <td>
-                            <strong>Ubicacion:</strong>
-                            <span><?= htmlspecialchars($baja['ubicacion'] ?? 'N/A') ?></span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <strong>Fecha Instalacion:</strong>
-                            <span>
-                                <?= !empty($baja['fecha_instalacion'])
-                                    ? date("d/m/Y H:i", strtotime($baja['fecha_instalacion']))
-                                    : 'N/A' ?>
-                            </span>
-                        </td>
-                        <td>
-                            <strong>Latitud:</strong>
-                            <span><?= htmlspecialchars($baja['lat'] ?? 'N/A') ?></span>
-                        </td>
-                        <td>
-                            <strong>Longitud:</strong>
-                            <span><?= htmlspecialchars($baja['lng'] ?? 'N/A') ?></span>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="seccion">
-                <div class="titulo-seccion">II. DATOS DE BAJA</div>
-
-                <table class="tabla-servicio">
-                    <tr>
-                        <td>
-                            <strong>Fecha de Baja:</strong>
-                            <span><?= date("d/m/Y", strtotime($baja['fecha_baja'])) ?></span>
-                        </td>
-                        <td>
-                            <strong>Hora:</strong>
-                            <span><?= date("H:i A", strtotime($baja['fecha_baja'])) ?></span>
-                        </td>
-                        <td>
-                            <strong>Estado:</strong>
-                            <span><?= htmlspecialchars($baja['estado'] ?? 'Baja') ?></span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <strong>Motivo:</strong>
-                            <span><?= htmlspecialchars($baja['motivo']) ?></span>
-                        </td>
-                        <td>
-                            <strong>Tecnico:</strong>
-                            <span><?= htmlspecialchars($baja['tecnico_responsable'] ?? 'N/A') ?></span>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="seccion">
-                <div class="titulo-seccion">III. COMPONENTES REGISTRADOS</div>
-
-                <?php if (count($materiales) === 1): ?>
-                    <?php
-                    $m = $materiales[0];
-                    $datosTec = [];
-                    if (!empty(trim((string)($m['serie'] ?? '')))) {
-                        $datosTec[] = '<strong>Serie:</strong> ' . htmlspecialchars(trim($m['serie']));
-                    }
-                    if (!empty(trim((string)($m['ip'] ?? '')))) {
-                        $datosTec[] = '<strong>IP:</strong> ' . htmlspecialchars(trim($m['ip']));
-                    }
-                    if (!empty(trim((string)($m['mac'] ?? '')))) {
-                        $datosTec[] = '<strong>MAC:</strong> ' . htmlspecialchars(trim($m['mac']));
-                    }
-                    ?>
-                    <table class="tabla-componentes">
-                        <thead>
-                            <tr>
-                                <th style="width:80%; text-align:left; padding-left:10px;">COMPONENTE / ESPECIFICACIÓN</th>
-                                <th style="width:20%; text-align:center;">CANTIDAD</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td style="padding:6px 10px; vertical-align:middle;">
-                                    <div style="font-weight:bold; font-size:11px; color:#111; line-height:1.2;">
-                                        <?= htmlspecialchars($m['material']) ?>
-                                    </div>
-                                    <?php if (!empty($datosTec)): ?>
-                                        <div class="datos-tecnicos" style="margin-top:2px; font-size:9.5px; color:#444; line-height:1.25;">
-                                            <?= implode(' &nbsp;•&nbsp; ', $datosTec) ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </td>
-                                <td style="text-align:center; font-weight:bold; font-size:11px; white-space:nowrap; vertical-align:middle;">
-                                    <?= htmlspecialchars($m['cantidad']) ?> <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : ($m['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                <?php elseif (count($materiales) > 1): ?>
-                    <?php
-                    $mitadMat = ceil(count($materiales) / 2);
-                    $matCol1 = array_slice($materiales, 0, $mitadMat);
-                    $matCol2 = array_slice($materiales, $mitadMat);
-                    ?>
-                    <table class="tabla-componentes tabla-componentes--dos-columnas">
-                        <thead>
-                            <tr>
-                                <th style="width:38%; text-align:left; padding-left:8px;">COMPONENTE / ESPECIFICACIÓN</th>
-                                <th style="width:12%; text-align:center;">CANT.</th>
-                                <th style="width:38%; text-align:left; padding-left:8px;">COMPONENTE / ESPECIFICACIÓN</th>
-                                <th style="width:12%; text-align:center;">CANT.</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php for ($i = 0; $i < $mitadMat; $i++): ?>
-                                <?php
-                                $m1 = $matCol1[$i] ?? null;
-                                $m2 = $matCol2[$i] ?? null;
-                                ?>
-                                <tr>
-                                    <!-- Columna 1 -->
-                                    <?php if ($m1): ?>
-                                        <?php
-                                        $datosTec1 = [];
-                                        if (!empty(trim((string)($m1['serie'] ?? '')))) {
-                                            $datosTec1[] = '<strong>Serie:</strong> ' . htmlspecialchars(trim($m1['serie']));
-                                        }
-                                        if (!empty(trim((string)($m1['ip'] ?? '')))) {
-                                            $datosTec1[] = '<strong>IP:</strong> ' . htmlspecialchars(trim($m1['ip']));
-                                        }
-                                        if (!empty(trim((string)($m1['mac'] ?? '')))) {
-                                            $datosTec1[] = '<strong>MAC:</strong> ' . htmlspecialchars(trim($m1['mac']));
-                                        }
-                                        ?>
-                                        <td style="padding:4px 6px; vertical-align:middle;">
-                                            <div style="font-weight:bold; font-size:10px; color:#111; line-height:1.2;">
-                                                <?= htmlspecialchars($m1['material']) ?>
-                                            </div>
-                                            <?php if (!empty($datosTec1)): ?>
-                                                <div class="datos-tecnicos" style="margin-top:1px; font-size:8.5px; color:#444; line-height:1.15;">
-                                                    <?= implode(' &nbsp;•&nbsp; ', $datosTec1) ?>
-                                                </div>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td style="text-align:center; font-weight:bold; font-size:10px; white-space:nowrap; vertical-align:middle; padding:4px 2px;">
-                                            <?= htmlspecialchars($m1['cantidad']) ?> <?= htmlspecialchars($m1['medida'] === 'm' ? 'm' : ($m1['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
-                                        </td>
-                                    <?php else: ?>
-                                        <td style="border:1px solid #000; background:#fff;">&nbsp;</td>
-                                        <td style="border:1px solid #000; background:#fff;">&nbsp;</td>
-                                    <?php endif; ?>
-
-                                    <!-- Columna 2 -->
-                                    <?php if ($m2): ?>
-                                        <?php
-                                        $datosTec2 = [];
-                                        if (!empty(trim((string)($m2['serie'] ?? '')))) {
-                                            $datosTec2[] = '<strong>Serie:</strong> ' . htmlspecialchars(trim($m2['serie']));
-                                        }
-                                        if (!empty(trim((string)($m2['ip'] ?? '')))) {
-                                            $datosTec2[] = '<strong>IP:</strong> ' . htmlspecialchars(trim($m2['ip']));
-                                        }
-                                        if (!empty(trim((string)($m2['mac'] ?? '')))) {
-                                            $datosTec2[] = '<strong>MAC:</strong> ' . htmlspecialchars(trim($m2['mac']));
-                                        }
-                                        ?>
-                                        <td style="padding:4px 6px; vertical-align:middle;">
-                                            <div style="font-weight:bold; font-size:10px; color:#111; line-height:1.2;">
-                                                <?= htmlspecialchars($m2['material']) ?>
-                                            </div>
-                                            <?php if (!empty($datosTec2)): ?>
-                                                <div class="datos-tecnicos" style="margin-top:1px; font-size:8.5px; color:#444; line-height:1.15;">
-                                                    <?= implode(' &nbsp;•&nbsp; ', $datosTec2) ?>
-                                                </div>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td style="text-align:center; font-weight:bold; font-size:10px; white-space:nowrap; vertical-align:middle; padding:4px 2px;">
-                                            <?= htmlspecialchars($m2['cantidad']) ?> <?= htmlspecialchars($m2['medida'] === 'm' ? 'm' : ($m2['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
-                                        </td>
-                                    <?php else: ?>
-                                        <td style="border:1px solid #000; background:#fff;">&nbsp;</td>
-                                        <td style="border:1px solid #000; background:#fff;">&nbsp;</td>
-                                    <?php endif; ?>
-                                </tr>
-                            <?php endfor; ?>
-                        </tbody>
-                    </table>
-                <?php else: ?>
-                    <table class="tabla-componentes">
-                        <tr>
-                            <td style="text-align:center; padding:10px; color:#666;">No hay materiales registrados</td>
-                        </tr>
-                    </table>
-                <?php endif; ?>
-            </div>
-
-            <div class="observaciones">
-                <strong class="titulo-seccion">IV. OBSERVACIONES:</strong>
-
-                <div class="observaciones-box">
-                    <?= !empty($baja['observaciones'])
-                        ? nl2br(htmlspecialchars($baja['observaciones']))
-                        : '&nbsp;' ?>
-                </div>
-            </div>
-
-            <div class="firmas">
-                <div class="firma">
-                    <div class="nombre-firma">
-                        <?= htmlspecialchars($baja['tecnico_responsable'] ?? 'N/A') ?>
-                    </div>
-                    <small class="texto-firma">
-                        NOMBRE Y FIRMA DEL TECNICO RESPONSABLE
-                    </small>
-                </div>
-            </div>
-
-            <div class="pie-formato">
-                <div class="pie-izquierdo">
-                    <div><strong>RFC:</strong> ITC090904G64</div>
-                    <div><strong>TEL.</strong> 747 141 5434</div>
-                </div>
-
-                <div class="pie-separador"></div>
-
-                <div class="pie-derecho">
-                    <div>GONZALO N RAMIREZ, MANZANA 1</div>
-                    <div>LOTE 167, COL. TRIBUNA</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-    function descargarFormatoPDF() {
-        const elemento = document.querySelector('.hoja');
-        const btnDescarga = document.querySelector('.btn-download');
-        const textoOriginal = btnDescarga ? btnDescarga.innerHTML : '';
-        if (btnDescarga) {
-            btnDescarga.disabled = true;
-            btnDescarga.innerHTML = '⏳ Descargando...';
-        }
-
-        const opt = {
-            margin:       0,
-            filename:     '<?= $nombreArchivoPdf ?>',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
-
-        if (typeof html2pdf !== 'undefined') {
-            html2pdf().set(opt).from(elemento).save().then(() => {
-                if (btnDescarga) {
-                    btnDescarga.disabled = false;
-                    btnDescarga.innerHTML = textoOriginal;
-                }
-            }).catch(err => {
-                console.error('Error al generar PDF con html2pdf:', err);
-                window.location.href = '<?= $urlDescargaServidor ?>';
-                if (btnDescarga) {
-                    btnDescarga.disabled = false;
-                    btnDescarga.innerHTML = textoOriginal;
-                }
-            });
-        } else {
-            window.location.href = '<?= $urlDescargaServidor ?>';
-            if (btnDescarga) {
-                btnDescarga.disabled = false;
-                btnDescarga.innerHTML = textoOriginal;
-            }
-        }
+    body {
+      margin: 0;
+      color: #1d252c;
+      font-family: "DejaVu Sans", Arial, sans-serif;
+      font-size: 9px;
+      line-height: 1.35;
     }
-    </script>
-</body>
+    .header {
+      width: 100%;
+      margin-bottom: 11px;
+      border-collapse: collapse;
+      table-layout: fixed;
+      border-bottom: 8px solid #003865;
+    }
+    .header td {
+      border: 0;
+      vertical-align: middle;
+    }
+    .header-logo {
+      width: 28%;
+      padding: 6px;
+      text-align: center;
+    }
+    .header-logo img {
+      width: 155px;
+      max-height: 54px;
+      object-fit: contain;
+    }
+    .header-title {
+      width: 48%;
+      padding: 8px;
+      color: #003865;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .header-info {
+      width: 24%;
+      padding: 0;
+    }
+    .header-info table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .header-info th,
+    .header-info td {
+      padding: 3.5px 5px;
+      border: 0;
+      font-size: 7.5px;
+      text-align: left;
+    }
+    .header-info th {
+      width: 42%;
+      background: #f28c13;
+      color: #111;
+    }
+    .section { margin-top: 8px; }
+    .section-title {
+      padding: 4px 7px;
+      background: #003865;
+      color: #fff;
+      font-size: 8.5px;
+      font-weight: bold;
+      letter-spacing: .2px;
+    }
+    table.data {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    table.data td {
+      padding: 4px 6px;
+      border: 0;
+      background: #fff;
+      vertical-align: top;
+    }
+    table.data strong {
+      display: block;
+      margin-bottom: 2px;
+      color: #4c5964;
+      font-size: 7px;
+      text-transform: uppercase;
+    }
+    .checklist-dual-grid {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin-top: 3px;
+    }
+    .checklist-table-compact {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .checklist-table-compact th {
+      padding: 3px 4px;
+      background: #f1f5f9;
+      color: #003865;
+      font-size: 7px;
+      font-weight: bold;
+      border-bottom: 1.5px solid #003865;
+      text-align: center;
+    }
+    .checklist-table-compact td {
+      padding: 3px 4px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+    .checklist-table-compact tbody tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    .center { text-align: center; }
+    .muted { color: #697782; }
+    .badge-baja {
+      display: inline-block;
+      padding: 2px 6px;
+      background: #dc3545;
+      color: #fff;
+      font-weight: bold;
+      border-radius: 3px;
+      font-size: 7.5px;
+    }
+    .observation-box {
+      min-height: 40px;
+      padding: 6px 7px;
+      border: 0;
+      background: #fff;
+      white-space: pre-wrap;
+      font-size: 8.5px;
+      line-height: 1.3;
+    }
+    .signature {
+      margin-top: 70px;
+      text-align: center;
+    }
+    .signature-space {
+      height: 32px;
+      border-bottom: 1px solid #1f2933;
+      width: 45%;
+      margin: 0 auto;
+    }
+    .signature strong {
+      display: block;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .signature span {
+      color: #66727d;
+      font-size: 7px;
+    }
+    .footer {
+      position: fixed;
+      bottom: -45px;
+      left: 0;
+      right: 0;
+      text-align: center;
+    }
+    .footer img {
+      width: 82%;
+      max-height: 42px;
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <table class="header" border="0">
+    <tr style="border: 0;">
+      <td class="header-logo">
+        <?php if ($logoData): ?><img src="<?= $logoData ?>" alt="Innovación y Tecnología"><?php endif; ?>
+      </td>
+      <td class="header-title" border="0"><?= $tituloFormato ?></td>
+      <td class="header-info" border="0">
+        <table>
+          <tr><th>Código</th><td><?= htmlspecialchars($codigoFormato) ?></td></tr>
+          <tr><th>Fecha</th><td><?= htmlspecialchars($fechaFormato) ?></td></tr>
+          <tr><th>Página</th><td>1 de 1</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 
+  <!-- I. DATOS DEL ARCO -->
+  <div class="section">
+    <div class="section-title">I. DATOS DEL ARCO</div>
+    <table class="data">
+      <tr>
+        <td colspan="2">
+          <strong>Nombre del Arco</strong>
+          <?= htmlspecialchars($baja['arco']) ?>
+        </td>
+        <td colspan="2">
+          <strong>Ubicación</strong>
+          <?= htmlspecialchars($baja['ubicacion'] ?? 'N/A') ?>
+        </td>
+      </tr>
+      <tr>
+        <td style="width: 25%;">
+          <strong>Fecha Instalación</strong>
+          <?= !empty($baja['fecha_instalacion']) ? date("d/m/Y H:i", strtotime($baja['fecha_instalacion'])) : 'N/A' ?>
+        </td>
+        <td style="width: 25%;">
+          <strong>Latitud</strong>
+          <?= htmlspecialchars($baja['lat'] ?? 'N/A') ?>
+        </td>
+        <td style="width: 25%;">
+          <strong>Longitud</strong>
+          <?= htmlspecialchars($baja['lng'] ?? 'N/A') ?>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- II. DATOS DE BAJA -->
+  <div class="section">
+    <div class="section-title">II. DATOS DE BAJA</div>
+    <table class="data">
+      <tr>
+        <td style="width: 25%;">
+          <strong>Fecha de Baja</strong>
+          <?= date("d/m/Y", strtotime($baja['fecha_baja'])) ?>
+        </td>
+        <td style="width: 25%;">
+          <strong>Hora de Baja</strong>
+          <?= date("H:i A", strtotime($baja['fecha_baja'])) ?>
+        </td>
+        <td style="width: 25%;">
+          <strong>Estado</strong>
+          <span class="badge-baja"><?= htmlspecialchars($baja['estado'] ?? 'Baja') ?></span>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="1">
+          <strong>Motivo de Baja</strong>
+          <?= htmlspecialchars($baja['motivo']) ?>
+        </td>
+        <td colspan="2" style="width: 50%;">
+          <strong>Técnico Responsable</strong>
+          <?= htmlspecialchars($baja['tecnico_responsable'] ?? 'N/A') ?>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- III. COMPONENTES REGISTRADOS -->
+  <div class="section">
+    <div class="section-title">III. COMPONENTES REGISTRADOS</div>
+    <?php if (empty($materiales)): ?>
+      <table class="data">
+        <tr>
+          <td class="center muted" style="padding: 10px;">No se registraron componentes asociados a este arco.</td>
+        </tr>
+      </table>
+    <?php else: ?>
+      <table class="checklist-dual-grid">
+        <tr>
+          <!-- Columna Izquierda (1 de 2) -->
+          <td style="width: 49%; vertical-align: top; padding: 0;">
+            <table class="checklist-table-compact">
+              <thead>
+                <tr>
+                  <th style="width: 78%; text-align: left; padding-left: 6px;">COMPONENTE / ESPECIFICACIÓN</th>
+                  <th style="width: 22%; text-align: center;">CANT.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($matCol1 as $m): ?>
+                  <?php
+                  $details = [];
+                  if (trim((string)($m['serie'] ?? '')) !== '') {
+                      $details[] = 'S: ' . htmlspecialchars($m['serie']);
+                  }
+                  if (trim((string)($m['ip'] ?? '')) !== '') {
+                      $details[] = 'IP: ' . htmlspecialchars($m['ip']);
+                  }
+                  if (trim((string)($m['mac'] ?? '')) !== '') {
+                      $details[] = 'MAC: ' . htmlspecialchars($m['mac']);
+                  }
+                  ?>
+                  <tr>
+                    <td style="padding: 3px 4px; font-size: 7.5px; vertical-align: middle;">
+                      <strong><?= htmlspecialchars($m['material']) ?></strong>
+                      <?php if (!empty($details)): ?>
+                        <span class="muted" style="display:block; font-size:6.5px; line-height: 1.15; margin-top: 1px;"><?= implode(' | ', $details) ?></span>
+                      <?php endif; ?>
+                    </td>
+                    <td class="center" style="font-weight: bold; font-size: 8px; vertical-align: middle;">
+                      <?= htmlspecialchars($m['cantidad']) ?> <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : ($m['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </td>
+
+          <!-- Separador Central -->
+          <td style="width: 2%;"></td>
+
+          <!-- Columna Derecha (2 de 2) -->
+          <td style="width: 49%; vertical-align: top; padding: 0;">
+            <table class="checklist-table-compact">
+              <thead>
+                <tr>
+                  <th style="width: 78%; text-align: left; padding-left: 6px;">COMPONENTE / ESPECIFICACIÓN</th>
+                  <th style="width: 22%; text-align: center;">CANT.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (empty($matCol2)): ?>
+                  <tr><td colspan="2" class="center muted" style="padding: 6px;">&nbsp;</td></tr>
+                <?php else: ?>
+                  <?php foreach ($matCol2 as $m): ?>
+                    <?php
+                    $details = [];
+                    if (trim((string)($m['serie'] ?? '')) !== '') {
+                        $details[] = 'S: ' . htmlspecialchars($m['serie']);
+                    }
+                    if (trim((string)($m['ip'] ?? '')) !== '') {
+                        $details[] = 'IP: ' . htmlspecialchars($m['ip']);
+                    }
+                    if (trim((string)($m['mac'] ?? '')) !== '') {
+                        $details[] = 'MAC: ' . htmlspecialchars($m['mac']);
+                    }
+                    ?>
+                    <tr>
+                      <td style="padding: 3px 4px; font-size: 7.5px; vertical-align: middle;">
+                        <strong><?= htmlspecialchars($m['material']) ?></strong>
+                        <?php if (!empty($details)): ?>
+                          <span class="muted" style="display:block; font-size:6.5px; line-height: 1.15; margin-top: 1px;"><?= implode(' | ', $details) ?></span>
+                        <?php endif; ?>
+                      </td>
+                      <td class="center" style="font-weight: bold; font-size: 8px; vertical-align: middle;">
+                        <?= htmlspecialchars($m['cantidad']) ?> <?= htmlspecialchars($m['medida'] === 'm' ? 'm' : ($m['cantidad'] == 1 ? 'pz' : 'pzs')) ?>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </table>
+    <?php endif; ?>
+  </div>
+
+  <!-- IV. OBSERVACIONES -->
+  <div class="section"">
+    <div class="section-title">IV. OBSERVACIONES</div>
+    <div class="observation-box">
+      <?= !empty($baja['observaciones'])
+          ? nl2br(htmlspecialchars($baja['observaciones']))
+          : 'Sin observaciones adicionales registradas.' ?>
+    </div>
+  </div>
+
+
+  <!-- FIRMA -->
+  <div class="signature">
+    <div class="signature-space">
+      <?php if (!empty($firmaTecnicoData)): ?>
+        <img src="<?= $firmaTecnicoData ?>" alt="Firma" style="max-height: 28px; max-width: 120px; display: block; margin: 0 auto;">
+      <?php endif; ?>
+    </div>
+    <strong><?= htmlspecialchars($baja['tecnico_responsable'] ?? 'N/A') ?></strong>
+    <span>NOMBRE Y FIRMA DEL TÉCNICO RESPONSABLE</span>
+  </div>
+
+  <?php if (!empty($piePaginaData)): ?>
+    <div class="footer">
+      <img src="<?= $piePaginaData ?>" alt="Pie de Página">
+    </div>
+  <?php endif; ?>
+</body>
 </html>

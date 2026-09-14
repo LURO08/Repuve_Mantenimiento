@@ -165,6 +165,7 @@ function generarMantenimiento($pdo)
     $_GET['id'] = $revision_id;
     $_GET['tipo'] = $tipo;
     $id = $revision_id;
+    $GLOBALS['DOMPDF_RENDERING'] = true;
 
     ob_start();
     include __DIR__ . '/../views/pdf/revision_pdf.php';
@@ -232,6 +233,7 @@ function generarBitacoraPdf($pdo)
     $_GET['id'] = $arco_id;
     $_GET['tipo'] = $tipo;
     $id = $arco_id;
+    $GLOBALS['DOMPDF_RENDERING'] = true;
 
     ob_start();
     include __DIR__ . '/../views/pdf/bitacora_arco.php';
@@ -287,6 +289,7 @@ function generarBajaPdf($pdo)
 
     $_GET['id'] = $baja_id;
     $id = $baja_id;
+    $GLOBALS['DOMPDF_RENDERING'] = true;
 
     ob_start();
     include __DIR__ . '/../views/pdf/baja_arco_pdf.php';

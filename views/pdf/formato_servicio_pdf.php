@@ -29,6 +29,26 @@ if (!function_exists('pdfToolItem')) {
 
 $fechaMantenimiento = !empty($registro['fecha_mantenimiento']) ? strtotime($registro['fecha_mantenimiento']) : null;
 $fechaDocumento = $fechaMantenimiento ?: (!empty($registro['created_at']) ? strtotime($registro['created_at']) : time());
+
+if (empty($piePaginaData)) {
+    $piePaginaDiskPath = dirname(__DIR__, 2) . '/assets/img/PiePagina.jpg';
+    if (!file_exists($piePaginaDiskPath)) {
+        $piePaginaDiskPath = dirname(__DIR__, 2) . '/assets/img/PiePagina.png';
+    }
+    $piePaginaData = file_exists($piePaginaDiskPath)
+        ? 'data:image/' . (pathinfo($piePaginaDiskPath, PATHINFO_EXTENSION) === 'png' ? 'png' : 'jpeg') . ';base64,' . base64_encode(file_get_contents($piePaginaDiskPath))
+        : '';
+}
+
+$firmaTecnicoData = '';
+if (!empty($registro['tecnico_firma'])) {
+    $firmaDisk = dirname(__DIR__, 2) . '/' . $registro['tecnico_firma'];
+    if (file_exists($firmaDisk)) {
+        $extF = strtolower(pathinfo($firmaDisk, PATHINFO_EXTENSION));
+        $mimeF = ($extF === 'png') ? 'image/png' : 'image/jpeg';
+        $firmaTecnicoData = 'data:' . $mimeF . ';base64,' . base64_encode(file_get_contents($firmaDisk));
+    }
+}
 ?>
 <!doctype html>
 <html lang="es">
@@ -36,7 +56,7 @@ $fechaDocumento = $fechaMantenimiento ?: (!empty($registro['created_at']) ? strt
   <meta charset="UTF-8">
   <title><?= pdfText($config['pdf_title']) ?></title>
   <style>
-    @page { margin: 24px 32px 145px; }
+    @page { margin: 20px 30px 65px; }
     * { box-sizing: border-box; }
 
     body {
@@ -235,12 +255,12 @@ $fechaDocumento = $fechaMantenimiento ?: (!empty($registro['created_at']) ? strt
     .signature {
       position: fixed;
       right: 145px;
-      bottom: 73px;
+      bottom: 22px;
       left: 145px;
       text-align: center;
     }
     .signature-space {
-      height: 38px;
+      height: 34px;
       border-bottom: 1px solid #1f2933;
       width: 50%;
       margin: 0 auto;
@@ -253,6 +273,19 @@ $fechaDocumento = $fechaMantenimiento ?: (!empty($registro['created_at']) ? strt
     .signature span {
       color: #66727d;
       font-size: 7px;
+    }
+    .footer {
+      position: fixed;
+      bottom: -45px;
+      left: 0;
+      right: 0;
+      text-align: center;
+    }
+    .footer img {
+      width: 82%;
+      max-height: 42px;
+      display: block;
+      margin: 0 auto;
     }
     .tools-document .section {
       margin-top: 7px;
@@ -285,7 +318,7 @@ $fechaDocumento = $fechaMantenimiento ?: (!empty($registro['created_at']) ? strt
       <td class="header-info" border="0">
         <table>
           <tr><th>Código</th><td><?= pdfText($config['code']) ?></td></tr>
-          <tr><th>Fecha</th><td><?= $fechaDocumento ? date('d/m/Y', $fechaDocumento) : date('d/m/Y') ?></td></tr>
+          <tr><th>Fecha</th><td><?= pdfText($config['fecha']) ?></td></tr>
           <tr><th>Página</th><td>1 de 1</td></tr>
         </table>
       </td>
@@ -382,11 +415,6 @@ $fechaDocumento = $fechaMantenimiento ?: (!empty($registro['created_at']) ? strt
                         if (!empty($details)): ?>
                           <span class="muted" style="display:block; font-size:6.5px; line-height: 1.15; margin-top: 1px;"><?= implode(' | ', $details) ?></span>
                         <?php endif; ?>
-                        <?php if (trim((string)($component['observacion'] ?? '')) !== ''): ?>
-                          <span style="display:block; font-size:6.5px; color:#854d0e; line-height: 1.15; margin-top: 1px;">
-                            <em>Obs: <?= pdfText($component['observacion']) ?></em>
-                          </span>
-                        <?php endif; ?>
                       </td>
                       <td class="center" style="vertical-align: middle;"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Bueno') ?></span></td>
                       <td class="center" style="vertical-align: middle;"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Malo') ?></span></td>
@@ -431,11 +459,6 @@ $fechaDocumento = $fechaMantenimiento ?: (!empty($registro['created_at']) ? strt
                         }
                         if (!empty($details)): ?>
                           <span class="muted" style="display:block; font-size:6.5px; line-height: 1.15; margin-top: 1px;"><?= implode(' | ', $details) ?></span>
-                        <?php endif; ?>
-                        <?php if (trim((string)($component['observacion'] ?? '')) !== ''): ?>
-                          <span style="display:block; font-size:6.5px; color:#854d0e; line-height: 1.15; margin-top: 1px;">
-                            <em>Obs: <?= pdfText($component['observacion']) ?></em>
-                          </span>
                         <?php endif; ?>
                       </td>
                       <td class="center" style="vertical-align: middle;"><span class="mark"><?= pdfMark(($component['estado'] ?? '') === 'Bueno') ?></span></td>
@@ -556,10 +579,20 @@ $fechaDocumento = $fechaMantenimiento ?: (!empty($registro['created_at']) ? strt
   <?php endif; ?>
 
   <div class="signature">
-    <div class="signature-space"></div>
+    <div class="signature-space">
+      <?php if (!empty($firmaTecnicoData)): ?>
+        <img src="<?= $firmaTecnicoData ?>" alt="Firma" style="max-height: 28px; max-width: 120px; display: block; margin: 0 auto;">
+      <?php endif; ?>
+    </div>
     <strong><?= pdfText($registro['tecnico_responsable']) ?></strong>
     <span>NOMBRE Y FIRMA DEL TÉCNICO RESPONSABLE</span>
   </div>
+
+  <?php if (!empty($piePaginaData)): ?>
+    <div class="footer">
+      <img src="<?= $piePaginaData ?>" alt="Pie de Página">
+    </div>
+  <?php endif; ?>
 
 </body>
 </html>

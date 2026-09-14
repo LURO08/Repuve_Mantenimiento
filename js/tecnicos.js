@@ -71,15 +71,128 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 3000);
   }
 
+  // Signature Elements
+  const canvas = document.getElementById("canvasFirma");
+  const ctx = canvas?.getContext("2d");
+  const btnLimpiar = document.getElementById("btnLimpiarCanvas");
+  const firmaCanvasInput = document.getElementById("firmaCanvasInput");
+  const eliminarFirmaInput = document.getElementById("eliminarFirmaInput");
+  const firmaPreviewContainer = document.getElementById("firmaPreviewContainer");
+  const firmaPreviewImg = document.getElementById("firmaPreviewImg");
+  const btnEliminarFirma = document.getElementById("btnEliminarFirma");
+  const firmaArchivo = document.getElementById("firmaArchivo");
+  const tabCanvasBtn = document.getElementById("tab-canvas-btn");
+
+  let isDrawing = false;
+  let hasDrawn = false;
+
+  function initCanvas() {
+    if (!canvas || !ctx) return;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#002855";
+  }
+
+  function clearCanvas() {
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasDrawn = false;
+    if (firmaCanvasInput) firmaCanvasInput.value = "";
+  }
+
+  function getCanvasPos(e) {
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+
+  function startDrawing(e) {
+    isDrawing = true;
+    const pos = getCanvasPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    if (e.cancelable && e.type.startsWith("touch")) e.preventDefault();
+  }
+
+  function draw(e) {
+    if (!isDrawing || !ctx) return;
+    const pos = getCanvasPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    hasDrawn = true;
+    if (e.cancelable && e.type.startsWith("touch")) e.preventDefault();
+  }
+
+  function stopDrawing() {
+    if (!isDrawing) return;
+    isDrawing = false;
+    ctx.closePath();
+  }
+
+  if (canvas) {
+    initCanvas();
+    canvas.addEventListener("mousedown", startDrawing);
+    canvas.addEventListener("mousemove", draw);
+    canvas.addEventListener("mouseup", stopDrawing);
+    canvas.addEventListener("mouseleave", stopDrawing);
+
+    canvas.addEventListener("touchstart", startDrawing, { passive: false });
+    canvas.addEventListener("touchmove", draw, { passive: false });
+    canvas.addEventListener("touchend", stopDrawing);
+  }
+
+  btnLimpiar?.addEventListener("click", () => {
+    clearCanvas();
+  });
+
+  btnEliminarFirma?.addEventListener("click", () => {
+    if (eliminarFirmaInput) eliminarFirmaInput.value = "1";
+    if (firmaPreviewContainer) firmaPreviewContainer.classList.add("d-none");
+    if (firmaPreviewImg) firmaPreviewImg.src = "";
+  });
+
+  form?.addEventListener("submit", () => {
+    if (hasDrawn && canvas && firmaCanvasInput) {
+      firmaCanvasInput.value = canvas.toDataURL("image/png");
+    }
+  });
+
   modal?.addEventListener("show.bs.modal", event => {
     const btn = event.relatedTarget?.closest(".editarTecnicoBtn");
 
     form?.reset();
+    clearCanvas();
+    if (firmaCanvasInput) firmaCanvasInput.value = "";
+    if (eliminarFirmaInput) eliminarFirmaInput.value = "0";
+    if (firmaArchivo) firmaArchivo.value = "";
+    if (firmaPreviewContainer) firmaPreviewContainer.classList.add("d-none");
+    if (firmaPreviewImg) firmaPreviewImg.src = "";
+
     id.value = "";
     action.value = "add";
     activo.checked = true;
     activoGroup?.classList.add("d-none");
     titulo.innerHTML = '<i class="bi bi-person-badge"></i> Agregar tecnico';
+
+    if (tabCanvasBtn && window.bootstrap?.Tab) {
+      const tab = new bootstrap.Tab(tabCanvasBtn);
+      tab.show();
+    }
 
     if (!btn) return;
 
@@ -91,6 +204,12 @@ document.addEventListener("DOMContentLoaded", () => {
     activo.checked = btn.dataset.activo === "1";
     activoGroup?.classList.remove("d-none");
     titulo.innerHTML = '<i class="bi bi-pencil-square"></i> Editar tecnico';
+
+    const firmaPath = btn.dataset.firma || "";
+    if (firmaPath && firmaPreviewContainer && firmaPreviewImg) {
+      firmaPreviewImg.src = "../" + firmaPath;
+      firmaPreviewContainer.classList.remove("d-none");
+    }
   });
 
   buscar?.addEventListener("input", () => {

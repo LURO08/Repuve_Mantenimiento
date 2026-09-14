@@ -276,23 +276,61 @@ function actualizarModoMantenimiento() {
   const hidden = document.getElementById('materialesHidden');
   const btnAgregar = document.getElementById('btnAgregarMaterialMantenimiento');
 
+  const modalHeader = document.getElementById('modalRevisionHeader');
+  const modalTitulo = document.getElementById('modalRevisionTitulo');
+  const modalBadge = document.getElementById('modalRevisionBadgeTipo');
+  const submitBtn = document.getElementById('btnGuardarRevision');
+  const iconBadgeMat = document.querySelector('.icon-badge-materiales');
+  const secDatos = document.getElementById('seccionDatosPrincipalesTitulo');
+  const secServicio = document.getElementById('seccionDetallesServicioTitulo');
+
+  if (modalHeader) {
+    modalHeader.className = 'modal-header bg-success text-white py-2 px-3 d-flex align-items-center justify-content-between';
+  }
+  if (modalBadge) {
+    modalBadge.className = 'badge bg-light text-success fw-semibold';
+    modalBadge.textContent = esInfra ? 'Puente / Sitio' : 'Arco';
+  }
+  if (modalTitulo) {
+    modalTitulo.innerHTML = `<i class="${esInfra ? 'bi bi-broadcast-pin' : 'bi bi-tools'} me-2"></i> Registrar Mantenimiento`;
+  }
+  if (submitBtn) {
+    submitBtn.className = 'btn btn-success px-4 fw-bold shadow-sm';
+  }
+  if (btnAgregar) {
+    btnAgregar.className = 'btn btn-success btn-sm d-none align-items-center gap-1 px-3 py-1 shadow-sm fw-semibold';
+  }
+  if (iconBadgeMat) {
+    iconBadgeMat.className = 'bg-success text-white rounded-circle d-flex justify-content-center align-items-center icon-badge-materiales';
+  }
+  if (secDatos) {
+    secDatos.className = 'fw-bold text-success mb-2 d-flex align-items-center gap-2';
+  }
+  if (secServicio) {
+    secServicio.className = 'fw-bold text-success mb-2 d-flex align-items-center gap-2';
+  }
+
   if (select) {
     select.name = esInfra ? 'infraestructura_id' : 'arco_id';
   }
   if (label) {
-    label.textContent = esInfra ? 'Puente/Sitio' : 'Arco';
+    label.textContent = esInfra ? 'Puente / Sitio' : 'Arco';
   }
   if (titulo) {
-    titulo.textContent = esInfra ? 'Material(es) del Puente/Sitio (Cambiados / Agregados)' : 'Material(es) del Arco (Cambiados / Agregados)';
+    titulo.className = 'mb-0 fw-bold text-success';
+    titulo.textContent = esInfra ? 'Componentes del Puente / Sitio' : 'Componentes del Arco';
   }
   btnAgregar?.classList.add('d-none');
   if (hidden) {
     hidden.innerHTML = '';
   }
   if (cont) {
-    cont.innerHTML = esInfra
-      ? 'Seleccione una ubicación para mostrar puentes/sitios...'
-      : 'Seleccione un arco para mostrar sus materiales...';
+    cont.innerHTML = `
+      <div class="text-center text-muted py-5">
+        <i class="bi bi-arrow-left-circle fs-3 d-block mb-2 text-secondary"></i>
+        ${esInfra ? 'Seleccione una ubicación para mostrar puentes o sitios...' : 'Seleccione una ubicación y un arco para mostrar sus componentes...'}
+      </div>
+    `;
   }
 
   cargarObjetivosMantenimiento();
@@ -446,7 +484,7 @@ document.getElementById('arcoSelect').addEventListener('change', function () {
 
                                 <div class="material-actions mt-auto">
                                   <button type="button"
-                                          class="btn btn-sm btn-outline-primary btn-edit-material"
+                                          class="btn btn-sm btn-outline-success btn-edit-material"
                                           data-id="${objetivoId}"
                                           data-uid="${index}"
                                           data-material_id="${m.id}"
@@ -570,9 +608,63 @@ function aplicarEstadoMacModal(tieneMac, enfocar = false) {
   if (tieneMac && enfocar) setTimeout(() => macInput?.focus(), 100);
 }
 
+function aplicarTemaModalSerie(mode, esInfra = false) {
+  const modalEl = document.getElementById('modalSerie');
+  if (!modalEl) return;
+  const header = modalEl.querySelector('.modal-header');
+  const closeBtn = header?.querySelector('.btn-close');
+  const titleEl = modalEl.querySelector('.modal-title');
+  const saveBtn = document.getElementById('btnGuardarSerie');
+  const resumen = document.getElementById('modalMaterialSeleccionado');
+  const configIcon = modalEl.querySelector('.modal-material-config-icon');
+  const configTitle = modalEl.querySelector('.modal-material-config-title');
+  const themeText = modalEl.querySelector('.modal-theme-text');
+
+  modalEl.classList.remove('modal-theme-warning', 'modal-theme-primary');
+  modalEl.classList.add('modal-theme-success');
+
+  if (header) header.className = 'modal-header bg-success text-white py-2 px-3 d-flex align-items-center justify-content-between';
+  if (closeBtn) closeBtn.className = 'btn-close btn-close-white';
+
+  if (mode === 'agregado') {
+    if (titleEl) {
+      titleEl.innerHTML = `<i class="bi bi-box-seam me-2"></i> Agregar Material al Mantenimiento`;
+    }
+    if (saveBtn) {
+      saveBtn.className = 'btn btn-success px-4 fw-bold shadow-sm';
+      saveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Agregar Material';
+    }
+  } else {
+    // Modo edición/cambio (Mantenimiento mantiene Verde)
+    if (titleEl) {
+      titleEl.innerHTML = '<i class="bi bi-pencil-square me-2"></i> Editar Material del Mantenimiento';
+    }
+    if (saveBtn) {
+      saveBtn.className = 'btn btn-success px-4 fw-bold shadow-sm';
+      saveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Guardar Cambios';
+    }
+  }
+
+  if (resumen && !resumen.dataset.customText) {
+    resumen.className = 'alert alert-success py-2 px-3 text-center fw-semibold mb-3';
+  }
+  if (configIcon) {
+    configIcon.className = 'modal-material-config-icon bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-2';
+  }
+  if (configTitle) {
+    configTitle.className = 'fw-bold text-success mb-0 modal-material-config-title';
+  }
+  if (themeText) {
+    themeText.className = 'bi bi-grid-fill me-1 text-success modal-theme-text';
+  }
+}
+
 function setMaterialSeleccionadoModal(material, options = {}) {
   const input = document.getElementById('modalSelectMaterial');
   const resumen = document.getElementById('modalMaterialSeleccionado');
+  const modo = document.getElementById('modalSerie')?.dataset?.mode || 'cambio';
+  const esInfra = esMantenimientoInfraestructura();
+
   if (!input || !material) return;
 
   input.value = material.id || '';
@@ -585,9 +677,15 @@ function setMaterialSeleccionadoModal(material, options = {}) {
   });
 
   if (resumen) {
+    const alertClass = modo === 'agregado'
+      ? (esInfra ? 'alert alert-primary py-2 px-3 text-center fw-semibold mb-3' : 'alert alert-success py-2 px-3 text-center fw-semibold mb-3')
+      : 'alert alert-warning text-dark border-warning py-2 px-3 text-center fw-semibold mb-3';
+    resumen.className = alertClass;
     resumen.innerHTML = `
-      <span class="modal-material-selected-name">${escapeHtmlRevision(material.nombre || 'Material seleccionado')}</span>
-      <span class="modal-material-selected-measure">${escapeHtmlRevision(etiquetaMedidaModal(material.medida || 'pz'))}</span>
+      <div class="d-flex align-items-center justify-content-between">
+        <span class="modal-material-selected-name">${escapeHtmlRevision(material.nombre || 'Material seleccionado')}</span>
+        <span class="modal-material-selected-measure">${escapeHtmlRevision(etiquetaMedidaModal(material.medida || 'pz'))}</span>
+      </div>
     `;
   }
 
@@ -680,7 +778,8 @@ function cargarMaterialesModalMantenimiento(selectedId) {
 }
 
 function bindEditButtons() {
-    const modal = new bootstrap.Modal(document.getElementById('modalSerie'));
+    const modalEl = document.getElementById('modalSerie');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
 
     document.querySelectorAll('#materialesContainer .btn-edit-material').forEach(btn => {
         if (btn.dataset.editBound === '1') return;
@@ -690,13 +789,13 @@ function bindEditButtons() {
 
             const id = btn.dataset.materialId || btn.dataset.material_id;
             const medida = btn.dataset.medida;
+            const esInfra = esMantenimientoInfraestructura();
 
             const card = this.closest('.material-card');
-            document.getElementById('modalSerie').dataset.mode = card?.classList.contains('material-agregado') ? 'agregado' : 'cambio';
-            document.querySelector('#modalSerie .modal-title').innerHTML = card?.classList.contains('material-agregado')
-              ? '<i class="bi bi-plus-circle"></i> Editar material agregado'
-              : '<i class="bi bi-pencil"></i> Editar material cambiado';
+            const modo = card?.classList.contains('material-agregado') ? 'agregado' : 'cambio';
+            modalEl.dataset.mode = modo;
 
+            aplicarTemaModalSerie(modo, esInfra);
             actualizarCamposModalSeriePorMedida(medida);
 
             document.getElementById('modalMaterialId').value = btn.dataset.uid;
@@ -750,7 +849,7 @@ function bindAddMaterialButton() {
 
     const modalEl = document.getElementById('modalSerie');
     modalEl.dataset.mode = 'agregado';
-    document.querySelector('#modalSerie .modal-title').innerHTML = `<i class="bi bi-plus-circle"></i> Agregar material al ${esInfra ? 'puente/sitio' : 'arco'}`;
+    aplicarTemaModalSerie('agregado', esInfra);
 
     const uid = `agregado_${Date.now()}_${++contadorMaterialAgregadoRevision}`;
     document.getElementById('modalMaterialId').value = uid;
@@ -1727,7 +1826,7 @@ async function cargarFormatosDetalle(detalle) {
     const data = await res.json();
     const formatos = (data && data.ok && Array.isArray(data.formatos)) ? data.formatos : [];
 
-    const items = ['checklist', 'quality', 'tools'].map(typeKey => {
+    const items = ['quality', 'tools'].map(typeKey => {
       const cfg = FORMATOS_CONFIG[typeKey];
       const existing = formatos.find(f => f.tipo === typeKey);
       let fillUrl = `../views/formato_llenar.php?type=${typeKey}`;
@@ -1997,7 +2096,7 @@ async function abrirModalFormatosMantenimiento(btn) {
     console.error("Error al obtener formatos de revisión:", err);
   }
 
-  const countGenerated = linkedFormats.filter(f => ['checklist', 'quality', 'tools'].includes(f.tipo)).length;
+  const countGenerated = linkedFormats.filter(f => ['quality', 'tools'].includes(f.tipo)).length;
 
   // Render finalized header banner
   headerContainer.innerHTML = `
@@ -2014,8 +2113,8 @@ async function abrirModalFormatosMantenimiento(btn) {
           ${ubicacion ? `<div class="text-muted"><i class="bi bi-geo-alt-fill text-danger me-1"></i>${escapeHtmlRevision(ubicacion)}</div>` : ''}
         </div>
         <div class="text-md-end">
-          <div class="formatos-progress-pill px-3 py-1.5 rounded-pill border ${countGenerated === 3 ? 'bg-success-subtle text-success border-success' : 'bg-light text-secondary'}">
-            <i class="bi ${countGenerated === 3 ? 'bi-check-all text-success' : 'bi-hourglass-split'} me-1"></i><strong>${countGenerated} de 3</strong> formatos completados
+          <div class="formatos-progress-pill px-3 py-1.5 rounded-pill border ${countGenerated === 2 ? 'bg-success-subtle text-success border-success' : 'bg-light text-secondary'}">
+            <i class="bi ${countGenerated === 2 ? 'bi-check-all text-success' : 'bi-hourglass-split'} me-1"></i><strong>${countGenerated} de 2</strong> formatos completados
           </div>
         </div>
       </div>
@@ -2033,9 +2132,9 @@ async function abrirModalFormatosMantenimiento(btn) {
     </div>
   `;
 
-  // Render cards for all 3 formats
+  // Render cards for the 2 formats: Pruebas de Calidad & Salida de Herramientas
   let cardsHtml = '';
-  ['checklist', 'quality', 'tools'].forEach(typeKey => {
+  ['quality', 'tools'].forEach(typeKey => {
     const formatCfg = FORMATOS_CONFIG[typeKey];
     const existingFormat = linkedFormats.find(f => f.tipo === typeKey);
 

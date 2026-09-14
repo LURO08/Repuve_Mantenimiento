@@ -18,6 +18,10 @@ $currentRole = $_SESSION['role'] ?? '';
   <link href="../assets/bootstrap.min.css" rel="stylesheet">
   <link href="../assets/bootstrap-icons.css" rel="stylesheet">
 
+  <!-- SmartCardPicker Global Component -->
+  <link href="../css/smart_picker.css?v=<?= file_exists(__DIR__ . '/../css/smart_picker.css') ? filemtime(__DIR__ . '/../css/smart_picker.css') : time() ?>" rel="stylesheet">
+  <script src="../js/smart_picker.js?v=<?= file_exists(__DIR__ . '/../js/smart_picker.js') ? filemtime(__DIR__ . '/../js/smart_picker.js') : time() ?>"></script>
+
   <!-- Estilos generales -->
   <style>
     body {

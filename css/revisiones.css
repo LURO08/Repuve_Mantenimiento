@@ -669,105 +669,166 @@ table th, table td {
 }
 
 /* ==========================================================================
-   MODAL REGISTRAR MANTENIMIENTO: MODERNO, ELEGANTE Y TOTALMENTE RESPONSIVO
+   MODALES DE MANTENIMIENTO: MODERNO, ESPACIO OPTIMIZADO Y TOTALMENTE RESPONSIVO
+   IGUAL QUE EN ARCOS CON DIFERENCIACIÓN DE COLOR PARA AGREGAR / EDITAR / INFRA
    ========================================================================== */
 
-#modalRevision .modal-dialog {
-  max-width: min(1380px, calc(100vw - 2rem));
-  margin: 1rem auto;
-  height: calc(100vh - 2rem);
-  max-height: 820px;
+@media (min-width: 992px) {
+  #modalRevision .modal-dialog,
+  .modalRevision .modal-dialog,
+  #modalRevisionInfra .modal-dialog {
+    max-width: 95vw !important;
+    width: 1450px !important;
+    height: 88vh !important;
+    max-height: 880px !important;
+    margin: 1.25rem auto !important;
+  }
+
+  #modalRevision .modal-content,
+  .modalRevision .modal-content,
+  #modalRevisionInfra .modal-content {
+    height: 100% !important;
+    max-height: 88vh !important;
+    border-radius: 16px !important;
+    overflow: hidden;
+  }
+
+  #modalRevision .modal-body,
+  .modalRevision .modal-body,
+  #modalRevisionInfra .modal-body {
+    overflow: hidden !important;
+    padding: 0 !important;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-revision-grid {
+    display: grid !important;
+    grid-template-columns: minmax(400px, 0.95fr) minmax(520px, 1.35fr) !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    flex: 1;
+    background-color: #f8fafc;
+  }
+
+  .modal-revision-form-panel {
+    background-color: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    height: 100% !important;
+    min-height: 0;
+    padding: 1rem 1.25rem !important;
+  }
+
+  .modal-revision-materials-panel {
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+    height: 100% !important;
+    min-height: 0;
+    padding: 1rem 1.25rem !important;
+  }
+
+  .modal-revision-materials-panel .materiales-maintenance-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    padding: 6px;
+  }
 }
 
-#modalRevision .modal-content {
-  border-radius: 14px;
-  overflow: hidden;
-  height: 100%;
-  max-height: 100%;
-  display: flex;
-  flex-direction: column;
+@media (max-width: 991.98px) {
+  #modalRevision .modal-dialog,
+  .modalRevision .modal-dialog,
+  #modalRevisionInfra .modal-dialog {
+    max-width: calc(100vw - 1rem) !important;
+    margin: 0.5rem auto !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  #modalRevision .modal-content,
+  .modalRevision .modal-content,
+  #modalRevisionInfra .modal-content {
+    max-height: calc(100vh - 1rem);
+    height: auto;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  #modalRevision .modal-body,
+  .modalRevision .modal-body,
+  #modalRevisionInfra .modal-body {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 120px);
+    padding: 0.75rem !important;
+  }
+
+  .modal-revision-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: auto;
+  }
+
+  .modal-revision-form-panel {
+    border-right: none;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 0.5rem 0 !important;
+    height: auto;
+    overflow-y: visible;
+  }
+
+  .modal-revision-materials-panel {
+    padding: 0.5rem 0 !important;
+    height: auto;
+    overflow-y: visible !important;
+  }
+
+  #modalRevision .materiales-maintenance-scroll {
+    min-height: 160px;
+    max-height: 48vh;
+    overflow-y: auto;
+  }
 }
 
-#modalRevision form {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  margin: 0;
-}
-
-#modalRevision .modal-header,
-#modalRevision .modal-footer {
-  flex-shrink: 0;
-}
-
-#modalRevision .modal-body {
-  overflow: hidden !important;
-  padding: 0 !important;
-  background-color: #f8fafc;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-revision-grid {
-  display: grid;
-  grid-template-columns: minmax(330px, 0.88fr) minmax(420px, 1.32fr);
-  height: 100%;
-  min-height: 0;
-  flex: 1;
-  background-color: #f8fafc;
-}
-
-.modal-revision-form-panel {
-  background-color: #f8fafc;
-  border-right: 1px solid #e2e8f0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  height: 100%;
-  min-height: 0;
-  padding: 0.75rem 1rem !important;
-}
-
-.modal-revision-materials-panel {
-  background-color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden !important;
-  height: 100%;
-  min-height: 0;
-  padding: 0.75rem 1rem !important;
-}
-
-#modalRevision .materiales-maintenance-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 4px;
-}
-
-#modalRevision .modal-revision-form-panel::-webkit-scrollbar,
-#modalRevision .materiales-maintenance-scroll::-webkit-scrollbar {
+/* Scrollbars pulidos para modales */
+.modal-revision-form-panel::-webkit-scrollbar,
+.modal-revision-materials-panel .materiales-maintenance-scroll::-webkit-scrollbar,
+.modal-material-list-panel::-webkit-scrollbar,
+.modal-material-config-panel::-webkit-scrollbar,
+.modal-material-grid::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
-#modalRevision .modal-revision-form-panel::-webkit-scrollbar-thumb,
-#modalRevision .materiales-maintenance-scroll::-webkit-scrollbar-thumb {
+.modal-revision-form-panel::-webkit-scrollbar-thumb,
+.modal-revision-materials-panel .materiales-maintenance-scroll::-webkit-scrollbar-thumb,
+.modal-material-list-panel::-webkit-scrollbar-thumb,
+.modal-material-config-panel::-webkit-scrollbar-thumb,
+.modal-material-grid::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 4px;
 }
 
-#modalRevision .modal-revision-form-panel::-webkit-scrollbar-thumb:hover,
-#modalRevision .materiales-maintenance-scroll::-webkit-scrollbar-thumb:hover {
+.modal-revision-form-panel::-webkit-scrollbar-thumb:hover,
+.modal-revision-materials-panel .materiales-maintenance-scroll::-webkit-scrollbar-thumb:hover,
+.modal-material-list-panel::-webkit-scrollbar-thumb:hover,
+.modal-material-config-panel::-webkit-scrollbar-thumb:hover,
+.modal-material-grid::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
+/* Grilla de componentes en modalRevision */
 #modalRevision .contenedor-materiales {
   display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
-  gap: 8px !important;
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)) !important;
+  gap: 10px !important;
   margin: 0;
   width: 100%;
 }
@@ -778,16 +839,16 @@ table th, table td {
 }
 
 #modalRevision .material-card {
-  min-height: 155px;
+  min-height: 165px;
   max-height: none;
   overflow: visible;
   position: relative;
   width: 100%;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
   display: flex;
   flex-direction: column;
 }
@@ -795,30 +856,30 @@ table th, table td {
 #modalRevision .material-card:hover {
   transform: translateY(-2px);
   border-color: #198754;
-  box-shadow: 0 4px 12px rgba(25, 135, 84, 0.1);
+  box-shadow: 0 6px 16px rgba(25, 135, 84, 0.12);
 }
 
 #modalRevision .material-card .card-body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 8px 6px;
+  padding: 8px 8px;
   flex: 1;
   align-items: center;
   text-align: center;
 }
 
 #modalRevision .material-card .card-img-top {
-  height: 52px !important;
+  height: 56px !important;
   width: 100%;
   object-fit: contain;
-  padding: 3px;
+  padding: 4px;
 }
 
 #modalRevision .material-card .card-body > .fw-semibold {
   display: -webkit-box;
   line-height: 1.18;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   overflow: hidden;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
@@ -827,10 +888,6 @@ table th, table td {
   margin-top: 2px;
   margin-bottom: 2px;
   min-height: auto;
-}
-
-#modalRevision .material-card .card-body small {
-  font-size: 0.7rem;
 }
 
 #modalRevision .material-actions {
@@ -844,8 +901,9 @@ table th, table td {
 #modalRevision .btn-edit-material {
   width: 100%;
   font-size: 0.75rem;
-  padding: 2px 6px;
+  padding: 3px 8px;
   font-weight: 600;
+  border-radius: 6px;
 }
 
 #modalRevision .material-retire-x {
@@ -866,14 +924,16 @@ table th, table td {
   z-index: 3;
 }
 
-#modalRevision .material-retire-x.btn-secondary {
-  font-size: 12px;
-}
-
 #modalRevision .material-retirado {
-  opacity: 0.78;
+  opacity: 0.75;
   background-color: #fff5f5;
   border-color: #fca5a5 !important;
+}
+
+#modalRevision .material-agregado {
+  border-color: #198754 !important;
+  box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.25);
+  background-color: #f0fdf4;
 }
 
 #modalRevision .serie-label {
@@ -911,111 +971,122 @@ table th, table td {
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
-  padding: 5px 8px;
+  padding: 6px 10px;
 }
 
-#modalRevision .material-added-badge {
-  left: 5px;
-  position: absolute;
-  top: 5px;
-  z-index: 2;
-  font-size: 0.65rem;
-  padding: 2px 5px;
+/* ==========================================================================
+   MODAL SERIE / CONFIGURAR / AGREGAR MATERIAL (DISEÑO IDÉNTICO A ARCOS)
+   CON THEMING DINÁMICO (VERDE = AGREGAR, AMARILLO = EDITAR/CAMBIAR)
+   ========================================================================== */
+
+@media (min-width: 992px) {
+  #modalSerie .modal-dialog,
+  .modalSerie .modal-dialog {
+    max-width: 90vw !important;
+    width: 1280px !important;
+    height: 82vh !important;
+    max-height: 820px !important;
+    margin: 1.5rem auto !important;
+  }
+
+  #modalSerie .modal-content,
+  .modalSerie .modal-content {
+    height: 100% !important;
+    max-height: 82vh !important;
+    border-radius: 16px !important;
+    overflow: hidden;
+  }
+
+  #modalSerie .modal-body,
+  .modalSerie .modal-body {
+    overflow: hidden !important;
+    padding: 0 !important;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-material-layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.95fr) !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    flex: 1;
+  }
+
+  .modal-material-list-panel {
+    height: 100% !important;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 1rem 1.25rem !important;
+    border-right: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+  }
+
+  .modal-material-config-panel {
+    height: 100% !important;
+    min-height: 0;
+    overflow-y: auto !important;
+    padding: 1.25rem 1.5rem !important;
+    background-color: #ffffff;
+  }
+
+  .modal-material-grid {
+    flex: 1;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto !important;
+    display: grid;
+    gap: 0.65rem;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    padding: 0.25rem 0.25rem 0.5rem 0.25rem;
+  }
 }
 
-#modalRevision .material-agregado {
-  border-color: #198754 !important;
-  box-shadow: 0 0 0 1px rgba(25, 135, 84, 0.2);
-}
-
-/* =========================================================
-   RESPONSIVE EN MÓVILES (PANTALLAS MENORES A 992px)
-   ========================================================= */
-@media (max-width: 991px) {
-  #modalRevision .modal-dialog {
+@media (max-width: 991.98px) {
+  #modalSerie .modal-dialog,
+  .modalSerie .modal-dialog {
     max-width: calc(100vw - 1rem) !important;
     margin: 0.5rem auto !important;
-    height: auto !important;
-    max-height: none !important;
   }
 
-  #modalRevision .modal-content {
+  #modalSerie .modal-content,
+  .modalSerie .modal-content {
     max-height: calc(100vh - 1rem);
-    height: auto;
+    border-radius: 14px;
+    overflow: hidden;
   }
 
-  #modalRevision .modal-body {
+  #modalSerie .modal-body,
+  .modalSerie .modal-body {
     overflow-y: auto !important;
     max-height: calc(100vh - 120px);
+    padding: 0.75rem !important;
   }
 
-  .modal-revision-grid {
-    grid-template-columns: 1fr;
-    min-height: auto;
-    height: auto;
+  .modal-material-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
   }
 
-  .modal-revision-form-panel {
-    border-right: none;
+  .modal-material-list-panel {
+    padding: 0.5rem 0 !important;
     border-bottom: 2px solid #e2e8f0;
-    max-height: none;
-    height: auto;
-    overflow-y: visible;
   }
 
-  .modal-revision-materials-panel {
-    max-height: none;
-    height: auto;
-    overflow-y: visible !important;
+  .modal-material-config-panel {
+    padding: 0.5rem 0 !important;
   }
 
-  #modalRevision .materiales-maintenance-scroll {
-    min-height: 160px;
-    max-height: 48vh;
-    overflow-y: auto;
+  .modal-material-grid {
+    min-height: 220px;
+    max-height: 320px;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   }
-
-  #modalRevision .contenedor-materiales {
-    grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)) !important;
-    gap: 6px !important;
-  }
-}
-
-.card-img-top {
-    width: 100%;
-    height: 80px;
-    object-fit: contain;
-}
-
-#modalSerie .modal-body {
-  max-height: 78vh;
-  overflow-y: auto;
-}
-
-.modal-material-layout {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(0, 1.45fr) minmax(290px, 0.95fr);
-  align-items: stretch;
-}
-
-.modal-material-list-panel,
-.modal-material-config-panel {
-  min-width: 0;
-}
-
-.modal-material-list-panel {
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-material-config-panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
-  display: flex;
-  flex-direction: column;
 }
 
 .modal-material-selected {
@@ -1054,8 +1125,8 @@ table th, table td {
 .modal-material-fields {
   background: #fbfcfd;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 0.65rem;
+  border-radius: 10px;
+  padding: 0.85rem;
 }
 
 .config-field-group {
@@ -1071,64 +1142,44 @@ table th, table td {
   cursor: pointer;
 }
 
-.modal-material-grid {
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
-  min-height: 340px;
-  max-height: 440px;
-  overflow-y: auto;
-  padding: 0.15rem 0.25rem 0.25rem 0.15rem;
-  flex: 1;
-}
-
-.modal-material-grid::-webkit-scrollbar {
-  width: 6px;
-}
-
-.modal-material-grid::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
 .modal-material-option {
   background: #ffffff;
   border: 1.5px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 10px;
   color: #1e293b;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  min-height: 112px;
-  padding: 0.5rem 0.4rem;
+  min-height: 120px;
+  padding: 0.65rem 0.5rem;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background-color 0.18s ease;
 }
 
 .modal-material-option:hover {
   border-color: #198754;
   background-color: #f8fdfa;
-  box-shadow: 0 4px 12px rgba(25, 135, 84, 0.12);
+  box-shadow: 0 6px 16px rgba(25, 135, 84, 0.12);
   transform: translateY(-2px);
 }
 
 .modal-material-option.is-selected {
-  border-color: #198754;
-  background-color: #f0fdf4;
-  box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.25);
+  border-color: #198754 !important;
+  background-color: #f0fdf4 !important;
+  box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.3) !important;
 }
 
 .modal-material-option img {
-  height: 46px;
+  height: 50px;
   max-width: 100%;
   object-fit: contain;
 }
 
 .modal-material-option span {
   display: -webkit-box;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   line-height: 1.18;
   margin-top: 0.35rem;
@@ -1141,64 +1192,102 @@ table th, table td {
 
 .modal-material-option small {
   color: #64748b;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
   background: #f1f5f9;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
   margin-top: auto;
 }
 
-@media (max-width: 768px) {
-  .modal-material-layout {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
+/* ==========================================================================
+   VARIACIONES DE TEMA: MODO EDITAR (WARNING) vs MODO AGREGAR (SUCCESS/PRIMARY)
+   ========================================================================== */
 
-  .modal-material-grid {
-    min-height: 200px;
-    max-height: 270px;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  }
-
-  .modal-material-option {
-    min-height: 100px;
-    padding: 0.4rem 0.3rem;
-  }
-
-  .modal-material-option img {
-    height: 38px;
-  }
-
-  .modal-material-option span {
-    font-size: 0.74rem;
-  }
-
-  .modal-material-config-panel {
-    position: static;
-  }
+/* Tema Warning (Modo Editar / Cambiar material) */
+.modal-theme-warning .modal-material-option:hover {
+  border-color: #ffc107 !important;
+  background-color: #fffdf5 !important;
+  box-shadow: 0 6px 16px rgba(255, 193, 7, 0.2) !important;
 }
 
+.modal-theme-warning .modal-material-option.is-selected {
+  border-color: #ffc107 !important;
+  background-color: #fffbeb !important;
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.4) !important;
+}
+
+.modal-theme-warning .config-field-group:focus-within {
+  border-color: #ffc107 !important;
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.25) !important;
+}
+
+.modal-theme-warning .modal-material-selected-measure {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+/* Tema Success (Mantenimiento - Agregar y Editar) */
+.modal-theme-success .modal-material-option:hover {
+  border-color: #198754 !important;
+  background-color: #f6fbf8 !important;
+  box-shadow: 0 6px 16px rgba(25, 135, 84, 0.15) !important;
+}
+
+.modal-theme-success .modal-material-option.is-selected {
+  border-color: #198754 !important;
+  background-color: #f0fdf4 !important;
+  box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.3) !important;
+}
+
+.modal-theme-success .config-field-group:focus-within {
+  border-color: #198754 !important;
+  box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.2) !important;
+}
+
+.modal-theme-success .modal-material-selected-measure {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* Tema Primary (Puente / Sitio) */
+.modal-theme-primary .modal-material-option:hover {
+  border-color: #0d6efd !important;
+  background-color: #f8fbff !important;
+  box-shadow: 0 6px 16px rgba(13, 110, 253, 0.15) !important;
+}
+
+.modal-theme-primary .modal-material-option.is-selected {
+  border-color: #0d6efd !important;
+  background-color: #eff6ff !important;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.3) !important;
+}
+
+.modal-theme-primary .config-field-group:focus-within {
+  border-color: #0d6efd !important;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.2) !important;
+}
+
+.modal-theme-primary .modal-material-selected-measure {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* Filas dinámicas en modalRevisionInfra */
 .infra-revision-material-rows {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .infra-revision-material-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) 110px minmax(130px, 170px) auto;
-  gap: 8px;
-  align-items: center;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: all 0.2s ease;
 }
 
-@media (max-width: 768px) {
-  .infra-revision-material-row {
-    grid-template-columns: 1fr;
-  }
-
-  .infra-revision-material-row .btn {
-    width: 100%;
-  }
+.infra-revision-material-row:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .revisiones-table-switch .btn{

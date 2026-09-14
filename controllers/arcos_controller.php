@@ -1,6 +1,7 @@
 <?php
 include('../config/db.php');
 require_once '../config/tecnicos_schema.php';
+require_once '../config/infraestructura_schema.php';
 
 $action = $_REQUEST['action'] ?? '';
 
@@ -257,6 +258,8 @@ try {
           exit;
         }
 
+        asegurarEsquemaInfraestructura($pdo);
+
         $stmt = $pdo->prepare("
           SELECT n.*, u.nombre AS ubicacion
           FROM infraestructura_nodos n
@@ -283,26 +286,49 @@ try {
         $materiales = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $stmt = $pdo->prepare("
-          SELECT a.id
+          SELECT a.id, a.nombre, a.ubicacion_id, u.nombre AS ubicacion, COALESCE(a.estado, 'Activo') AS estado
           FROM arco_infraestructura ai
           JOIN arcos a ON a.id = ai.arco_id
+          LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id
           WHERE ai.infraestructura_id = ?
           ORDER BY a.nombre ASC
         ");
         $stmt->execute([$id]);
-        $arcos = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $arcosDetalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $arcos = array_map('intval', array_column($arcosDetalles, 'id'));
+
+        // Obtener enlaces de infraestructura (Sitios y Postes)
+        $enlacesDetalles = obtenerEnlacesNodo($pdo, $id);
+        $sitiosVinculados = [];
+        $postesVinculados = [];
+        foreach ($enlacesDetalles as $enl) {
+          $enlId = (int)$enl['id'];
+          if ($enl['tipo'] === 'Sitio/Torre') {
+            $sitiosVinculados[] = $enlId;
+          } else {
+            $postesVinculados[] = $enlId;
+          }
+        }
+
+        $enlacesConEnlaces = obtenerEnlacesConEnlaces($pdo, $id);
 
         echo json_encode([
-          'id' => $infra['id'],
+          'id' => (int)$infra['id'],
           'tipo' => $infra['tipo'],
           'nombre' => $infra['nombre'],
           'ubicacion_id' => $infra['ubicacion_id'],
+          'ubicacion' => $infra['ubicacion'],
           'lat' => $infra['lat'],
           'lng' => $infra['lng'],
           'descripcion' => $infra['descripcion'],
           'materiales' => $materiales,
-          'arcos' => $arcos
-        ]);
+          'arcos' => $arcos,
+          'arcos_detalles' => $arcosDetalles,
+          'sitios_vinculados' => $sitiosVinculados,
+          'postes_vinculados' => $postesVinculados,
+          'enlaces' => $enlacesDetalles,
+          'enlaces_con_enlaces' => $enlacesConEnlaces
+        ], JSON_UNESCAPED_UNICODE);
         exit;
 
       case 'update_infra':
@@ -313,20 +339,28 @@ try {
         $lat = trim($_POST['lat'] ?? '');
         $lng = trim($_POST['lng'] ?? '');
         $arcos_vinculados = $_POST['arcos_vinculados'] ?? [];
+        $sitios_vinculados = $_POST['sitios_vinculados'] ?? [];
+        $postes_vinculados = $_POST['postes_vinculados'] ?? [];
+        $enlaces_con_enlaces = $_POST['enlaces_con_enlaces'] ?? [];
         $material_ids = $_POST['material_id'] ?? [];
         $cantidades = $_POST['cantidad'] ?? [];
         $series = $_POST['serie'] ?? [];
         $ips = $_POST['ip'] ?? [];
         $macs = $_POST['mac'] ?? [];
 
-
         if ($id <= 0 || $nombre === '' || empty($ubicacion_id)) {
-          header("Location: ../views/arcos.php?error=Datos incompletos del puente/sitio&type=error");
+          header("Location: ../views/arcos.php?error=Datos incompletos del puente/sitio&type=error&tab=tableViewInfra");
           exit;
         }
 
         if (!is_array($arcos_vinculados)) {
           $arcos_vinculados = [];
+        }
+        if (!is_array($sitios_vinculados)) {
+          $sitios_vinculados = [];
+        }
+        if (!is_array($postes_vinculados)) {
+          $postes_vinculados = [];
         }
 
         $pdo->beginTransaction();
@@ -338,6 +372,7 @@ try {
         ");
         $stmt->execute([$tipo, $nombre, $ubicacion_id, $lat ?: null, $lng ?: null, $id]);
 
+        // Sincronizar Arcos vinculados
         $pdo->prepare("DELETE FROM arco_infraestructura WHERE infraestructura_id = ?")->execute([$id]);
         $stmtRel = $pdo->prepare("
           INSERT INTO arco_infraestructura (arco_id, infraestructura_id)
@@ -345,11 +380,21 @@ try {
           ON CONFLICT (arco_id, infraestructura_id) DO NOTHING
         ");
         foreach ($arcos_vinculados as $arco_id) {
-          if (!empty($arco_id)) {
+          $arco_id = (int)$arco_id;
+          if ($arco_id > 0) {
             $stmtRel->execute([$arco_id, $id]);
           }
         }
 
+        // Sincronizar Enlaces (Sitios a Sitios y Sitios a Postes)
+        $nodosDestino = array_merge($sitios_vinculados, $postes_vinculados);
+        if (isset($_POST['enlaces_infra']) && is_array($_POST['enlaces_infra'])) {
+          $nodosDestino = array_merge($nodosDestino, $_POST['enlaces_infra']);
+        }
+        sincronizarEnlacesNodo($pdo, $id, $nodosDestino);
+        sincronizarEnlacesConEnlaces($pdo, $id, is_array($enlaces_con_enlaces) ? $enlaces_con_enlaces : []);
+
+        // Sincronizar Materiales
         $pdo->prepare("DELETE FROM infraestructura_material WHERE infraestructura_id = ?")->execute([$id]);
         $stmtMat = $pdo->prepare("
           INSERT INTO infraestructura_material (infraestructura_id, material_id, cantidad, serie, ip, mac, fecha_instalacion)
@@ -374,13 +419,13 @@ try {
         }
 
         $pdo->commit();
-        header("Location: ../views/arcos.php?msg=Puente/Sitio actualizado correctamente&type=success");
+        header("Location: ../views/arcos.php?msg=Puente/Sitio actualizado correctamente&type=success&tab=tableViewInfra");
         exit;
 
       case 'delete_infra':
         $id = (int)($_GET['id'] ?? 0);
         if ($id <= 0) {
-          header("Location: ../views/arcos.php?error=ID inválido&type=error");
+          header("Location: ../views/arcos.php?error=ID inválido&type=error&tab=tableViewInfra");
           exit;
         }
 
@@ -400,7 +445,7 @@ try {
         $pdo->prepare("DELETE FROM infraestructura_nodos WHERE id = ?")->execute([$id]);
 
         $pdo->commit();
-        header("Location: ../views/arcos.php?msg=Puente/Sitio eliminado correctamente&type=success");
+        header("Location: ../views/arcos.php?msg=Puente/Sitio eliminado correctamente&type=success&tab=tableViewInfra");
         exit;
 
     /* =========================================================
@@ -421,7 +466,8 @@ try {
       $es_infraestructura = ($_POST['es_infraestructura'] ?? '') === '1';
 
       if (empty($nombre) || empty($ubicacion_id) || empty($fecha_instalacion)) {
-        header("Location: ../views/arcos.php?error=Faltan datos obligatorios&type=error");
+        $tabParam = $es_infraestructura ? '&tab=tableViewInfra' : '&tab=tableViewArcos';
+        header("Location: ../views/arcos.php?error=Faltan datos obligatorios&type=error" . $tabParam);
         exit;
       }
 
@@ -448,11 +494,22 @@ try {
           }
         }
 
+        // Sincronizar enlaces de infraestructura (Sitios y Postes)
+        $sitios_vinculados = $_POST['infra_sitios_vinculados'] ?? [];
+        $postes_vinculados = $_POST['infra_postes_vinculados'] ?? [];
+        $enlaces_con_enlaces = $_POST['enlaces_con_enlaces'] ?? [];
+        $nodosDestino = array_merge(
+          is_array($sitios_vinculados) ? $sitios_vinculados : [],
+          is_array($postes_vinculados) ? $postes_vinculados : []
+        );
+        sincronizarEnlacesNodo($pdo, $infra_id, $nodosDestino);
+        sincronizarEnlacesConEnlaces($pdo, $infra_id, is_array($enlaces_con_enlaces) ? $enlaces_con_enlaces : []);
+
         guardarMaterialesInfraestructura($pdo, $infra_id, $fecha_instalacion, $materiales, $cantidades, $series, $ips, $macs);
 
         $pdo->commit();
 
-        header("Location: ../views/arcos.php?msg=Puente/Sitio registrado correctamente&type=success");
+        header("Location: ../views/arcos.php?msg=Puente/Sitio registrado correctamente&type=success&tab=tableViewInfra");
         exit;
       }
 
@@ -460,7 +517,7 @@ try {
       $check->execute([$nombre]); 
 
       if ($check->fetchColumn() > 0) {
-        header("Location: ../views/arcos.php?error=El arco '$nombre' ya existe&type=error");
+        header("Location: ../views/arcos.php?error=El arco '$nombre' ya existe&type=error&tab=tableViewArcos");
         exit;
       }
 
@@ -501,9 +558,24 @@ try {
 
       guardarInfraestructuraArco($pdo, $arco_id, $fecha_instalacion, $_POST);
 
+      if (!empty($_POST['infra_vinculados'])) {
+        $infra_vinculados = is_array($_POST['infra_vinculados']) ? $_POST['infra_vinculados'] : [];
+        $stmtInfraRel = $pdo->prepare("
+          INSERT INTO arco_infraestructura (arco_id, infraestructura_id)
+          VALUES (?, ?)
+          ON CONFLICT (arco_id, infraestructura_id) DO NOTHING
+        ");
+        foreach ($infra_vinculados as $infId) {
+          $infId = (int)$infId;
+          if ($infId > 0) {
+            $stmtInfraRel->execute([$arco_id, $infId]);
+          }
+        }
+      }
+
       $pdo->commit();
     
-      header("Location: ../views/arcos.php?msg=Arco registrado correctamente&type=success");
+      header("Location: ../views/arcos.php?msg=Arco registrado correctamente&type=success&tab=tableViewArcos");
       exit;
 
 
@@ -536,6 +608,10 @@ try {
         ORDER BY arco_material.id ASC
       ")->fetchAll(PDO::FETCH_ASSOC);
 
+      $infraStmt = $pdo->prepare("SELECT infraestructura_id FROM arco_infraestructura WHERE arco_id = ?");
+      $infraStmt->execute([$id]);
+      $infra_ids = $infraStmt->fetchAll(PDO::FETCH_COLUMN);
+
       echo json_encode([
         'id' => $arco['id'],
         'nombre' => $arco['nombre'],
@@ -545,7 +621,8 @@ try {
         'lng' => $arco['lng'] ?? null,
         'ubicaciones' => $ubicaciones,
         'materiales' => $materiales,
-        'todos_materiales' => $todos_materiales
+        'todos_materiales' => $todos_materiales,
+        'infra_ids' => array_map('strval', $infra_ids ?: [])
       ]);
       exit;
 
@@ -647,7 +724,8 @@ try {
       echo json_encode([
         'anteriores' => $materiales_actuales,
         'nuevos' => $materiales_cambiados,
-        'infraestructura' => array_values($infraestructuras)
+        'infraestructura' => array_values($infraestructuras),
+        'infra_ids' => array_map('intval', array_keys($infraestructuras))
       ], JSON_UNESCAPED_UNICODE);
       exit;
 
@@ -913,8 +991,27 @@ try {
         ")->execute([$id]);
       }
 
+      guardarInfraestructuraArco($pdo, $id, $fecha_instalacion, $_POST);
+
+      // Sincronizar puentes/sitios vinculados
+      $pdo->prepare("DELETE FROM arco_infraestructura WHERE arco_id = ?")->execute([$id]);
+      if (!empty($_POST['infra_vinculados'])) {
+        $infra_vinculados = is_array($_POST['infra_vinculados']) ? $_POST['infra_vinculados'] : [];
+        $stmtInfraRel = $pdo->prepare("
+          INSERT INTO arco_infraestructura (arco_id, infraestructura_id)
+          VALUES (?, ?)
+          ON CONFLICT (arco_id, infraestructura_id) DO NOTHING
+        ");
+        foreach ($infra_vinculados as $infId) {
+          $infId = (int)$infId;
+          if ($infId > 0) {
+            $stmtInfraRel->execute([$id, $infId]);
+          }
+        }
+      }
+
       $pdo->commit();
-      header("Location: ../views/arcos.php?msg=Arco actualizado correctamente&type=success");
+      header("Location: ../views/arcos.php?msg=Arco actualizado correctamente&type=success&tab=tableViewArcos");
       exit;
 
 
@@ -934,14 +1031,14 @@ try {
       $observaciones = trim($_POST['observaciones'] ?? '');
 
       if ($id <= 0 || $fecha_baja === '' || $motivo === '' || !$tecnico) {
-        header("Location: ../views/arcos.php?error=Datos incompletos para dar de baja&type=error");
+        header("Location: ../views/arcos.php?error=Datos incompletos para dar de baja&type=error&tab=tableViewArcos");
         exit;
       }
 
       $stmtArco = $pdo->prepare("SELECT id FROM arcos WHERE id = ?");
       $stmtArco->execute([$id]);
       if (!$stmtArco->fetchColumn()) {
-        header("Location: ../views/arcos.php?error=Arco no encontrado&type=error");
+        header("Location: ../views/arcos.php?error=Arco no encontrado&type=error&tab=tableViewArcos");
         exit;
       }
 
@@ -968,7 +1065,7 @@ try {
 
       $pdo->commit();
 
-      header("Location: ../views/arcos.php?msg=Arco dado de baja correctamente&baja_id=" . $bajaId . "&type=success");
+      header("Location: ../views/arcos.php?msg=Arco dado de baja correctamente&baja_id=" . $bajaId . "&type=success&tab=tableViewBajas");
       exit;
 
     case 'restaurar':
@@ -977,21 +1074,21 @@ try {
 
       $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
       if ($id <= 0) {
-        header("Location: ../views/arcos.php?error=ID invalido&type=error");
+        header("Location: ../views/arcos.php?error=ID invalido&type=error&tab=tableViewBajas");
         exit;
       }
 
       $stmtArco = $pdo->prepare("SELECT id FROM arcos WHERE id = ?");
       $stmtArco->execute([$id]);
       if (!$stmtArco->fetchColumn()) {
-        header("Location: ../views/arcos.php?error=Arco no encontrado&type=error");
+        header("Location: ../views/arcos.php?error=Arco no encontrado&type=error&tab=tableViewBajas");
         exit;
       }
 
       $stmt = $pdo->prepare("UPDATE arcos SET estado = 'Activo', fecha_baja = NULL WHERE id = ?");
       $stmt->execute([$id]);
 
-      header("Location: ../views/arcos.php?msg=Arco restaurado correctamente&type=success");
+      header("Location: ../views/arcos.php?msg=Arco restaurado correctamente&type=success&tab=tableViewBajas");
       exit;
 
 
@@ -1005,7 +1102,7 @@ try {
       $id = $_GET['id'] ?? 0;
 
       if (empty($id)) {
-        header("Location: ../views/arcos.php?error=ID inválido&type=error");
+        header("Location: ../views/arcos.php?error=ID inválido&type=error&tab=tableViewArcos");
         exit;
       }
 
@@ -1017,7 +1114,7 @@ try {
 
       $pdo->commit();
 
-      header("Location: ../views/arcos.php?msg=Arco eliminado correctamente&type=success");
+      header("Location: ../views/arcos.php?msg=Arco eliminado correctamente&type=success&tab=tableViewArcos");
       exit;
 
 
@@ -1061,7 +1158,9 @@ try {
     $pdo->rollBack();
   }
 
-  header("Location: ../views/arcos.php?msg=" . urlencode($e->getMessage()) . "&type=error");
+  $activeTab = $_POST['active_tab'] ?? $_GET['tab'] ?? '';
+  $tabParam = $activeTab !== '' ? '&tab=' . urlencode($activeTab) : '';
+  header("Location: ../views/arcos.php?msg=" . urlencode($e->getMessage()) . "&type=error" . $tabParam);
   exit;
 }
 ?>

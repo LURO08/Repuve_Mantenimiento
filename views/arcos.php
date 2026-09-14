@@ -2,6 +2,9 @@
 include('../views/header.php');
 include('../config/db.php');
 require_once '../config/tecnicos_schema.php';
+require_once '../config/infraestructura_schema.php';
+
+asegurarEsquemaInfraestructura($pdo);
 
 $pdo->exec("ALTER TABLE arcos ADD COLUMN IF NOT EXISTS estado VARCHAR(20) NOT NULL DEFAULT 'Activo'");
 $pdo->exec("ALTER TABLE arcos ADD COLUMN IF NOT EXISTS fecha_baja TIMESTAMP WITHOUT TIME ZONE");
@@ -65,7 +68,7 @@ $tecnicosActivos = $pdo->query("SELECT nombre, id FROM tecnicos WHERE activo = 1
     <?php if (!empty($_GET["baja_id"])): ?>
       <div class="mt-2 d-flex justify-content-center gap-2">
         <a class="btn btn-light btn-sm" target="_blank"
-          href="../views/pdf/baja_arco_pdf.php?id=<?= htmlspecialchars($_GET["baja_id"], ENT_QUOTES, 'UTF-8') ?>">
+          href="../controllers/pdf_controller.php?action=baja_pdf&id=<?= htmlspecialchars($_GET["baja_id"], ENT_QUOTES, 'UTF-8') ?>">
           <i class="bi bi-file-earmark-pdf"></i> Ver formato
         </a>
         <a class="btn btn-outline-light btn-sm"
@@ -149,21 +152,38 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
   <hr class="mt-2 mx-auto" style="width:60%;border-top:3px solid #28a745;">
 </div>
 
+<?php
+$activeTab = $_GET['tab'] ?? '';
+if ($activeTab === 'infra' || $activeTab === 'puentes' || $activeTab === 'sitios') {
+  $activeTab = 'tableViewInfra';
+} elseif ($activeTab === 'bajas' || $activeTab === 'baja') {
+  $activeTab = 'tableViewBajas';
+} elseif ($activeTab === 'arcos' || $activeTab === 'arco') {
+  $activeTab = 'tableViewArcos';
+}
+if (!in_array($activeTab, ['tableViewArcos', 'tableViewBajas', 'tableViewInfra'], true)) {
+  $activeTab = '';
+}
+$isArcos = ($activeTab === '' || $activeTab === 'tableViewArcos');
+$isBajas = ($activeTab === 'tableViewBajas');
+$isInfra = ($activeTab === 'tableViewInfra');
+?>
+
 <div class="arcos-table-switch d-flex justify-content-center mb-3">
   <div class="btn-group shadow-sm" role="group" aria-label="Cambiar tabla">
-    <button type="button" class="btn btn-success active tabla-toggle-btn" data-table-view-target="tableViewArcos">
+    <button type="button" class="btn <?= $isArcos ? 'btn-success active' : 'btn-outline-success' ?> tabla-toggle-btn" data-table-view-target="tableViewArcos">
       <i class="bi bi-bounding-box-circles"></i> Arcos
     </button>
-    <button type="button" class="btn btn-outline-danger tabla-toggle-btn" data-table-view-target="tableViewBajas">
+    <button type="button" class="btn <?= $isBajas ? 'btn-danger active' : 'btn-outline-danger' ?> tabla-toggle-btn" data-table-view-target="tableViewBajas">
       <i class="bi bi-archive"></i> Bajas
     </button>
-    <button type="button" class="btn btn-outline-primary tabla-toggle-btn" data-table-view-target="tableViewInfra">
+    <button type="button" class="btn <?= $isInfra ? 'btn-primary active' : 'btn-outline-primary' ?> tabla-toggle-btn" data-table-view-target="tableViewInfra">
       <i class="bi bi-broadcast-pin"></i> Puentes / Sitios
     </button>
   </div>
 </div>
 
-<div class="card table-responsive shadow-sm rounded arcos-table-view" id="tableViewArcos">
+<div class="card table-responsive shadow-sm rounded arcos-table-view <?= $isArcos ? '' : 'd-none' ?>" id="tableViewArcos">
 
   <div class="interfaz card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div class="d-flex justify-content-between align-items-center mb-0">
@@ -474,7 +494,7 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
   <div id="pagination-Arcos" class="mt-2 d-flex justify-content-center"></div>
 </div>
 
-<div class="card table-responsive shadow-sm rounded arcos-table-view d-none" id="tableViewBajas">
+<div class="card table-responsive shadow-sm rounded arcos-table-view <?= $isBajas ? '' : 'd-none' ?>" id="tableViewBajas">
   <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
       <h5 class="mb-0 fw-bold text-danger">
@@ -590,7 +610,7 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
               </td>
               <td>
                 <div class="btn-group btn-group-sm" role="group">
-                  <a href="../views/pdf/baja_arco_pdf.php?id=<?= htmlspecialchars($baja['baja_id'], ENT_QUOTES, 'UTF-8') ?>"
+                  <a href="../controllers/pdf_controller.php?action=baja_pdf&id=<?= htmlspecialchars($baja['baja_id'], ENT_QUOTES, 'UTF-8') ?>"
                     target="_blank" class="btn btn-outline-dark" title="Ver / Imprimir formato de baja">
                     <i class="bi bi-file-earmark-pdf"></i>
                   </a>
@@ -601,6 +621,7 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                   <form method="post" action="../controllers/arcos_controller.php" class="d-inline">
                     <input type="hidden" name="action" value="restaurar">
                     <input type="hidden" name="id" value="<?= htmlspecialchars($baja['id'], ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="active_tab" value="tableViewBajas">
                     <button type="submit" class="btn btn-success"
                       onclick="return confirm('Seguro que deseas restaurar este arco?')" title="Restaurar arco">
                       <i class="bi bi-arrow-counterclockwise"></i>
@@ -617,7 +638,7 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
   <div id="pagination-Bajas" class="mt-2 d-flex justify-content-center"></div>
 </div>
 
-<div class="card table-responsive shadow-sm rounded arcos-table-view d-none" id="tableViewInfra">
+<div class="card table-responsive shadow-sm rounded arcos-table-view <?= $isInfra ? '' : 'd-none' ?>" id="tableViewInfra">
   <div class="interfaz card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div class="d-flex justify-content-between align-items-center mb-0">
       <button type="button" class="btn btn-primary shadow-sm" id="btnModalAgregarInfra"
@@ -646,6 +667,7 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
         <th class="sortable-header" data-sort-type="text">Tipo</th>
         <th>Ubicación</th>
         <th>Arcos vinculados</th>
+        <th>Enlaces conectados</th>
         <th>Componentes</th>
         <th>Acciones</th>
       </tr>
@@ -672,7 +694,40 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
             WHERE ai2.infraestructura_id = n.id
           ), '[]'::jsonb) AS arcos_vinculados_json,
           COUNT(DISTINCT ai.arco_id) AS arcos_count,
-          STRING_AGG(DISTINCT a.nombre, ', ' ORDER BY a.nombre) AS arcos_nombres,
+          COALESCE((
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', CASE WHEN ie.origen_id = n.id THEN nd.id ELSE no.id END,
+                'tipo', CASE WHEN ie.origen_id = n.id THEN nd.tipo ELSE no.tipo END,
+                'nombre', CASE WHEN ie.origen_id = n.id THEN nd.nombre ELSE no.nombre END,
+                'ubicacion', CASE WHEN ie.origen_id = n.id THEN ud.nombre ELSE uo.nombre END,
+                'tipo_enlace', ie.tipo
+              )
+              ORDER BY CASE WHEN ie.origen_id = n.id THEN nd.tipo ELSE no.tipo END ASC, CASE WHEN ie.origen_id = n.id THEN nd.nombre ELSE no.nombre END ASC
+            )
+            FROM infraestructura_enlaces ie
+            JOIN infraestructura_nodos no ON no.id = ie.origen_id
+            LEFT JOIN ubicaciones uo ON uo.id = no.ubicacion_id
+            JOIN infraestructura_nodos nd ON nd.id = ie.destino_id
+            LEFT JOIN ubicaciones ud ON ud.id = nd.ubicacion_id
+            WHERE ie.origen_id = n.id OR ie.destino_id = n.id
+          ), '[]'::jsonb) AS enlaces_vinculados_json,
+          COALESCE((
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', CASE WHEN eer.enlace_origen_id = ie_self.id THEN eer.enlace_destino_id ELSE eer.enlace_origen_id END,
+                'origen_nombre', ie_other_orig.nombre,
+                'destino_nombre', ie_other_dest.nombre,
+                'tipo_salto', eer.tipo
+              )
+            )
+            FROM infraestructura_enlaces ie_self
+            JOIN enlace_enlace_relaciones eer ON eer.enlace_origen_id = ie_self.id OR eer.enlace_destino_id = ie_self.id
+            JOIN infraestructura_enlaces ie_other ON ie_other.id = (CASE WHEN eer.enlace_origen_id = ie_self.id THEN eer.enlace_destino_id ELSE eer.enlace_origen_id END)
+            JOIN infraestructura_nodos ie_other_orig ON ie_other_orig.id = ie_other.origen_id
+            JOIN infraestructura_nodos ie_other_dest ON ie_other_dest.id = ie_other.destino_id
+            WHERE ie_self.origen_id = n.id OR ie_self.destino_id = n.id
+          ), '[]'::jsonb) AS saltos_enlaces_json,
           COUNT(DISTINCT im.id) AS materiales_count,
           bit.id AS bitacora_id
         FROM infraestructura_nodos n
@@ -692,13 +747,17 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
 
       if (count($infraListado) === 0): ?>
         <tr class="pagination-empty-row">
-          <td colspan="7" class="text-center text-muted py-4">
+          <td colspan="8" class="text-center text-muted py-4">
             <i class="bi bi-info-circle"></i> No hay puentes, postes o sitios registrados.
           </td>
         </tr>
       <?php else: ?>
         <?php foreach ($infraListado as $infra):
           $arcosVinculados = json_decode($infra['arcos_vinculados_json'] ?? '[]', true) ?: [];
+          $enlacesVinculados = json_decode($infra['enlaces_vinculados_json'] ?? '[]', true) ?: [];
+          $saltosEnlaces = json_decode($infra['saltos_enlaces_json'] ?? '[]', true) ?: [];
+          $enlacesCount = count($enlacesVinculados);
+          $saltosCount = count($saltosEnlaces);
           $infraMatsStmt = $pdo->prepare("
             SELECT im.id AS relacion_id, im.material_id, im.cantidad, im.serie, im.fecha_instalacion,
                    m.nombre AS material, m.medida, m.foto
@@ -724,14 +783,34 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
           <tr>
             <td class="fw-semibold"><?= htmlspecialchars($infra['id']) ?></td>
             <td><?= htmlspecialchars($infra['nombre']) ?></td>
-            <td><span class="badge bg-primary"><?= htmlspecialchars($infra['tipo']) ?></span></td>
+            <td>
+              <span class="badge <?= $infra['tipo'] === 'Sitio/Torre' ? 'bg-primary' : 'bg-secondary' ?>">
+                <?= htmlspecialchars($infra['tipo']) ?>
+              </span>
+            </td>
             <td><?= htmlspecialchars($infra['ubicacion'] ?? 'Sin ubicación') ?></td>
             <td>
               <button type="button" class="btn btn-sm btn-outline-primary verArcosVinculadosBtn"
                 data-nombre="<?= htmlspecialchars($infra['nombre'], ENT_QUOTES, 'UTF-8') ?>"
+                data-tipo="<?= htmlspecialchars($infra['tipo'], ENT_QUOTES, 'UTF-8') ?>"
                 data-arcos='<?= htmlspecialchars(json_encode($arcosVinculados, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
-                data-bs-toggle="modal" data-bs-target="#modalArcosVinculados">
-                <i class="bi bi-diagram-3"></i> <?= (int)$infra['arcos_count'] ?>
+                data-enlaces='<?= htmlspecialchars(json_encode($enlacesVinculados, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
+                data-saltos='<?= htmlspecialchars(json_encode($saltosEnlaces, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
+                data-bs-toggle="modal" data-bs-target="#modalArcosVinculados"
+                title="Ver arcos vinculados">
+                <i class="bi bi-diagram-3"></i> <?= (int)$infra['arcos_count'] ?> arco<?= (int)$infra['arcos_count'] === 1 ? '' : 's' ?>
+              </button>
+            </td>
+            <td>
+              <button type="button" class="btn btn-sm btn-outline-info verEnlacesVinculadosBtn"
+                data-nombre="<?= htmlspecialchars($infra['nombre'], ENT_QUOTES, 'UTF-8') ?>"
+                data-tipo="<?= htmlspecialchars($infra['tipo'], ENT_QUOTES, 'UTF-8') ?>"
+                data-arcos='<?= htmlspecialchars(json_encode($arcosVinculados, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
+                data-enlaces='<?= htmlspecialchars(json_encode($enlacesVinculados, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
+                data-saltos='<?= htmlspecialchars(json_encode($saltosEnlaces, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG), ENT_QUOTES, 'UTF-8') ?>'
+                data-bs-toggle="modal" data-bs-target="#modalArcosVinculados"
+                title="Ver enlaces y saltos de red">
+                <i class="bi bi-hdd-network"></i> <?= $enlacesCount ?> enlace<?= $enlacesCount === 1 ? '' : 's' ?><?= $saltosCount > 0 ? " + {$saltosCount} salto" . ($saltosCount === 1 ? '' : 's') : "" ?>
               </button>
             </td>
             <td>
@@ -774,7 +853,7 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                     <i class="bi bi-file-earmark-pdf"></i>
                   </button>
                 <?php endif; ?>
-                <a href="../controllers/arcos_controller.php?action=delete_infra&id=<?= htmlspecialchars($infra['id'], ENT_QUOTES, 'UTF-8') ?>"
+                <a href="../controllers/arcos_controller.php?action=delete_infra&id=<?= htmlspecialchars($infra['id'], ENT_QUOTES, 'UTF-8') ?>&tab=tableViewInfra"
                   class="btn btn-danger d-flex align-items-center justify-content-center"
                   onclick="return confirm('¿Seguro que deseas eliminar este puente/sitio y sus mantenimientos?')"
                   title="Eliminar puente/sitio">
@@ -791,11 +870,20 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
   <div id="pagination-Infra" class="mt-2 d-flex justify-content-center"></div>
 </div>
 
+<?php
+$infraNodosQuery = $pdo->query("SELECT n.id, n.tipo, n.nombre, n.ubicacion_id, u.nombre AS ubicacion_nombre FROM infraestructura_nodos n LEFT JOIN ubicaciones u ON u.id = n.ubicacion_id ORDER BY n.tipo ASC, n.nombre ASC")->fetchAll(PDO::FETCH_ASSOC);
+$infraNodosPorTipo = [];
+foreach ($infraNodosQuery as $inf) {
+  $tipo = $inf['tipo'] ?: 'General';
+  $infraNodosPorTipo[$tipo][] = $inf;
+}
+?>
+
 <!-- MODAL AGREGAR ARCO -->
 <div class="modal fade modalAgregarArco" id="modalAgregarArco" tabindex="-1" aria-hidden="true" data-bs-focus="false">
   <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content shadow-lg">
-      <div class="modal-header bg-success text-white">
+    <div class="modal-content shadow-lg border-0 rounded-4">
+      <div class="modal-header bg-primary text-white">
         <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Nuevo Arco / Sitio</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
@@ -806,9 +894,9 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
             <div id="modalFormulario" class="modal-arcos-form-panel">
               <input type="hidden" name="action" value="add">
 
-              <div class="form-check form-switch mb-3 p-2 bg-white rounded border shadow-sm">
-                <input class="form-check-input ms-0 me-2" type="checkbox" id="checkPuenteSitio" name="es_infraestructura" value="1">
-                <label class="form-check-label fw-bold text-dark" for="checkPuenteSitio">
+              <div class="form-check form-switch mb-3 p-2 bg-white rounded-3 border shadow-sm">
+                <input class="form-check-input ms-0 me-2 cursor-pointer" type="checkbox" id="checkPuenteSitio" name="es_infraestructura" value="1">
+                <label class="form-check-label fw-bold text-dark cursor-pointer" for="checkPuenteSitio">
                   Registrar como Puente / Sitio / Torre
                 </label>
               </div>
@@ -823,20 +911,32 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                 </div>
                 <div class="col-md-7 d-none" id="infraArcosGroup">
                   <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
-                    <label class="form-label fw-semibold mb-0">Arcos vinculados</label>
-                    <span class="badge bg-primary" id="infraArcosSeleccionados">0 seleccionados</span>
+                    <label class="form-label fw-semibold mb-0">
+                      <i class="bi bi-bounding-box-circles text-primary me-1"></i> Arcos vinculados
+                    </label>
+                    <div class="d-flex align-items-center gap-1">
+                      <span class="badge bg-primary" id="infraArcosSeleccionados">0 seleccionados</span>
+                      <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2" id="btnSelectAllInfraArcos" title="Seleccionar arcos visibles">Todos</button>
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-0 px-2" id="btnClearInfraArcos" title="Limpiar selección">Limpiar</button>
+                      </div>
+                    </div>
                   </div>
                   <div class="input-group input-group-sm mb-2">
-                    <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input type="search" class="form-control" id="buscarInfraArcos" placeholder="Buscar arco...">
+                    <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                    <input type="search" class="form-control" id="buscarInfraArcos" placeholder="Buscar arco en esta ubicación...">
                   </div>
                   <div id="infraArcosVinculados" class="infra-arcos-selector">
-                    <?php foreach ($pdo->query("SELECT id, nombre, ubicacion_id FROM arcos WHERE COALESCE(estado, 'Activo') <> 'Baja' ORDER BY nombre") as $arcoOption): ?>
+                    <?php foreach ($pdo->query("SELECT a.id, a.nombre, a.ubicacion_id, u.nombre AS ubicacion_nombre FROM arcos a LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id WHERE COALESCE(a.estado, 'Activo') <> 'Baja' ORDER BY a.nombre ASC") as $arcoOption): ?>
                       <label class="infra-arco-option" data-ubicacion-id="<?= htmlspecialchars($arcoOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="checkbox" class="form-check-input infra-arco-check"
+                        <input type="checkbox" class="form-check-input infra-arco-check me-2"
                           name="infra_arcos_vinculados[]"
                           value="<?= htmlspecialchars($arcoOption['id'], ENT_QUOTES, 'UTF-8') ?>">
-                        <span><?= htmlspecialchars($arcoOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
+                        <div class="flex-grow-1 text-truncate">
+                          <span class="infra-arco-title d-block text-truncate"><?= htmlspecialchars($arcoOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
+                          <small class="infra-arco-sub text-muted"><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($arcoOption['ubicacion_nombre'] ?? 'Sin ubicación', ENT_QUOTES, 'UTF-8') ?></small>
+                        </div>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill py-0 px-1 small">Arco</span>
                       </label>
                     <?php endforeach; ?>
                     <div class="infra-arcos-empty" id="infraArcosEmpty">
@@ -882,10 +982,34 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
 
                 <div class="col-2 d-grid">
                   <label class="form-label">&nbsp;</label>
-                  <button type="button" class="btn btn-outline-success abrirMapa" id="btnAbrirMapa" data-lat="latInput"
+                  <button type="button" class="btn btn-outline-primary abrirMapa" id="btnAbrirMapa" data-lat="latInput"
                     data-lng="lngInput" title="Seleccionar en mapa">
                     <i class="bi bi-map"></i>
                   </button>
+                </div>
+
+                <div class="col-12 border-top pt-2 mt-2" id="grupoInfraVinculadaArcoNuevo">
+                  <label class="form-label fw-semibold small mb-1">
+                    <i class="bi bi-broadcast-pin text-primary"></i> Puente / Sitio de Enlace Vinculado
+                  </label>
+                  <select name="infra_vinculados[]" id="agregar_infra_vinculada" class="form-select form-select-sm">
+                    <option value="">(Ninguno / Conexión directa)</option>
+                    <?php foreach ($infraNodosPorTipo as $tipo => $nodos): ?>
+                      <optgroup label="<?= htmlspecialchars($tipo === 'Puente/Poste' ? 'Puentes / Postes' : ($tipo === 'Sitio' ? 'Sitios' : ($tipo === 'Torre' ? 'Torres' : $tipo))) ?>">
+                        <?php foreach ($nodos as $inf): ?>
+                          <option value="<?= htmlspecialchars($inf['id'], ENT_QUOTES, 'UTF-8') ?>"
+                                  data-ubicacion-id="<?= htmlspecialchars($inf['ubicacion_id'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                  data-ubicacion-nombre="<?= htmlspecialchars($inf['ubicacion_nombre'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                  data-tipo="<?= htmlspecialchars($inf['tipo'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                  data-lat="<?= htmlspecialchars($inf['lat'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                  data-lng="<?= htmlspecialchars($inf['lng'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                            <?= htmlspecialchars($inf['nombre'], ENT_QUOTES, 'UTF-8') ?><?= !empty($inf['ubicacion_nombre']) ? ' — ' . htmlspecialchars($inf['ubicacion_nombre'], ENT_QUOTES, 'UTF-8') : '' ?>
+                          </option>
+                        <?php endforeach; ?>
+                      </optgroup>
+                    <?php endforeach; ?>
+                  </select>
+                  <div class="form-text small">Selecciona el puente o sitio al que se enlaza este arco.</div>
                 </div>
               </div>
             </div>
@@ -894,18 +1018,24 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
             <div class="modal-arcos-materials-panel">
               <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2 border-bottom pb-2">
                 <div class="d-flex align-items-center gap-2">
-                  <div class="bg-success text-white rounded-circle d-flex justify-content-center align-items-center"
+                  <div class="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center"
                     style="width:32px; height:32px;">
                     <i class="bi bi-tools"></i>
                   </div>
-                  <h6 class="mb-0 fw-bold text-success">Componentes / Materiales</h6>
+                  <h6 class="mb-0 fw-bold text-primary">Componentes / Materiales</h6>
                 </div>
 
-                <button type="button" class="btn btn-success btn-sm d-flex align-items-center gap-1 px-3 py-1 shadow-sm"
-                     id="btnAgregarMaterial">
-                  <i class="bi bi-plus-lg"></i>
-                  <span>Agregar material</span>
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                  <button type="button" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 px-2 py-1 btn-toggle-all-data" title="Mostrar u ocultar detalles de todos los materiales">
+                    <i class="bi bi-eye"></i>
+                    <span class="btn-toggle-all-text">Ver datos</span>
+                  </button>
+                  <button type="button" class="btn btn-primary btn-sm d-flex align-items-center gap-1 px-3 py-1 shadow-sm"
+                       id="btnAgregarMaterial">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Agregar material</span>
+                  </button>
+                </div>
               </div>
 
               <div id="materialesContainer" class="materiales-container-added">
@@ -920,9 +1050,9 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
           </div>
         </div>
 
-        <div class="modal-footer bg-light py-2">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-success px-4"><i class="bi bi-save me-1"></i> Guardar</button>
+        <div class="modal-footer bg-light px-4 py-3 d-flex justify-content-end align-items-center gap-2">
+          <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-1"></i> Guardar</button>
         </div>
       </form>
     </div>
@@ -948,173 +1078,147 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
   <?php endforeach; ?>
 </datalist>
 
-<!-- MODAL AGREGAR MATERIAL -->
-<!-- ===================== MODAL AGREGAR MATERIAL ===================== -->
-<div id="modalAgregarMaterial" class="modal fade" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content border-0 shadow-lg">
+<!-- ===================== MODAL AGREGAR / EDITAR MATERIAL ===================== -->
+<div id="modalAgregarMaterial" class="modal fade modal-theme-primary" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xxl modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
       <!-- HEADER -->
-      <div class="modal-header bg-success text-white">
-        <h5 class="modal-title fw-bold">
+      <div class="modal-header bg-primary text-white py-2 px-3">
+        <h5 class="modal-title fw-bold fs-6">
           <i class="bi bi-box-seam me-2"></i>
           Agregar Material al Arco
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
-        </button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <!-- BODY -->
-      <div class="modal-body bg-light">
-        <div class="row g-4">
-          <!-- IZQUIERDA -->
-          <div id="materialesColumna" class="col-12">
-            <!-- ================= IZQUIERDA ================= -->
-            <!-- BUSCADOR -->
-            <div class="mb-4">
-              <label class="form-label fw-bold text-secondary">
-                <i class="bi bi-search me-1"></i>
-                Buscar material
+      <div class="modal-body p-0 bg-light">
+        <div class="modal-material-layout">
+          <!-- PANEL IZQUIERDO: CATÁLOGO DE MATERIALES -->
+          <div class="modal-material-list-panel p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label fw-bold small text-secondary mb-0">
+                <i class="bi bi-grid-fill me-1 text-primary"></i> Catálogo de Materiales
               </label>
-              <input type="search" id="buscarMaterial" class="form-control form-control-lg shadow-sm"
-                placeholder="Escriba el nombre del material...">
+              <small class="text-muted" style="font-size: 0.75rem;">Haz clic para seleccionar</small>
             </div>
-            <!-- GRID DE MATERIALES -->
-            <div class="row g-3" id="materialesGrid" style="max-height: 60vh; overflow-y: auto;">
+            <div class="input-group input-group-sm mb-2 shadow-sm">
+              <span class="input-group-text bg-white text-secondary border-end-0"><i class="bi bi-search"></i></span>
+              <input type="search" id="buscarMaterial" class="form-control border-start-0" placeholder="Buscar material por nombre...">
+            </div>
+            <div id="materialesGrid" class="modal-material-grid">
               <?php foreach ($pdo->query('SELECT * FROM materiales ORDER BY nombre') as $m): ?>
-                <div class="col-md-6 col-xl-3 material-item" data-id="<?= htmlspecialchars($m['id'], ENT_QUOTES, 'UTF-8') ?>"
-                  data-nombre="<?= htmlspecialchars(strtolower($m['nombre']), ENT_QUOTES, 'UTF-8') ?>" data-medida="<?= htmlspecialchars($m['medida'], ENT_QUOTES, 'UTF-8') ?>"
+                <div class="modal-material-option material-item cursor-pointer"
+                  data-id="<?= htmlspecialchars($m['id'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-nombre="<?= htmlspecialchars(strtolower($m['nombre']), ENT_QUOTES, 'UTF-8') ?>"
+                  data-medida="<?= htmlspecialchars($m['medida'], ENT_QUOTES, 'UTF-8') ?>"
                   data-label="<?= htmlspecialchars($m['nombre'], ENT_QUOTES, 'UTF-8') ?>"
                   data-foto="<?= htmlspecialchars($m['foto'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-                  <div class="card material-card border-0 shadow-sm h-100 cursor-pointer">
-                    <div class="card-body text-center p-4">
-                      <!-- ICONO -->
-                      <div class="mb-3">
-                        <div
-                          class="rounded-circle bg-primary bg-opacity-10 d-inline-flex align-items-center justify-content-center"
-                          style="width:70px;height:70px;">
-                          <?php if ($m['foto']): ?>
-                            <img src="../uploads/materiales/<?= htmlspecialchars($m['foto']) ?>"
-                              alt="<?= htmlspecialchars($m['nombre']) ?>" class="img-fluid"
-                              style="max-width: 40px; max-height: 40px;">
-                          <?php else: ?>
-                            <i class="bi bi-box-seam text-primary" style="font-size: 24px;"></i>
-                          <?php endif; ?>
-                        </div>
-                      </div>
-                      <!-- NOMBRE -->
-                      <h6 class="fw-bold mb-1">
-                        <?= htmlspecialchars($m['nombre']) ?>
-                      </h6>
-                      <!-- MEDIDA -->
-                      <small class="text-muted">
-                        <?php if ($m['medida'] == 'pz'): ?>
-                          Por pieza
-                        <?php else: ?>
-                          Medida: <?= htmlspecialchars($m['medida']) ?>
-                        <?php endif; ?>
-                      </small>
+                  <?php if (!empty($m['foto'])): ?>
+                    <img src="../uploads/materiales/<?= htmlspecialchars($m['foto']) ?>" alt="<?= htmlspecialchars($m['nombre']) ?>">
+                  <?php else: ?>
+                    <div class="d-flex align-items-center justify-content-center bg-light rounded" style="width: 50px; height: 50px;">
+                      <i class="bi bi-box-seam text-primary fs-4"></i>
                     </div>
-                  </div>
+                  <?php endif; ?>
+                  <span title="<?= htmlspecialchars($m['nombre']) ?>"><?= htmlspecialchars($m['nombre']) ?></span>
+                  <small>
+                    <?= $m['medida'] === 'pz' ? 'Por pieza' : 'Medida: ' . htmlspecialchars($m['medida']) ?>
+                  </small>
                 </div>
               <?php endforeach; ?>
             </div>
           </div>
 
-          <!-- ================= DERECHA ================= -->
-          <div id="configuracionColumna" class="col-lg-4 d-none">
-            <div id="camposDinamicos" class="card border-0 shadow-sm d-none" style="top:10px;">
-              <div class="card-body">
-                <!-- TITULO -->
-                <div class="text-center mb-4">
-                  <div
-                    class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                    style="width:70px;height:70px;">
-                    <i class="bi bi-sliders text-success fs-3"></i>
+          <!-- PANEL DERECHO: CONFIGURACIÓN DINÁMICA -->
+          <aside class="modal-material-config-panel p-3">
+            <div class="text-center mb-3">
+              <div class="modal-material-config-icon bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-2"
+                style="width:54px; height:54px;">
+                <i class="bi bi-sliders fs-4"></i>
+              </div>
+              <h6 class="fw-bold text-primary mb-0 modal-material-config-title" style="font-size: 0.96rem;">Configuración</h6>
+              <small class="text-muted" style="font-size: 0.75rem;">Complete los datos del material</small>
+            </div>
+
+            <div id="materialSeleccionado" class="alert alert-primary py-2 px-3 text-center fw-semibold mb-3">
+              Selecciona un material del catálogo
+            </div>
+
+            <div class="modal-material-fields">
+              <div id="camposDinamicos">
+                <!-- SERIE -->
+                <div id="serieConfigGroup" class="config-field-group mb-2 p-2 border rounded-3 bg-white shadow-xs">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-check-label small fw-semibold text-secondary mb-0 cursor-pointer" for="checkSerie">
+                      <i class="bi bi-upc-scan me-1 text-primary"></i> Número de Serie
+                    </label>
+                    <div class="form-check form-switch m-0">
+                      <input class="form-check-input cursor-pointer" type="checkbox" id="checkSerie">
+                    </div>
                   </div>
-                  <h5 class="fw-bold text-success mb-1">
-                    Configuración
-                  </h5>
-                  <small class="text-muted">
-                    Complete los datos del material
-                  </small>
-                </div>
-                <!-- MATERIAL SELECCIONADO -->
-                <div class="alert alert-success py-2 text-center fw-semibold" id="materialSeleccionado">
-                  Ningún material seleccionado
-                </div>
-                <!-- ================= CONFIGURACIÓN SERIE ================= -->
-                <div class="form-check form-switch mb-3">
-                  <input class="form-check-input" type="checkbox" id="checkSerie">
-                  <label class="form-check-label fw-semibold" for="checkSerie">
-                    Este material tiene número de serie
-                  </label>
-                </div>
-
-                <div id="serieContainer" class="d-none mb-3">
-                  <label class="form-label fw-bold text-secondary">
-                    <i class="bi bi-upc-scan me-1"></i> Número de Serie
-                  </label>
-                  <input type="text" id="serieInput" class="form-control"
-                    placeholder="Ej. SN-84920492">
-                </div>
-
-
-
-                <!-- ================= 1. NÚMERO DE SERIE (OPCIONAL) ================= -->
-
-                <!-- ================= 2. DIRECCIÓN IP (OPCIONAL) ================= -->
-                <div class="form-check form-switch mb-2">
-                  <input class="form-check-input" type="checkbox" id="checkIp">
-                  <label class="form-check-label fw-semibold" for="checkIp">
-                    Tiene dirección IP asignada
-                  </label>
-                </div>
-                <div id="ipContainer" class="d-none mb-3">
-                  <div class="input-group">
-                    <span class="input-group-text bg-light text-primary"><i class="bi bi-hdd-network"></i></span>
-                    <input type="text" id="ipInput" class="form-control" placeholder="Ej. 192.168.1.50">
+                  <div id="serieContainer" class="d-none mt-2">
+                    <input type="text" id="serieInput" class="form-control form-control-sm" placeholder="Ej. SN-84920492">
                   </div>
                 </div>
 
-                <!-- ================= 3. DIRECCIÓN MAC (OPCIONAL) ================= -->
-                <div class="form-check form-switch mb-2">
-                  <input class="form-check-input" type="checkbox" id="checkMac">
-                  <label class="form-check-label fw-semibold" for="checkMac">
-                    Tiene dirección MAC
-                  </label>
+                <!-- IP -->
+                <div id="ipConfigGroup" class="config-field-group mb-2 p-2 border rounded-3 bg-white shadow-xs">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-check-label small fw-semibold text-secondary mb-0 cursor-pointer" for="checkIp">
+                      <i class="bi bi-hdd-network me-1 text-primary"></i> Dirección IP
+                    </label>
+                    <div class="form-check form-switch m-0">
+                      <input class="form-check-input cursor-pointer" type="checkbox" id="checkIp">
+                    </div>
+                  </div>
+                  <div id="ipContainer" class="d-none mt-2">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-light text-primary"><i class="bi bi-hdd-network"></i></span>
+                      <input type="text" id="ipInput" class="form-control form-control-sm" placeholder="Ej. 192.168.1.50">
+                    </div>
+                  </div>
                 </div>
-                <div id="macContainer" class="d-none mb-3">
-                  <div class="input-group">
-                    <span class="input-group-text bg-light text-success"><i class="bi bi-ethernet"></i></span>
-                    <input type="text" id="macInput" class="form-control text-uppercase" placeholder="Ej. AA:BB:CC:DD:EE:FF" maxlength="17">
+
+                <!-- MAC -->
+                <div id="macConfigGroup" class="config-field-group mb-2 p-2 border rounded-3 bg-white shadow-xs">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-check-label small fw-semibold text-secondary mb-0 cursor-pointer" for="checkMac">
+                      <i class="bi bi-ethernet me-1 text-primary"></i> Dirección MAC
+                    </label>
+                    <div class="form-check form-switch m-0">
+                      <input class="form-check-input cursor-pointer" type="checkbox" id="checkMac">
+                    </div>
+                  </div>
+                  <div id="macContainer" class="d-none mt-2">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-light text-primary"><i class="bi bi-ethernet"></i></span>
+                      <input type="text" id="macInput" class="form-control form-control-sm text-uppercase" placeholder="Ej. AA:BB:CC:DD:EE:FF" maxlength="17">
+                    </div>
                   </div>
                 </div>
 
                 <!-- CANTIDAD -->
-                <div id="cantidadContainer" class="d-none mb-4">
-                  <label class="form-label fw-bold text-secondary">
-                    <i class="bi bi-rulers me-1"></i>
-                    Cantidad utilizada
+                <div id="cantidadContainer" class="config-field-group mb-2 p-2 border rounded-3 bg-white shadow-xs d-none">
+                  <label class="form-label small fw-semibold text-secondary mb-1">
+                    <i class="bi bi-rulers me-1 text-primary"></i> Cantidad utilizada
                   </label>
-                  <div class="input-group input-group-lg">
-                    <input type="number" id="cantidadInput" class="form-control" min="0.1" step="0.1"
-                      placeholder="Ingrese cantidad">
-                    <span class="input-group-text" id="unidadMedida">
-                    </span>
+                  <div class="input-group input-group-sm">
+                    <input type="number" id="cantidadInput" class="form-control form-control-sm" min="0.1" step="0.1" placeholder="Ingrese cantidad">
+                    <span class="input-group-text bg-light" id="unidadMedida">m</span>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
       <!-- FOOTER -->
-      <div class="modal-footer bg-white">
-        <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">
+      <div class="modal-footer bg-white border-top py-2 px-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">
           Cancelar
         </button>
-        <button type="button" id="guardarMaterialModal" class="btn btn-success px-5 shadow">
-          <i class="bi bi-check-circle me-2"></i>
-          Agregar Material
+        <button type="button" id="guardarMaterialModal" class="btn btn-primary btn-sm px-4 fw-semibold shadow-sm">
+          <i class="bi bi-check-circle me-1"></i> Agregar Material
         </button>
       </div>
     </div>
@@ -1173,6 +1277,7 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
       <form method="post" action="../controllers/arcos_controller.php" id="formBajaArco" enctype="multipart/form-data">
         <input type="hidden" name="action" value="baja">
         <input type="hidden" name="id" id="baja_arco_id">
+        <input type="hidden" name="active_tab" value="tableViewBajas">
 
         <div class="modal-body">
           <div class="alert alert-warning mb-3">
@@ -1270,30 +1375,58 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-dark d-none" id="btnConfirmarBajaArco"
-            onclick="return confirm('Seguro que deseas dar de baja este arco?')">
-            <i class="bi bi-check-circle"></i> Confirmar baja
-          </button>
+        <div class="modal-footer bg-light">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger"
+            onclick="return confirm('Confirma dar de baja este arco? Quedara archivado en el historico.')">
+            <i class="bi bi-archive-fill"></i> Confirmar baja
+          </button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="modalBajaEvidencias" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+<div class="modal fade" id="modalBajaDetalle" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content shadow-lg">
-      <div class="modal-header bg-primary text-white">
+      <div class="modal-header bg-dark text-white">
         <h5 class="modal-title">
-          <i class="bi bi-camera"></i> Evidencias de baja
-          <small class="ms-2 opacity-75" id="bajaEvidenciasArco"></small>
+          <i class="bi bi-info-circle"></i> Detalle de baja
+          <small class="ms-2 opacity-75" id="bajaDetalleArco"></small>
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div id="bajaEvidenciasGuardadas" class="detalle-evidencias-grid"></div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <div class="border rounded p-2 bg-light">
+              <small class="text-muted d-block">Fecha de baja</small>
+              <strong id="bajaDetalleFecha">--</strong>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="border rounded p-2 bg-light">
+              <small class="text-muted d-block">Tecnico responsable</small>
+              <strong id="bajaDetalleTecnico">--</strong>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="border rounded p-2 bg-light">
+              <small class="text-muted d-block">Motivo</small>
+              <strong id="bajaDetalleMotivo">--</strong>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="border rounded p-2 bg-light">
+              <small class="text-muted d-block">Observaciones</small>
+              <div id="bajaDetalleObservaciones" class="text-muted">Sin observaciones</div>
+            </div>
+          </div>
+        </div>
+
+        <h6 class="fw-bold mb-2"><i class="bi bi-camera"></i> Evidencias guardadas</h6>
+        <div id="bajaDetalleEvidencias" class="detalle-evidencias-grid"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -1302,102 +1435,367 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
   </div>
 </div>
 
-<div class="modal fade" id="modalBajaEvidenciaVisor" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content bg-dark">
-      <div class="modal-header border-0">
-        <h5 class="modal-title text-white" id="bajaEvidenciaVisorTitulo">Evidencia</h5>
+<div class="modal fade" id="modalFormatosArco" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-folder2-open"></i> Formatos del Arco
+          <small class="ms-2 opacity-75" id="formatosArcoNombre"></small>
+        </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body p-2 text-center" id="bajaEvidenciaVisorBody"></div>
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Tipo de formato</label>
+            <select id="filtroFormatosTipo" class="form-select form-select-sm">
+              <option value="">Todos los tipos</option>
+              <option value="1">Check List de Diagnostico Inicial</option>
+              <option value="2">Formato de Pruebas de Calidad</option>
+              <option value="3">Formato de Herramientas</option>
+              <option value="4">Check List de Diagnostico de Mantenimiento</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Buscar en observaciones / tecnico</label>
+            <input type="search" id="filtroFormatosTexto" class="form-control form-control-sm" placeholder="Buscar texto...">
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <button type="button" id="btnRecargarFormatosArco" class="btn btn-sm btn-outline-success w-100">
+              <i class="bi bi-arrow-clockwise"></i> Actualizar lista
+            </button>
+          </div>
+        </div>
+
+        <div id="formatosArcoLista" class="formatos-arco-grid">
+          <div class="text-center text-muted py-4">Seleccione un arco para cargar formatos.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ===================== MODAL EDITAR PUENTE / SITIO ===================== -->
-<div class="modal fade modalEditarInfraestructura" id="modalEditarInfraestructura" tabindex="-1" aria-hidden="true" data-bs-focus="false">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
+<div class="modal fade" id="modalEditarFormatoServicio" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content shadow-lg">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title fw-bold"><i class="bi bi-broadcast-pin me-2"></i> Editar Puente / Sitio / Torre</h5>
+        <h5 class="modal-title">
+          <i class="bi bi-pencil-square"></i> Editar Formato de Servicio
+          <small class="ms-2 opacity-75" id="editarFormatoServicioSubtitulo"></small>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formEditarFormatoServicio" method="post" action="../controllers/formatos_controller.php" class="d-flex flex-column h-100 mb-0">
+        <input type="hidden" name="action" value="update_formato">
+        <input type="hidden" name="id" id="editarFormatoId">
+        <input type="hidden" name="tipo" id="editarFormatoTipo">
+        <div class="modal-body p-3" id="editarFormatoServicioBody">
+          <div class="text-center text-muted py-5">
+            <div class="spinner-border text-primary mb-2" role="status"></div>
+            <div>Cargando formato...</div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light py-2">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-1"></i> Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL EDITAR PUENTE / SITIO / TORRE ===================== -->
+<div class="modal fade modalEditarInfraestructura" id="modalEditarInfraestructura" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+  <div class="modal-dialog modal-xxl modal-dialog-centered modal-infra-custom">
+    <div class="modal-content shadow-lg border-0 rounded-4">
+      <div class="modal-header bg-primary text-white d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <h5 class="modal-title fw-bold mb-0">
+            <i class="bi bi-broadcast-pin me-2"></i> Editar Puente / Sitio / Torre
+          </h5>
+          <span class="badge bg-light text-primary fw-semibold" id="editarInfraBadgeTipo">Sitio/Torre</span>
+        </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
       <form method="post" action="../controllers/arcos_controller.php" id="formEditarInfraestructura" class="d-flex flex-column h-100 mb-0">
         <input type="hidden" name="action" value="update_infra">
         <input type="hidden" name="id" id="editarInfraId">
+        <input type="hidden" name="active_tab" value="tableViewInfra">
 
         <div class="modal-body p-0">
           <div class="modal-arcos-grid">
+            <!-- PANEL IZQUIERDO: CONFIGURACIÓN Y ENLACES -->
             <div class="modal-arcos-form-panel">
-              <div class="row g-2 mb-3">
-                <div class="col-md-6">
-                  <label class="form-label fw-semibold">Nombre</label>
-                  <input type="text" name="nombre" id="editarInfraNombre" class="form-control" required>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label fw-semibold">Tipo</label>
-                  <select name="tipo" id="editarInfraTipo" class="form-select" required>
-                    <option value="Puente/Poste">Puente/Poste</option>
-                    <option value="Sitio/Torre">Sitio/Torre</option>
-                  </select>
-                </div>
-                <div class="col-12">
-                  <label class="form-label fw-semibold">Ubicación</label>
-                  <select name="ubicacion_id" id="editarInfraUbicacion" class="form-select" required>
-                    <option value="">Seleccione...</option>
-                    <?php foreach ($pdo->query('SELECT * FROM ubicaciones ORDER BY nombre') as $u): ?>
-                      <option value="<?= htmlspecialchars($u['id'], ENT_QUOTES, 'UTF-8') ?>">
-                        <?= htmlspecialchars($u['nombre'], ENT_QUOTES, 'UTF-8') ?>
-                      </option>
-                    <?php endforeach; ?>
-                  </select>
+              <!-- DATOS PRINCIPALES -->
+              <div class="card border-0 bg-white shadow-sm p-3 mb-3 rounded-3">
+                <h6 class="fw-bold text-primary mb-2 d-flex align-items-center gap-2">
+                  <i class="bi bi-info-circle"></i> Datos del Nodo
+                </h6>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold small mb-1">Nombre</label>
+                    <input type="text" name="nombre" id="editarInfraNombre" class="form-control form-control-sm" required placeholder="Nombre del sitio/puente">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold small mb-1">Tipo de Infraestructura</label>
+                    <select name="tipo" id="editarInfraTipo" class="form-select form-select-sm" required>
+                      <option value="Sitio/Torre">Sitio/Torre</option>
+                      <option value="Puente/Poste">Puente/Poste</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold small mb-1">Ubicación / Municipio</label>
+                    <select name="ubicacion_id" id="editarInfraUbicacion" class="form-select form-select-sm" required>
+                      <option value="">Seleccione ubicación...</option>
+                      <?php foreach ($pdo->query('SELECT * FROM ubicaciones ORDER BY nombre') as $u): ?>
+                        <option value="<?= htmlspecialchars($u['id'], ENT_QUOTES, 'UTF-8') ?>"
+                          data-lat="<?= htmlspecialchars($u['lat'] ?? '') ?>"
+                          data-lng="<?= htmlspecialchars($u['lng'] ?? '') ?>">
+                          <?= htmlspecialchars($u['nombre'], ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                  </div>
+                  <div class="col-5">
+                    <label class="form-label fw-semibold small mb-1">Latitud</label>
+                    <input type="text" name="lat" id="editarInfraLat" class="form-control form-control-sm" placeholder="17.1234">
+                  </div>
+                  <div class="col-5">
+                    <label class="form-label fw-semibold small mb-1">Longitud</label>
+                    <input type="text" name="lng" id="editarInfraLng" class="form-control form-control-sm" placeholder="-99.1234">
+                  </div>
+                  <div class="col-2 d-grid">
+                    <label class="form-label small mb-1">&nbsp;</label>
+                    <button type="button" class="btn btn-outline-primary btn-sm abrirMapa" id="btnAbrirMapaEditarInfra"
+                      data-lat="editarInfraLat" data-lng="editarInfraLng" title="Seleccionar coordenadas en mapa">
+                      <i class="bi bi-map"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div class="row g-2 mb-3">
-                <div class="col-md-6">
-                  <label class="form-label fw-semibold">Latitud</label>
-                  <input type="text" name="lat" id="editarInfraLat" class="form-control">
+              <!-- GESTIÓN INTEGRAL DE ENLACES Y VÍNCULOS -->
+              <div class="card border-0 bg-white shadow-sm p-3 rounded-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <h6 class="fw-bold text-primary mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-diagram-3-fill"></i> Enlaces y Vínculos de Red
+                  </h6>
+                  <span class="badge bg-secondary" id="editarInfraTotalEnlacesBadge">0 vínculos</span>
                 </div>
-                <div class="col-md-6">
-                  <label class="form-label fw-semibold">Longitud</label>
-                  <input type="text" name="lng" id="editarInfraLng" class="form-control">
-                </div>
-              </div>
 
-              <div class="border-top pt-2">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <label class="form-label fw-semibold mb-0">Arcos vinculados</label>
-                  <span class="badge bg-primary" id="editarInfraArcosCount">0 seleccionados</span>
-                </div>
-                <input type="search" class="form-control form-control-sm mb-2" id="buscarEditarInfraArcos" placeholder="Buscar arco...">
-                <div id="editarInfraArcosLista" class="infra-arcos-selector">
-                  <?php foreach ($pdo->query("SELECT id, nombre, ubicacion_id FROM arcos WHERE COALESCE(estado, 'Activo') <> 'Baja' ORDER BY nombre") as $arcoOption): ?>
-                    <label class="infra-arco-option" data-ubicacion-id="<?= htmlspecialchars($arcoOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>">
-                      <input type="checkbox" class="form-check-input editar-infra-arco-check"
-                        name="arcos_vinculados[]"
-                        value="<?= htmlspecialchars($arcoOption['id'], ENT_QUOTES, 'UTF-8') ?>">
-                      <span><?= htmlspecialchars($arcoOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
-                    </label>
-                  <?php endforeach; ?>
-                  <div class="infra-arcos-empty d-none" id="editarInfraArcosEmpty">No hay arcos para esta ubicación.</div>
+                <!-- PESTAÑAS DE VINCULACIÓN -->
+                <ul class="nav nav-pills nav-fill mb-2 infra-links-tabs" id="editarInfraEnlacesTabs" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link active py-1 px-2 small fw-semibold" id="tab-arcos-btn" data-bs-toggle="tab" data-bs-target="#tab-editar-infra-arcos" type="button" role="tab">
+                      <i class="bi bi-bounding-box-circles me-1"></i> Arcos <span class="badge bg-primary ms-1" id="badgeCountArcos">0</span>
+                    </button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link py-1 px-2 small fw-semibold" id="tab-sitios-btn" data-bs-toggle="tab" data-bs-target="#tab-editar-infra-sitios" type="button" role="tab">
+                      <i class="bi bi-broadcast me-1"></i> Sitios/Torres <span class="badge bg-primary ms-1" id="badgeCountSitios">0</span>
+                    </button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link py-1 px-2 small fw-semibold" id="tab-postes-btn" data-bs-toggle="tab" data-bs-target="#tab-editar-infra-postes" type="button" role="tab">
+                      <i class="bi bi-signpost-2 me-1"></i> Postes/Puentes <span class="badge bg-primary ms-1" id="badgeCountPostes">0</span>
+                    </button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link py-1 px-2 small fw-semibold" id="tab-enlaces-con-enlaces-btn" data-bs-toggle="tab" data-bs-target="#tab-editar-infra-enlaces-enlaces" type="button" role="tab">
+                      <i class="bi bi-link-45deg me-1"></i> Enlace con Enlace <span class="badge bg-primary ms-1" id="badgeCountEnlacesEnlaces">0</span>
+                    </button>
+                  </li>
+                </ul>
+
+                <div class="tab-content" id="editarInfraEnlacesTabContent">
+                  <!-- SUB-TAB 1: ARCOS VINCULADOS -->
+                  <div class="tab-pane fade show active" id="tab-editar-infra-arcos" role="tabpanel">
+                    <div class="input-group input-group-sm mb-2">
+                      <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                      <input type="search" class="form-control" id="buscarEditarInfraArcos" placeholder="Buscar arco en esta ubicación...">
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="small text-muted fw-semibold" id="editarInfraArcosCount">0 seleccionados</span>
+                      <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2" id="btnSelectAllEditarInfraArcos" title="Seleccionar arcos visibles">Todos visibles</button>
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-0 px-2" id="btnClearEditarInfraArcos" title="Limpiar selección">Limpiar</button>
+                      </div>
+                    </div>
+
+                    <!-- BANDEJA DE CHIPS DE ARCOS SELECCIONADOS -->
+                    <div id="chipsEditarInfraArcos" class="infra-selected-chips mb-2 d-none"></div>
+
+                    <!-- LISTADO DE ARCOS DISPONIBLES -->
+                    <div id="editarInfraArcosLista" class="infra-node-cards-grid">
+                      <?php foreach ($pdo->query("SELECT a.id, a.nombre, a.ubicacion_id, u.nombre AS ubicacion_nombre, COALESCE(a.estado, 'Activo') AS estado FROM arcos a LEFT JOIN ubicaciones u ON u.id = a.ubicacion_id WHERE COALESCE(a.estado, 'Activo') <> 'Baja' ORDER BY a.nombre ASC") as $arcoOption): ?>
+                        <div class="infra-node-card arco-node-item"
+                             data-id="<?= htmlspecialchars($arcoOption['id'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-nombre="<?= htmlspecialchars($arcoOption['nombre'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-ubicacion-id="<?= htmlspecialchars($arcoOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-ubicacion-nombre="<?= htmlspecialchars($arcoOption['ubicacion_nombre'] ?? 'Sin ubicación', ENT_QUOTES, 'UTF-8') ?>">
+                          <input type="checkbox" class="form-check-input editar-infra-arco-check me-2"
+                            name="arcos_vinculados[]"
+                            value="<?= htmlspecialchars($arcoOption['id'], ENT_QUOTES, 'UTF-8') ?>">
+                          <div class="flex-grow-1 text-truncate">
+                            <span class="node-title d-block text-truncate"><?= htmlspecialchars($arcoOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
+                            <small class="node-subtitle text-muted"><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($arcoOption['ubicacion_nombre'] ?? 'Sin ubicación', ENT_QUOTES, 'UTF-8') ?></small>
+                          </div>
+                          <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill py-0 px-1 small">Arco</span>
+                        </div>
+                      <?php endforeach; ?>
+                      <div class="infra-arcos-empty d-none" id="editarInfraArcosEmpty">No se encontraron arcos con ese filtro.</div>
+                    </div>
+                  </div>
+
+                  <!-- SUB-TAB 2: SITIOS / TORRES VINCULADOS (SITIO A SITIO) -->
+                  <div class="tab-pane fade" id="tab-editar-infra-sitios" role="tabpanel">
+                    <div class="input-group input-group-sm mb-2">
+                      <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                      <input type="search" class="form-control" id="buscarEditarInfraSitios" placeholder="Buscar sitio/torre...">
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="small text-muted fw-semibold" id="editarInfraSitiosCount">0 seleccionados</span>
+                      <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-0 px-2" id="btnClearEditarInfraSitios">Limpiar</button>
+                      </div>
+                    </div>
+
+                    <div id="chipsEditarInfraSitios" class="infra-selected-chips mb-2 d-none"></div>
+
+                    <div id="editarInfraSitiosLista" class="infra-node-cards-grid">
+                      <?php foreach ($pdo->query("SELECT n.id, n.nombre, n.ubicacion_id, u.nombre AS ubicacion_nombre FROM infraestructura_nodos n LEFT JOIN ubicaciones u ON u.id = n.ubicacion_id WHERE n.tipo = 'Sitio/Torre' ORDER BY n.nombre ASC") as $sitioOption): ?>
+                        <div class="infra-node-card sitio-node-item"
+                             data-id="<?= htmlspecialchars($sitioOption['id'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-nombre="<?= htmlspecialchars($sitioOption['nombre'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-ubicacion-id="<?= htmlspecialchars($sitioOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>">
+                          <input type="checkbox" class="form-check-input editar-infra-sitio-check me-2"
+                            name="sitios_vinculados[]"
+                            value="<?= htmlspecialchars($sitioOption['id'], ENT_QUOTES, 'UTF-8') ?>">
+                          <div class="flex-grow-1 text-truncate">
+                            <span class="node-title d-block text-truncate"><?= htmlspecialchars($sitioOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
+                            <small class="node-subtitle text-muted"><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($sitioOption['ubicacion_nombre'] ?? 'Sin ubicación', ENT_QUOTES, 'UTF-8') ?></small>
+                          </div>
+                          <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill py-0 px-1 small">Sitio</span>
+                        </div>
+                      <?php endforeach; ?>
+                      <div class="infra-arcos-empty d-none" id="editarInfraSitiosEmpty">No se encontraron sitios con ese filtro.</div>
+                    </div>
+                  </div>
+
+                  <!-- SUB-TAB 3: POSTES / PUENTES VINCULADOS (SITIO A POSTE) -->
+                  <div class="tab-pane fade" id="tab-editar-infra-postes" role="tabpanel">
+                    <div class="input-group input-group-sm mb-2">
+                      <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                      <input type="search" class="form-control" id="buscarEditarInfraPostes" placeholder="Buscar poste/puente...">
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="small text-muted fw-semibold" id="editarInfraPostesCount">0 seleccionados</span>
+                      <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-0 px-2" id="btnClearEditarInfraPostes">Limpiar</button>
+                      </div>
+                    </div>
+
+                    <div id="chipsEditarInfraPostes" class="infra-selected-chips mb-2 d-none"></div>
+
+                    <div id="editarInfraPostesLista" class="infra-node-cards-grid">
+                      <?php foreach ($pdo->query("SELECT n.id, n.nombre, n.ubicacion_id, u.nombre AS ubicacion_nombre FROM infraestructura_nodos n LEFT JOIN ubicaciones u ON u.id = n.ubicacion_id WHERE n.tipo = 'Puente/Poste' ORDER BY n.nombre ASC") as $posteOption): ?>
+                        <div class="infra-node-card poste-node-item"
+                             data-id="<?= htmlspecialchars($posteOption['id'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-nombre="<?= htmlspecialchars($posteOption['nombre'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-ubicacion-id="<?= htmlspecialchars($posteOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>">
+                          <input type="checkbox" class="form-check-input editar-infra-poste-check me-2"
+                            name="postes_vinculados[]"
+                            value="<?= htmlspecialchars($posteOption['id'], ENT_QUOTES, 'UTF-8') ?>">
+                          <div class="flex-grow-1 text-truncate">
+                            <span class="node-title d-block text-truncate"><?= htmlspecialchars($posteOption['nombre'], ENT_QUOTES, 'UTF-8') ?></span>
+                            <small class="node-subtitle text-muted"><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($posteOption['ubicacion_nombre'] ?? 'Sin ubicación', ENT_QUOTES, 'UTF-8') ?></small>
+                          </div>
+                          <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill py-0 px-1 small">Poste</span>
+                        </div>
+                      <?php endforeach; ?>
+                      <div class="infra-arcos-empty d-none" id="editarInfraPostesEmpty">No se encontraron postes con ese filtro.</div>
+                    </div>
+                  </div>
+
+                  <!-- SUB-TAB 4: VINCULAR DE UN ENLACE CON OTRO (SALTOS Y RELEVOS) -->
+                  <div class="tab-pane fade" id="tab-editar-infra-enlaces-enlaces" role="tabpanel">
+                    <div class="input-group input-group-sm mb-2">
+                      <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                      <input type="search" class="form-control" id="buscarEditarInfraEnlacesEnlaces" placeholder="Buscar enlace de salto...">
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="small text-muted fw-semibold" id="editarInfraEnlacesEnlacesCount">0 seleccionados</span>
+                      <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary btn-xs py-0 px-2" id="btnSelectAllEditarInfraEnlacesEnlaces" title="Seleccionar enlaces visibles">Todos visibles</button>
+                        <button type="button" class="btn btn-outline-secondary btn-xs py-0 px-2" id="btnClearEditarInfraEnlacesEnlaces">Limpiar</button>
+                      </div>
+                    </div>
+
+                    <div id="chipsEditarInfraEnlacesEnlaces" class="infra-selected-chips mb-2 d-none"></div>
+
+                    <div id="editarInfraEnlacesEnlacesLista" class="infra-node-cards-grid">
+                      <?php foreach (obtenerTodosEnlaces($pdo) as $enlaceOption): ?>
+                        <div class="infra-node-card enlace-node-item"
+                             data-id="<?= htmlspecialchars($enlaceOption['id'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-nombre="<?= htmlspecialchars($enlaceOption['enlace_nombre'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-origen-id="<?= htmlspecialchars($enlaceOption['origen_id'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-destino-id="<?= htmlspecialchars($enlaceOption['destino_id'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-ubicacion-id="<?= htmlspecialchars($enlaceOption['ubicacion_id'], ENT_QUOTES, 'UTF-8') ?>"
+                             data-ubicacion-nombre="<?= htmlspecialchars($enlaceOption['ubicacion_nombre'] ?? 'Sin ubicación', ENT_QUOTES, 'UTF-8') ?>">
+                          <input type="checkbox" class="form-check-input editar-infra-enlace-enlace-check me-2"
+                            name="enlaces_con_enlaces[]"
+                            value="<?= htmlspecialchars($enlaceOption['id'], ENT_QUOTES, 'UTF-8') ?>">
+                          <div class="flex-grow-1 text-truncate">
+                            <span class="node-title d-block text-truncate">
+                              <i class="bi bi-broadcast text-primary"></i> <?= htmlspecialchars($enlaceOption['origen_nombre'], ENT_QUOTES, 'UTF-8') ?>
+                              <i class="bi bi-arrow-left-right text-muted mx-1"></i>
+                              <i class="bi bi-broadcast text-primary"></i> <?= htmlspecialchars($enlaceOption['destino_nombre'], ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+                            <small class="node-subtitle text-muted">
+                              <i class="bi bi-wifi"></i> <?= htmlspecialchars($enlaceOption['enlace_tipo'] ?? 'Radioenlace', ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars($enlaceOption['ubicacion_nombre'] ?? 'Sin ubicación', ENT_QUOTES, 'UTF-8') ?>
+                            </small>
+                          </div>
+                          <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill py-0 px-1 small">Salto</span>
+                        </div>
+                      <?php endforeach; ?>
+                      <div class="infra-arcos-empty d-none" id="editarInfraEnlacesEnlacesEmpty">No se encontraron enlaces en esta ubicación.</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
+            <!-- PANEL DERECHO: MATERIALES -->
             <div class="modal-arcos-materials-panel">
-              <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2 border-bottom pb-2">
                 <div class="d-flex align-items-center gap-2">
                   <div class="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center"
                     style="width:32px; height:32px;">
                     <i class="bi bi-box-seam"></i>
                   </div>
-                  <h6 class="mb-0 fw-bold text-primary">Componentes / Materiales</h6>
+                  <div>
+                    <h6 class="mb-0 fw-bold text-primary">Componentes / Materiales</h6>
+                    <small class="text-muted">Equipos instalados en el nodo</small>
+                  </div>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="btnEditarInfraAddMaterial">
-                  <i class="bi bi-plus-lg"></i> Material
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                  <button type="button" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 px-2 py-1 btn-toggle-all-data" title="Mostrar u ocultar detalles de todos los materiales">
+                    <i class="bi bi-eye"></i>
+                    <span class="btn-toggle-all-text">Ver datos</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-primary shadow-sm d-flex align-items-center gap-1 px-3 py-1" id="btnEditarInfraAddMaterial">
+                    <i class="bi bi-plus-lg"></i> <span>Agregar Material</span>
+                  </button>
+                </div>
               </div>
               <div class="materiales-container-added">
                 <div id="editarInfraMateriales" class="materiales-grid-added"></div>
@@ -1406,9 +1804,9 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
           </div>
         </div>
 
-        <div class="modal-footer bg-light py-2">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-1"></i> Guardar cambios</button>
+        <div class="modal-footer bg-light px-4 py-3 d-flex justify-content-between align-items-center gap-2">
+          <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary px-4 shadow-sm"><i class="bi bi-save me-1"></i> Guardar cambios</button>
         </div>
       </form>
     </div>
@@ -1428,6 +1826,7 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
         <div class="modal-body p-0">
           <input type="hidden" name="action" value="update">
           <input type="hidden" name="id" id="editar_id">
+          <input type="hidden" name="active_tab" value="tableViewArcos">
 
           <div class="modal-arcos-grid">
             <!-- ================== COLUMNA IZQUIERDA (FORMULARIO) ================== -->
@@ -1475,6 +1874,30 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                     <i class="bi bi-map"></i>
                   </button>
                 </div>
+
+                <div class="col-12 border-top pt-2 mt-2">
+                  <label class="form-label fw-semibold small mb-1">
+                    <i class="bi bi-broadcast-pin text-warning"></i> Puente / Sitio de Enlace Vinculado
+                  </label>
+                  <select name="infra_vinculados[]" id="editar_infra_vinculada" class="form-select form-select-sm">
+                    <option value="">(Ninguno / Conexión directa)</option>
+                    <?php foreach ($infraNodosPorTipo as $tipo => $nodos): ?>
+                      <optgroup label="<?= htmlspecialchars($tipo === 'Puente/Poste' ? 'Puentes / Postes' : ($tipo === 'Sitio' ? 'Sitios' : ($tipo === 'Torre' ? 'Torres' : $tipo))) ?>">
+                        <?php foreach ($nodos as $inf): ?>
+                          <option value="<?= htmlspecialchars($inf['id'], ENT_QUOTES, 'UTF-8') ?>"
+                                  data-ubicacion-id="<?= htmlspecialchars($inf['ubicacion_id'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                  data-ubicacion-nombre="<?= htmlspecialchars($inf['ubicacion_nombre'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                  data-tipo="<?= htmlspecialchars($inf['tipo'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                  data-lat="<?= htmlspecialchars($inf['lat'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                  data-lng="<?= htmlspecialchars($inf['lng'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                            <?= htmlspecialchars($inf['nombre'], ENT_QUOTES, 'UTF-8') ?><?= !empty($inf['ubicacion_nombre']) ? ' — ' . htmlspecialchars($inf['ubicacion_nombre'], ENT_QUOTES, 'UTF-8') : '' ?>
+                          </option>
+                        <?php endforeach; ?>
+                      </optgroup>
+                    <?php endforeach; ?>
+                  </select>
+                  <div class="form-text small">Selecciona el puente o sitio al que se enlaza este arco.</div>
+                </div>
               </div>
             </div>
 
@@ -1488,13 +1911,19 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
                   </div>
                   <h6 class="mb-0 fw-bold text-dark">Componentes / Materiales</h6>
                 </div>
-                <button type="button"
-                  class="btn btn-warning d-flex align-items-center gap-1 px-3 py-1 shadow-sm text-dark btn-sm fw-semibold"
-                  id="editarAddMaterial"
-                  data-material-context="editar">
-                  <i class="bi bi-plus-lg"></i>
-                  <span>Agregar material</span>
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                  <button type="button" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 px-2 py-1 btn-toggle-all-data" title="Mostrar u ocultar detalles de todos los materiales">
+                    <i class="bi bi-eye"></i>
+                    <span class="btn-toggle-all-text">Ver datos</span>
+                  </button>
+                  <button type="button"
+                    class="btn btn-warning d-flex align-items-center gap-1 px-3 py-1 shadow-sm text-dark btn-sm fw-semibold"
+                    id="editarAddMaterial"
+                    data-material-context="editar">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Agregar material</span>
+                  </button>
+                </div>
               </div>
 
               <div id="editarMaterialesContainer" class="materiales-container-added">
@@ -1509,9 +1938,9 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
           </div>
         </div>
 
-        <div class="modal-footer bg-light py-2">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-warning px-4"><i class="bi bi-save me-1"></i> Actualizar</button>
+        <div class="modal-footer bg-light px-4 py-3 d-flex justify-content-end align-items-center gap-2">
+          <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-warning text-dark px-4 fw-semibold"><i class="bi bi-save me-1"></i> Actualizar</button>
         </div>
       </form>
     </div>
@@ -1727,38 +2156,6 @@ $arcosJsVersion = file_exists(__DIR__ . '/../js/arcos.js') ? filemtime(__DIR__ .
     </div>
   </div>
 </div>
-
-<div class="modal fade" id="modalFormatosArco" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content border-0 shadow">
-      <div class="modal-header bg-success text-white">
-        <div>
-          <h5 class="modal-title mb-0"><i class="bi bi-folder2-open me-2"></i>Formatos del arco</h5>
-          <small id="formatosArcoNombre" class="opacity-75"></small>
-        </div>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="formatos-arco-toolbar">
-          <div>
-            <strong>Documentación vinculada</strong>
-            <p class="mb-0 text-muted small">Diagnóstico de instalación y formatos previos al mantenimiento.</p>
-          </div>
-          <a href="#" id="crearFormatoArco" class="btn btn-success btn-sm">
-            <i class="bi bi-plus-lg"></i> Nuevo formato
-          </a>
-          <button type="button" id="descargarFormatosArco" class="btn btn-outline-success btn-sm" disabled>
-            <i class="bi bi-download"></i> Descargar PDFs
-          </button>
-        </div>
-        <div id="formatosArcoContenido" class="formatos-arco-grid">
-          <div class="text-center text-muted py-4">Cargando formatos...</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 
 <div class="modal fade" id="modalSeleccionarMapa" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-lg modal-dialog-centered">

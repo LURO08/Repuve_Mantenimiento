@@ -27,6 +27,7 @@ $stmt = $pdo->prepare("
         r.fecha_mantenimiento,
         r.tipo_mantenimiento,
         COALESCE(tf.nombre, tr.nombre) AS tecnico_nombre,
+        COALESCE(tf.firma, tr.firma) AS tecnico_firma,
         COALESCE(a.nombre, n.nombre, 'Sitio / Arco') AS arco,
         COALESCE(u.nombre, un.nombre, '') AS ubicacion
     FROM formatos_mantenimiento fm
@@ -63,6 +64,14 @@ $logoData = is_file($logoPath)
     ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath))
     : '';
 
+$piePaginaDiskPath = $rootDir . '/assets/img/PiePagina.jpg';
+if (!file_exists($piePaginaDiskPath)) {
+    $piePaginaDiskPath = $rootDir . '/assets/img/PiePagina.png';
+}
+$piePaginaData = file_exists($piePaginaDiskPath)
+    ? 'data:image/' . (pathinfo($piePaginaDiskPath, PATHINFO_EXTENSION) === 'png' ? 'png' : 'jpeg') . ';base64,' . base64_encode(file_get_contents($piePaginaDiskPath))
+    : '';
+
 ob_start();
 require $rootDir . '/views/pdf/formato_servicio_pdf.php';
 $html = ob_get_clean();
@@ -76,16 +85,6 @@ $dompdf = new Dompdf($options);
 $dompdf->loadHtml($html, 'UTF-8');
 $dompdf->setPaper('letter', 'portrait');
 $dompdf->render();
-
-$canvas = $dompdf->getCanvas();
-$font = $dompdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
-$boldFont = $dompdf->getFontMetrics()->getFont('DejaVu Sans', 'bold');
-$blue = [0, 0.22, 0.40];
-$canvas->line(306, 724, 306, 770, $blue, 2);
-$canvas->page_text(105, 731, 'RFC: ITC090904G64', $boldFont, 8.5, [0.20, 0.20, 0.20]);
-$canvas->page_text(111, 746, 'TEL. 747 141 5434', $boldFont, 8.5, [0.20, 0.20, 0.20]);
-$canvas->page_text(367, 731, 'GONZALO N. RAMÍREZ, MANZANA 1', $font, 8, [0.20, 0.20, 0.20]);
-$canvas->page_text(394, 746, 'LOTE 167, COL. TRIBUNA', $font, 8, [0.20, 0.20, 0.20]);
 
 $prefijoFormato = $config['file_prefix'] ?? match ($registro['tipo']) {
     'checklist' => 'Check_List_Diagnostico_Inicial',

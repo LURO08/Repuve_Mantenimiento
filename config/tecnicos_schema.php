@@ -15,6 +15,7 @@ function asegurarRelacionTecnicos(PDO $pdo): void
     ");
 
     $pdo->exec("ALTER TABLE tecnicos ADD COLUMN IF NOT EXISTS eliminado INTEGER NOT NULL DEFAULT 0");
+    $pdo->exec("ALTER TABLE tecnicos ADD COLUMN IF NOT EXISTS firma VARCHAR(255)");
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_tecnicos_activo ON tecnicos (activo)");
 
     $columnExists = static function (string $tabla, string $columna) use ($pdo): bool {
@@ -207,7 +208,7 @@ function obtenerTecnicoPorId(PDO $pdo, int $tecnicoId): ?array
     }
 
     $stmt = $pdo->prepare("
-        SELECT id, nombre
+        SELECT id, nombre, puesto, telefono, firma
         FROM tecnicos
         WHERE id = ? AND activo = 1 AND COALESCE(eliminado, 0) = 0
     ");

@@ -1,0 +1,27 @@
+========================================================
+REPUVE - FORMATOS OFICIALES EXPORTADOS
+Fecha de Exportación: 14/09/2026 00:00:17
+Total de Documentos PDF Generados: 129
+Tamaño Total: 20.72 MB
+========================================================
+
+ESTRUCTURA DE CARPETAS:
+1. 01_DIAGNOSTICOS_INICIALES_MANTENIMIENTO/ (INN-FOR-002-04)
+   - Arcos: 24 archivos
+   - Infraestructura / Sitios: 4 archivos
+
+2. 02_BITACORAS_INSTALACION/ (INN-FOR-002-03)
+   - Arcos: 42 archivos
+
+3. 03_PRUEBAS_DE_CALIDAD/ (INN-FOR-002-01)
+   - Arcos: 24 archivos
+   - Infraestructura / Sitios: 4 archivos
+
+4. 04_SALIDA_HERRAMIENTAS_Y_MATERIAL/ (INN-FOR-002-02)
+   - Arcos: 24 archivos
+   - Infraestructura / Sitios: 4 archivos
+
+5. 05_BITACORAS_DE_BAJA/ (INN-FOR-002-06)
+   - Arcos: 3 archivos
+
+Todos los formatos han sido generados en PDF vectorial optimizado tamaño carta a 1 sola hoja con la imagen institucional oficial en el pie de página.

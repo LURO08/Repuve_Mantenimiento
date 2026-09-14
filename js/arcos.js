@@ -1,4 +1,23 @@
 
+let materialSeleccionadoArco = null;
+let materialesAgregadosArco = [];
+let materialesEditandoArco = [];
+let infraestructurasAgregadasArco = [];
+let materialContextoActivo = "agregar";
+let seleccionandoMaterialParaEditar = false;
+let materialOperacionActiva = "agregar";
+let materialEditarIndex = null;
+let materialSeleccionadoEditarIndex = null;
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const config = {
   ArcosTable: {
     page: 1,
@@ -278,28 +297,110 @@ function initSortableTables() {
   });
 }
 
-function renderArcosVinculadosModal(nombre, arcos) {
+function renderArcosVinculadosModal(nombre, arcos, enlaces = [], saltos = []) {
   const titulo = document.getElementById("modalArcosVinculadosTitulo");
   const contenedor = document.getElementById("modalArcosVinculadosContenido");
-  if (titulo) titulo.textContent = `${nombre || "Puente/Sitio"} - ${arcos.length} arco${arcos.length === 1 ? "" : "s"}`;
+  if (titulo) titulo.textContent = `${nombre || "Nodo"} - Vínculos y Conexiones de Red`;
   if (!contenedor) return;
 
-  if (!arcos.length) {
-    contenedor.innerHTML = '<div class="alert alert-light border mb-0">Sin arcos vinculados.</div>';
+  const totalArcos = Array.isArray(arcos) ? arcos.length : 0;
+  const listaEnlaces = Array.isArray(enlaces) ? enlaces : [];
+  const listaSaltos = Array.isArray(saltos) ? saltos : [];
+  const sitios = listaEnlaces.filter(e => e.tipo === 'Sitio/Torre');
+  const postes = listaEnlaces.filter(e => e.tipo === 'Puente/Poste');
+  const totalEnlaces = listaEnlaces.length;
+  const totalSaltos = listaSaltos.length;
+
+  if (totalArcos === 0 && totalEnlaces === 0 && totalSaltos === 0) {
+    contenedor.innerHTML = '<div class="alert alert-light border text-center py-4 mb-0"><i class="bi bi-info-circle text-muted fs-3 d-block mb-2"></i>Este nodo no tiene arcos, enlaces ni saltos vinculados actualmente.</div>';
     return;
   }
 
-  contenedor.innerHTML = arcos.map(arco => `
-    <article class="linked-arco-card">
-      <div>
-        <strong>${escapeHtml(arco.nombre || "Sin nombre")}</strong>
-        <small><i class="bi bi-geo-alt-fill"></i> ${escapeHtml(arco.ubicacion || "Sin ubicacion")}</small>
+  let html = '<div class="row g-3">';
+
+  // COLUMNA ARCOS VINCULADOS
+  html += `
+    <div class="col-md-${(totalEnlaces > 0 || totalSaltos > 0) ? '6' : '12'}">
+      <div class="card border h-100 shadow-sm">
+        <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+          <span class="fw-bold text-success small"><i class="bi bi-bounding-box-circles me-1"></i> Arcos vinculados</span>
+          <span class="badge bg-success">${totalArcos}</span>
+        </div>
+        <div class="card-body p-2" style="max-height: 380px; overflow-y: auto;">
+          ${totalArcos === 0 ? '<div class="text-muted small text-center py-3">Sin arcos vinculados</div>' : `
+            <div class="d-flex flex-column gap-2">
+              ${arcos.map(arco => `
+                <div class="d-flex justify-content-between align-items-center p-2 border rounded bg-white">
+                  <div class="text-truncate me-2">
+                    <strong class="d-block small text-dark text-truncate">${escapeHtml(arco.nombre || "Sin nombre")}</strong>
+                    <small class="text-muted"><i class="bi bi-geo-alt-fill text-danger"></i> ${escapeHtml(arco.ubicacion || "Sin ubicación")}</small>
+                  </div>
+                  <span class="badge ${String(arco.estado || "Activo").toLowerCase() === "baja" ? "bg-danger" : "bg-success"} rounded-pill small">
+                    ${escapeHtml(arco.estado || "Activo")}
+                  </span>
+                </div>
+              `).join("")}
+            </div>
+          `}
+        </div>
       </div>
-      <span class="badge ${String(arco.estado || "Activo").toLowerCase() === "baja" ? "bg-danger" : "bg-success"}">
-        ${escapeHtml(arco.estado || "Activo")}
-      </span>
-    </article>
-  `).join("");
+    </div>
+  `;
+
+  // COLUMNA ENLACES DE RED Y SALTOS
+  if (totalEnlaces > 0 || totalSaltos > 0 || totalArcos === 0) {
+    html += `
+      <div class="col-md-${totalArcos > 0 ? '6' : '12'}">
+        <div class="card border h-100 shadow-sm">
+          <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+            <span class="fw-bold text-primary small"><i class="bi bi-hdd-network me-1"></i> Enlaces y Saltos de Red</span>
+            <div class="d-flex gap-1">
+              ${totalEnlaces > 0 ? `<span class="badge bg-primary">${totalEnlaces} enlaces</span>` : ''}
+              ${totalSaltos > 0 ? `<span class="badge bg-info text-dark">${totalSaltos} saltos</span>` : ''}
+            </div>
+          </div>
+          <div class="card-body p-2" style="max-height: 380px; overflow-y: auto;">
+            <div class="d-flex flex-column gap-2">
+              ${sitios.map(s => `
+                <div class="d-flex justify-content-between align-items-center p-2 border border-primary-subtle rounded bg-light-subtle">
+                  <div class="text-truncate me-2">
+                    <strong class="d-block small text-primary text-truncate"><i class="bi bi-broadcast me-1"></i> ${escapeHtml(s.nombre || "Sitio")}</strong>
+                    <small class="text-muted"><i class="bi bi-geo-alt"></i> ${escapeHtml(s.ubicacion || "Sin ubicación")}</small>
+                  </div>
+                  <span class="badge bg-primary rounded-pill small">Sitio/Torre</span>
+                </div>
+              `).join("")}
+              ${postes.map(p => `
+                <div class="d-flex justify-content-between align-items-center p-2 border border-warning-subtle rounded bg-light-subtle">
+                  <div class="text-truncate me-2">
+                    <strong class="d-block small text-dark text-truncate"><i class="bi bi-signpost-2 me-1"></i> ${escapeHtml(p.nombre || "Poste")}</strong>
+                    <small class="text-muted"><i class="bi bi-geo-alt"></i> ${escapeHtml(p.ubicacion || "Sin ubicación")}</small>
+                  </div>
+                  <span class="badge bg-warning text-dark rounded-pill small">Puente/Poste</span>
+                </div>
+              `).join("")}
+              ${listaSaltos.map(salto => `
+                <div class="d-flex justify-content-between align-items-center p-2 border border-info-subtle rounded bg-info-subtle">
+                  <div class="text-truncate me-2">
+                    <strong class="d-block small text-dark text-truncate">
+                      <i class="bi bi-link-45deg text-info"></i> ${escapeHtml(salto.origen_nombre || "Origen")}
+                      <i class="bi bi-arrow-left-right text-muted mx-1"></i>
+                      <i class="bi bi-broadcast text-info"></i> ${escapeHtml(salto.destino_nombre || "Destino")}
+                    </strong>
+                    <small class="text-muted"><i class="bi bi-shuffle"></i> ${escapeHtml(salto.tipo_salto || "Salto de Enlace")}</small>
+                  </div>
+                  <span class="badge bg-info text-dark rounded-pill small">Salto de Red</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  html += '</div>';
+  contenedor.innerHTML = html;
 }
 
 function filterTable(inputId, tableId) {
@@ -586,15 +687,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  document.querySelectorAll(".verArcosVinculadosBtn").forEach(btn => {
+  document.querySelectorAll(".verArcosVinculadosBtn, .verEnlacesVinculadosBtn").forEach(btn => {
     btn.addEventListener("click", () => {
       let arcos = [];
+      let enlaces = [];
+      let saltos = [];
       try {
         arcos = JSON.parse(btn.dataset.arcos || "[]");
       } catch (error) {
         arcos = [];
       }
-      renderArcosVinculadosModal(btn.dataset.nombre || "", Array.isArray(arcos) ? arcos : []);
+      try {
+        enlaces = JSON.parse(btn.dataset.enlaces || "[]");
+      } catch (error) {
+        enlaces = [];
+      }
+      try {
+        saltos = JSON.parse(btn.dataset.saltos || "[]");
+      } catch (error) {
+        saltos = [];
+      }
+      renderArcosVinculadosModal(
+        btn.dataset.nombre || "",
+        Array.isArray(arcos) ? arcos : [],
+        Array.isArray(enlaces) ? enlaces : [],
+        Array.isArray(saltos) ? saltos : []
+      );
     });
   });
 
@@ -635,16 +753,37 @@ window.addEventListener("resize", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  const STORAGE_KEY = "repuve_arcos_active_tab";
   const botones = document.querySelectorAll(".tabla-toggle-btn");
   const vistas = document.querySelectorAll(".arcos-table-view");
 
-  function cambiarTabla(targetId) {
+  function normalizarTab(targetId) {
+    if (!targetId) return null;
+    const lower = String(targetId).trim().toLowerCase().replace("#", "").replace("tableview", "");
+    if (lower === "infra" || lower === "puentes" || lower === "sitios" || lower === "puente" || lower === "sitio") {
+      return "tableViewInfra";
+    }
+    if (lower === "bajas" || lower === "baja") {
+      return "tableViewBajas";
+    }
+    if (lower === "arcos" || lower === "arco") {
+      return "tableViewArcos";
+    }
+    if (["tableViewArcos", "tableViewBajas", "tableViewInfra"].includes(targetId)) {
+      return targetId;
+    }
+    return null;
+  }
+
+  function cambiarTabla(targetId, guardar = true, scroll = false) {
+    const validTarget = normalizarTab(targetId) || "tableViewArcos";
+
     vistas.forEach(vista => {
-      vista.classList.toggle("d-none", vista.id !== targetId);
+      vista.classList.toggle("d-none", vista.id !== validTarget);
     });
 
     botones.forEach(btn => {
-      const activo = btn.dataset.tableViewTarget === targetId;
+      const activo = btn.dataset.tableViewTarget === validTarget;
       const esInfra = btn.dataset.tableViewTarget === "tableViewInfra";
       const esBajas = btn.dataset.tableViewTarget === "tableViewBajas";
       btn.classList.toggle("active", activo);
@@ -661,18 +800,52 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     });
 
-    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (guardar) {
+      try {
+        localStorage.setItem(STORAGE_KEY, validTarget);
+      } catch (e) {}
+
+      try {
+        const url = new URL(window.location);
+        url.searchParams.set("tab", validTarget);
+        window.history.replaceState(null, "", url.toString());
+      } catch (e) {}
+    }
+
+    if (scroll) {
+      document.getElementById(validTarget)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
     const tableIdByView = {
       tableViewArcos: "ArcosTable",
       tableViewBajas: "BajasTable",
       tableViewInfra: "InfraTable"
     };
-    renderPagination(tableIdByView[targetId] || "ArcosTable");
+    renderPagination(tableIdByView[validTarget] || "ArcosTable");
   }
 
   botones.forEach(btn => {
-    btn.addEventListener("click", () => cambiarTabla(btn.dataset.tableViewTarget));
+    btn.addEventListener("click", () => cambiarTabla(btn.dataset.tableViewTarget, true, false));
   });
+
+  // Determinar pestaña inicial al cargar la página:
+  // 1. Parámetro en URL (?tab=...)
+  // 2. Hash en URL (#...)
+  // 3. localStorage previo
+  // 4. Default: tableViewArcos
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam = normalizarTab(urlParams.get("tab"));
+  const hashParam = normalizarTab(window.location.hash);
+  let storedTab = null;
+  try {
+    storedTab = normalizarTab(localStorage.getItem(STORAGE_KEY));
+  } catch (e) {}
+
+  const initialTab = tabParam || hashParam || storedTab || "tableViewArcos";
+  cambiarTabla(initialTab, true, false);
+
+  // Asegurar paginación inicial para todas las tablas
+  Object.keys(config).forEach(renderPagination);
 });
 
 function obtenerFechaMaterial(m) {
@@ -1449,25 +1622,56 @@ document.addEventListener("DOMContentLoaded", () => {
       const materialesContainer = document.getElementById("listaMaterialesEditar");
       document.getElementById("editar_id").value = id;
 
-      materialesContainer.innerHTML = `
-        <div class="text-center text-muted py-4">
-          <div class="spinner-border text-warning" role="status"></div>
-          <p class="mt-2 mb-0">Cargando datos...</p>
-        </div>`;
+      if (materialesContainer) {
+        materialesContainer.innerHTML = `
+          <div class="text-center text-muted py-4">
+            <div class="spinner-border text-warning" role="status"></div>
+            <p class="mt-2 mb-0">Cargando datos...</p>
+          </div>`;
+      }
       try {
         const res = await fetch(`../controllers/arcos_controller.php?action=get&id=${id}`);
+        if (!res.ok) {
+          throw new Error(`Error en servidor (HTTP ${res.status})`);
+        }
         const data = await res.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
 
-        nombre.value = data.nombre;
-        ubicacion.value = data.ubicacion_id;
-        fecha.value = data.fecha_instalacion;
-
+        if (nombre) nombre.value = data.nombre || "";
+        if (ubicacion) ubicacion.value = data.ubicacion_id || "";
+        if (fecha) fecha.value = (data.fecha_instalacion || "").replace(" ", "T").substring(0, 16);
 
         // lat/lng (para editar)
-        const latEl = document.getElementById('editar_lat');
-        const lngEl = document.getElementById('editar_lng');
-        if (latEl) latEl.value = data.lat ?? '';
-        if (lngEl) lngEl.value = data.lng ?? '';
+        const latEl = document.getElementById("editar_lat");
+        const lngEl = document.getElementById("editar_lng");
+        if (latEl) latEl.value = data.lat ?? "";
+        if (lngEl) lngEl.value = data.lng ?? "";
+
+        const infraEl = document.getElementById("editar_infra_vinculada");
+        if (infraEl) {
+          const ubiId = String(data.ubicacion_id || "");
+          const infraVal = (data.infra_ids && data.infra_ids.length > 0) ? String(data.infra_ids[0]) : "";
+          Array.from(infraEl.options).forEach(opt => {
+            if (!opt.value) { opt.style.display = ""; return; }
+            const match = !ubiId || String(opt.dataset.ubicacionId || "") === ubiId;
+            opt.style.display = match ? "" : "none";
+          });
+          infraEl.querySelectorAll("optgroup").forEach(og => {
+            const hasVisible = Array.from(og.querySelectorAll("option")).some(o => o.style.display !== "none");
+            og.style.display = hasVisible ? "" : "none";
+          });
+          infraEl.value = infraVal;
+        }
+
+        if (typeof syncSmartCardPicker === "function") {
+          syncSmartCardPicker("editar_ubicacion");
+          syncSmartCardPicker("editar_infra_vinculada");
+        } else if (typeof syncSearchableSelect === "function") {
+          syncSearchableSelect("editar_ubicacion");
+          syncSearchableSelect("editar_infra_vinculada");
+        }
 
         materialesEditandoArco = (data.materiales || []).map(mat => ({
           id: mat.material_id,
@@ -1483,7 +1687,10 @@ document.addEventListener("DOMContentLoaded", () => {
         materialSeleccionadoEditarIndex = null;
         renderMaterialesEditarArco();
       } catch (error) {
-        document.getElementById("listaMaterialesEditar").innerHTML = `<div class="alert alert-danger text-center">Error al cargar los datos.</div>`;
+        console.error("Error al cargar datos del arco:", error);
+        if (materialesContainer) {
+          materialesContainer.innerHTML = `<div class="alert alert-danger text-center"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error al cargar los datos: ${escapeHtml(error.message || "Error de conexión")}</div>`;
+        }
       }
     });
   });
@@ -1611,25 +1818,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-
-let materialSeleccionadoArco = null;
-let materialesAgregadosArco = [];
-let materialesEditandoArco = [];
-let infraestructurasAgregadasArco = [];
-let materialContextoActivo = "agregar";
-let seleccionandoMaterialParaEditar = false;
-let materialOperacionActiva = "agregar";
-let materialEditarIndex = null;
-let materialSeleccionadoEditarIndex = null;
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
 
 function renderInfraestructurasComponentes(infraestructuras = []) {
   if (!Array.isArray(infraestructuras) || infraestructuras.length === 0) {
@@ -1860,6 +2048,8 @@ function renderEditarInfraMateriales() {
       ? `<img src="../uploads/materiales/${foto}" class="material-image" alt="${nombre}">`
       : `<div class="material-placeholder"><i class="bi bi-box-seam"></i></div>`;
 
+    const tieneDetalles = Boolean(serie || ip || mac);
+
     return `
       <div class="material-card-added shadow-sm is-edit-list" data-index="${index}">
         <div class="material-card-buttons">
@@ -1873,27 +2063,27 @@ function renderEditarInfraMateriales() {
 
         <div class="material-card-top">
           <div class="material-image-container">${imagen}</div>
-          <div class="flex-grow-1">
+          <div class="flex-grow-1 min-w-0">
             <div class="material-title text-capitalize">${nombre}</div>
-            <div class="material-subtitle">
-              ${medida === "pz" ? "Por pieza" : `${cantidad} ${escapeHtml(medida)}`}
+            <div class="material-subtitle d-flex align-items-center flex-wrap gap-2">
+              <span>${medida === "pz" ? "Por pieza" : `${cantidad} ${escapeHtml(medida)}`}</span>
+              ${tieneDetalles ? `
+                <button type="button" class="material-details-toggle" title="Mostrar u ocultar detalles (Serie, IP, MAC)">
+                  <i class="bi bi-eye"></i>
+                  <span>Datos</span>
+                </button>
+              ` : ""}
             </div>
           </div>
         </div>
 
-        <div class="material-data">
-          ${serie ? `
-            <div class="material-chip">
-              <i class="bi bi-upc-scan text-primary"></i>
-              <span>${serie}</span>
-            </div>
-          ` : ""}
-          ${ip ? `
-            <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${ip}</span>` : ''}
-          ${mac ? `<span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${mac}</span>` : ''}
-        </div>
-
-
+        ${tieneDetalles ? `
+          <div class="material-data is-hidden">
+            ${serie ? `<span class="material-tag material-tag-serie" title="Serie: ${serie}"><i class="bi bi-upc-scan me-1"></i>${serie}</span>` : ""}
+            ${ip ? `<span class="material-tag material-tag-ip" title="IP: ${ip}"><i class="bi bi-hdd-network me-1"></i>IP: ${ip}</span>` : ""}
+            ${mac ? `<span class="material-tag material-tag-mac" title="MAC: ${mac}"><i class="bi bi-ethernet me-1"></i>MAC: ${mac}</span>` : ""}
+          </div>
+        ` : ""}
 
         <input type="hidden" name="material_id[]" value="${escapeHtml(material.id)}">
         <input type="hidden" name="relacion_id[]" value="${escapeHtml(material.relacion_id || "")}">
@@ -1907,35 +2097,265 @@ function renderEditarInfraMateriales() {
   }).join("");
 }
 
-function actualizarContadorEditarInfraArcos() {
-  const total = document.querySelectorAll("#editarInfraArcosLista .editar-infra-arco-check:checked").length;
-  const badge = document.getElementById("editarInfraArcosCount");
-  if (badge) {
-    badge.textContent = `${total} seleccionado${total === 1 ? "" : "s"}`;
+function renderChipsEditarInfra(tipo) {
+  if (!tipo || tipo === 'arcos') {
+    const chipsCont = document.getElementById("chipsEditarInfraArcos");
+    if (chipsCont) {
+      const checkedArcos = Array.from(document.querySelectorAll("#editarInfraArcosLista .editar-infra-arco-check:checked"));
+      if (checkedArcos.length === 0) {
+        chipsCont.innerHTML = "";
+        chipsCont.classList.add("d-none");
+      } else {
+        chipsCont.classList.remove("d-none");
+        chipsCont.innerHTML = checkedArcos.map(chk => {
+          const card = chk.closest(".infra-node-card");
+          const nombre = card?.dataset.nombre || chk.value;
+          return `
+            <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 py-1 px-2">
+              <i class="bi bi-bounding-box-circles"></i> ${escapeHtml(nombre)}
+              <button type="button" class="btn-close btn-close-xs ms-1 chip-remove-btn" data-target-tipo="arcos" data-id="${escapeHtml(chk.value)}" title="Quitar"></button>
+            </span>
+          `;
+        }).join("");
+      }
+    }
+  }
+
+  if (!tipo || tipo === 'sitios') {
+    const chipsCont = document.getElementById("chipsEditarInfraSitios");
+    if (chipsCont) {
+      const checkedSitios = Array.from(document.querySelectorAll("#editarInfraSitiosLista .editar-infra-sitio-check:checked"));
+      if (checkedSitios.length === 0) {
+        chipsCont.innerHTML = "";
+        chipsCont.classList.add("d-none");
+      } else {
+        chipsCont.classList.remove("d-none");
+        chipsCont.innerHTML = checkedSitios.map(chk => {
+          const card = chk.closest(".infra-node-card");
+          const nombre = card?.dataset.nombre || chk.value;
+          return `
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 py-1 px-2">
+              <i class="bi bi-broadcast"></i> ${escapeHtml(nombre)}
+              <button type="button" class="btn-close btn-close-xs ms-1 chip-remove-btn" data-target-tipo="sitios" data-id="${escapeHtml(chk.value)}" title="Quitar"></button>
+            </span>
+          `;
+        }).join("");
+      }
+    }
+  }
+
+  if (!tipo || tipo === 'postes') {
+    const chipsCont = document.getElementById("chipsEditarInfraPostes");
+    if (chipsCont) {
+      const checkedPostes = Array.from(document.querySelectorAll("#editarInfraPostesLista .editar-infra-poste-check:checked"));
+      if (checkedPostes.length === 0) {
+        chipsCont.innerHTML = "";
+        chipsCont.classList.add("d-none");
+      } else {
+        chipsCont.classList.remove("d-none");
+        chipsCont.innerHTML = checkedPostes.map(chk => {
+          const card = chk.closest(".infra-node-card");
+          const nombre = card?.dataset.nombre || chk.value;
+          return `
+            <span class="badge bg-warning-subtle text-warning border border-warning-subtle d-inline-flex align-items-center gap-1 py-1 px-2">
+              <i class="bi bi-signpost-2"></i> ${escapeHtml(nombre)}
+              <button type="button" class="btn-close btn-close-xs ms-1 chip-remove-btn" data-target-tipo="postes" data-id="${escapeHtml(chk.value)}" title="Quitar"></button>
+            </span>
+          `;
+        }).join("");
+      }
+    }
+  }
+
+  if (!tipo || tipo === 'enlaces_enlaces') {
+    const chipsCont = document.getElementById("chipsEditarInfraEnlacesEnlaces");
+    if (chipsCont) {
+      const checkedEnlaces = Array.from(document.querySelectorAll("#editarInfraEnlacesEnlacesLista .editar-infra-enlace-enlace-check:checked"));
+      if (checkedEnlaces.length === 0) {
+        chipsCont.innerHTML = "";
+        chipsCont.classList.add("d-none");
+      } else {
+        chipsCont.classList.remove("d-none");
+        chipsCont.innerHTML = checkedEnlaces.map(chk => {
+          const card = chk.closest(".infra-node-card");
+          const nombre = card?.dataset.nombre || chk.value;
+          return `
+            <span class="badge bg-info-subtle text-info border border-info-subtle d-inline-flex align-items-center gap-1 py-1 px-2">
+              <i class="bi bi-link-45deg"></i> ${escapeHtml(nombre)}
+              <button type="button" class="btn-close btn-close-xs ms-1 chip-remove-btn" data-target-tipo="enlaces_enlaces" data-id="${escapeHtml(chk.value)}" title="Quitar"></button>
+            </span>
+          `;
+        }).join("");
+      }
+    }
+  }
+}
+
+function actualizarContadoresEditarInfra() {
+  const arcosCount = document.querySelectorAll("#editarInfraArcosLista .editar-infra-arco-check:checked").length;
+  const sitiosCount = document.querySelectorAll("#editarInfraSitiosLista .editar-infra-sitio-check:checked").length;
+  const postesCount = document.querySelectorAll("#editarInfraPostesLista .editar-infra-poste-check:checked").length;
+  const enlacesEnlacesCount = document.querySelectorAll("#editarInfraEnlacesEnlacesLista .editar-infra-enlace-enlace-check:checked").length;
+  const totalEnlaces = sitiosCount + postesCount;
+  const totalVinculos = arcosCount + totalEnlaces + enlacesEnlacesCount;
+
+  const countArcosEl = document.getElementById("editarInfraArcosCount");
+  const badgeArcosEl = document.getElementById("badgeCountArcos");
+  const countSitiosEl = document.getElementById("editarInfraSitiosCount");
+  const badgeSitiosEl = document.getElementById("badgeCountSitios");
+  const countPostesEl = document.getElementById("editarInfraPostesCount");
+  const badgePostesEl = document.getElementById("badgeCountPostes");
+  const countEnlacesEnlacesEl = document.getElementById("editarInfraEnlacesEnlacesCount");
+  const badgeEnlacesEnlacesEl = document.getElementById("badgeCountEnlacesEnlaces");
+  const totalBadgeEl = document.getElementById("editarInfraTotalEnlacesBadge");
+
+  if (countArcosEl) countArcosEl.textContent = `${arcosCount} seleccionado${arcosCount === 1 ? '' : 's'}`;
+  if (badgeArcosEl) badgeArcosEl.textContent = String(arcosCount);
+  if (countSitiosEl) countSitiosEl.textContent = `${sitiosCount} seleccionado${sitiosCount === 1 ? '' : 's'}`;
+  if (badgeSitiosEl) badgeSitiosEl.textContent = String(sitiosCount);
+  if (countPostesEl) countPostesEl.textContent = `${postesCount} seleccionado${postesCount === 1 ? '' : 's'}`;
+  if (badgePostesEl) badgePostesEl.textContent = String(postesCount);
+  if (countEnlacesEnlacesEl) countEnlacesEnlacesEl.textContent = `${enlacesEnlacesCount} seleccionado${enlacesEnlacesCount === 1 ? '' : 's'}`;
+  if (badgeEnlacesEnlacesEl) badgeEnlacesEnlacesEl.textContent = String(enlacesEnlacesCount);
+
+  if (totalBadgeEl) {
+    const parts = [];
+    if (arcosCount > 0) parts.push(`${arcosCount} arcos`);
+    if (totalEnlaces > 0) parts.push(`${totalEnlaces} enlaces`);
+    if (enlacesEnlacesCount > 0) parts.push(`${enlacesEnlacesCount} saltos de enlace`);
+    const summary = parts.length > 0 ? ` (${parts.join(", ")})` : "";
+    totalBadgeEl.textContent = `${totalVinculos} vínculo${totalVinculos === 1 ? '' : 's'}${summary}`;
   }
 }
 
 function filtrarEditarInfraArcos() {
-  const ubicacionId = document.getElementById("editarInfraUbicacion")?.value || "";
+  const ubicacionId = String(document.getElementById("editarInfraUbicacion")?.value || "");
   const filtro = (document.getElementById("buscarEditarInfraArcos")?.value || "").trim().toLowerCase();
   let visibles = 0;
 
-  document.querySelectorAll("#editarInfraArcosLista .infra-arco-option").forEach(option => {
-    const coincideUbicacion = ubicacionId !== "" && option.dataset.ubicacionId === ubicacionId;
-    const coincideBusqueda = option.textContent.toLowerCase().includes(filtro);
+  document.querySelectorAll("#editarInfraArcosLista .arco-node-item").forEach(item => {
+    const itemUbicacion = String(item.dataset.ubicacionId || "");
+    const itemNombre = (item.dataset.nombre || item.textContent || "").toLowerCase();
+
+    const coincideUbicacion = ubicacionId !== "" && itemUbicacion === ubicacionId;
+    const coincideBusqueda = filtro === "" || itemNombre.includes(filtro);
     const visible = coincideUbicacion && coincideBusqueda;
-    option.style.display = visible ? "" : "none";
 
-    const check = option.querySelector(".editar-infra-arco-check");
-    if (!coincideUbicacion && check) {
-      check.checked = false;
-    }
-
+    item.style.display = visible ? "" : "none";
     if (visible) visibles++;
   });
 
-  document.getElementById("editarInfraArcosEmpty")?.classList.toggle("d-none", visibles > 0);
-  actualizarContadorEditarInfraArcos();
+  const emptyEl = document.getElementById("editarInfraArcosEmpty");
+  if (emptyEl) {
+    emptyEl.textContent = ubicacionId
+      ? "No se encontraron arcos en esta ubicación con ese filtro."
+      : "Seleccione una ubicación en 'Datos del Nodo' para ver los arcos disponibles.";
+    emptyEl.classList.toggle("d-none", visibles > 0);
+  }
+  actualizarContadoresEditarInfra();
+}
+
+function filtrarEditarInfraSitios(currentId = null) {
+  const currentInfraId = String(currentId || document.getElementById("editarInfraId")?.value || "");
+  const ubicacionId = String(document.getElementById("editarInfraUbicacion")?.value || "");
+  const filtro = (document.getElementById("buscarEditarInfraSitios")?.value || "").trim().toLowerCase();
+  let visibles = 0;
+
+  document.querySelectorAll("#editarInfraSitiosLista .sitio-node-item").forEach(item => {
+    const itemId = String(item.dataset.id || "");
+    const itemUbicacion = String(item.dataset.ubicacionId || "");
+
+    if (currentInfraId !== "" && itemId === currentInfraId) {
+      item.style.display = "none";
+      return;
+    }
+
+    const itemNombre = (item.dataset.nombre || item.textContent || "").toLowerCase();
+    const coincideUbicacion = ubicacionId !== "" && itemUbicacion === ubicacionId;
+    const coincideBusqueda = filtro === "" || itemNombre.includes(filtro);
+    const visible = coincideUbicacion && coincideBusqueda;
+
+    item.style.display = visible ? "" : "none";
+    if (visible) visibles++;
+  });
+
+  const emptyEl = document.getElementById("editarInfraSitiosEmpty");
+  if (emptyEl) {
+    emptyEl.textContent = ubicacionId
+      ? "No se encontraron sitios/torres en esta ubicación con ese filtro."
+      : "Seleccione una ubicación en 'Datos del Nodo' para ver los sitios disponibles.";
+    emptyEl.classList.toggle("d-none", visibles > 0);
+  }
+  actualizarContadoresEditarInfra();
+}
+
+function filtrarEditarInfraPostes(currentId = null) {
+  const currentInfraId = String(currentId || document.getElementById("editarInfraId")?.value || "");
+  const ubicacionId = String(document.getElementById("editarInfraUbicacion")?.value || "");
+  const filtro = (document.getElementById("buscarEditarInfraPostes")?.value || "").trim().toLowerCase();
+  let visibles = 0;
+
+  document.querySelectorAll("#editarInfraPostesLista .poste-node-item").forEach(item => {
+    const itemId = String(item.dataset.id || "");
+    const itemUbicacion = String(item.dataset.ubicacionId || "");
+
+    if (currentInfraId !== "" && itemId === currentInfraId) {
+      item.style.display = "none";
+      return;
+    }
+
+    const itemNombre = (item.dataset.nombre || item.textContent || "").toLowerCase();
+    const coincideUbicacion = ubicacionId !== "" && itemUbicacion === ubicacionId;
+    const coincideBusqueda = filtro === "" || itemNombre.includes(filtro);
+    const visible = coincideUbicacion && coincideBusqueda;
+
+    item.style.display = visible ? "" : "none";
+    if (visible) visibles++;
+  });
+
+  const emptyEl = document.getElementById("editarInfraPostesEmpty");
+  if (emptyEl) {
+    emptyEl.textContent = ubicacionId
+      ? "No se encontraron postes/puentes en esta ubicación con ese filtro."
+      : "Seleccione una ubicación en 'Datos del Nodo' para ver los postes disponibles.";
+    emptyEl.classList.toggle("d-none", visibles > 0);
+  }
+  actualizarContadoresEditarInfra();
+}
+
+function filtrarEditarInfraEnlacesEnlaces(currentId = null) {
+  const currentInfraId = String(currentId || document.getElementById("editarInfraId")?.value || "");
+  const ubicacionId = String(document.getElementById("editarInfraUbicacion")?.value || "");
+  const filtro = (document.getElementById("buscarEditarInfraEnlacesEnlaces")?.value || "").trim().toLowerCase();
+  let visibles = 0;
+
+  document.querySelectorAll("#editarInfraEnlacesEnlacesLista .enlace-node-item").forEach(item => {
+    const itemOrigenId = String(item.dataset.origenId || "");
+    const itemDestinoId = String(item.dataset.destinoId || "");
+    const itemUbicacion = String(item.dataset.ubicacionId || "");
+
+    if (currentInfraId !== "" && (itemOrigenId === currentInfraId || itemDestinoId === currentInfraId)) {
+      item.style.display = "none";
+      return;
+    }
+
+    const itemNombre = (item.dataset.nombre || item.textContent || "").toLowerCase();
+    const coincideUbicacion = ubicacionId !== "" && itemUbicacion === ubicacionId;
+    const coincideBusqueda = filtro === "" || itemNombre.includes(filtro);
+    const visible = coincideUbicacion && coincideBusqueda;
+
+    item.style.display = visible ? "" : "none";
+    if (visible) visibles++;
+  });
+
+  const emptyEl = document.getElementById("editarInfraEnlacesEnlacesEmpty");
+  if (emptyEl) {
+    emptyEl.textContent = ubicacionId
+      ? "No se encontraron enlaces en esta ubicación con ese filtro."
+      : "Seleccione una ubicación en 'Datos del Nodo' para ver los enlaces disponibles.";
+    emptyEl.classList.toggle("d-none", visibles > 0);
+  }
+  actualizarContadoresEditarInfra();
 }
 
 function esEdicionDeMaterial() {
@@ -1943,7 +2363,7 @@ function esEdicionDeMaterial() {
 }
 
 function clasesColorMaterialSeleccionado() {
-  return esEdicionDeMaterial() ? ["border-warning"] : ["border-success"];
+  return ["border-primary"];
 }
 
 function limpiarClasesSeleccionMaterial(card) {
@@ -1969,15 +2389,14 @@ function configurarModoModalMaterial() {
 
   const editando = esEdicionDeMaterial();
   const objetivoMaterial = materialContextoActivo === "infra" ? "Puente/Sitio" : "Arco";
-  modal.classList.toggle("modal-material-agregar", !editando);
-  modal.classList.toggle("modal-material-editar", editando);
+  modal.classList.remove("modal-material-agregar", "modal-material-editar");
 
   const header = modal.querySelector(".modal-header");
-  header?.classList.remove("bg-success", "bg-warning", "text-white", "text-dark");
-  header?.classList.add(editando ? "bg-warning" : "bg-success", editando ? "text-dark" : "text-white");
+  header?.classList.remove("bg-success", "bg-warning", "text-dark");
+  header?.classList.add("bg-primary", "text-white");
 
   const closeBtn = header?.querySelector(".btn-close");
-  closeBtn?.classList.toggle("btn-close-white", !editando);
+  closeBtn?.classList.add("btn-close-white");
 
   const title = header?.querySelector(".modal-title");
   if (title) {
@@ -1988,7 +2407,7 @@ function configurarModoModalMaterial() {
 
   const guardarBtn = document.getElementById("guardarMaterialModal");
   guardarBtn?.classList.remove("btn-success", "btn-warning");
-  guardarBtn?.classList.add(editando ? "btn-warning" : "btn-success");
+  guardarBtn?.classList.add("btn-primary");
   if (guardarBtn) {
     guardarBtn.innerHTML = editando
       ? '<i class="bi bi-pencil-square me-2"></i>Actualizar Material'
@@ -1997,51 +2416,59 @@ function configurarModoModalMaterial() {
 
   const configIconBox = document.querySelector("#camposDinamicos .rounded-circle");
   configIconBox?.classList.remove("bg-success", "bg-warning");
-  configIconBox?.classList.add(editando ? "bg-warning" : "bg-success");
+  configIconBox?.classList.add("bg-primary", "bg-opacity-10");
 
   const configIcon = document.querySelector("#camposDinamicos .bi-sliders");
   configIcon?.classList.remove("text-success", "text-warning");
-  configIcon?.classList.add(editando ? "text-warning" : "text-success");
+  configIcon?.classList.add("text-primary");
 
   const configTitle = document.querySelector("#camposDinamicos h5");
   configTitle?.classList.remove("text-success", "text-warning");
-  configTitle?.classList.add(editando ? "text-warning" : "text-success");
+  configTitle?.classList.add("text-primary");
 
   const materialSeleccionado = document.getElementById("materialSeleccionado");
   materialSeleccionado?.classList.remove("alert-success", "alert-warning");
-  materialSeleccionado?.classList.add(editando ? "alert-warning" : "alert-success");
+  materialSeleccionado?.classList.add("alert-primary");
 }
 
 function resetModalAgregarMaterial() {
   materialSeleccionadoArco = null;
   configurarModoModalMaterial();
 
-  document.getElementById("buscarMaterial") && (document.getElementById("buscarMaterial").value = "");
-  document.getElementById("checkSerie") && (document.getElementById("checkSerie").checked = false);
-  document.getElementById("serieInput") && (document.getElementById("serieInput").value = "");
-  document.getElementById("checkIp") && (document.getElementById("checkIp").checked = false);
-  document.getElementById("ipInput") && (document.getElementById("ipInput").value = "");
-  document.getElementById("checkMac") && (document.getElementById("checkMac").checked = false);
-  document.getElementById("macInput") && (document.getElementById("macInput").value = "");
-  document.getElementById("cantidadInput") && (document.getElementById("cantidadInput").value = "");
-  document.getElementById("materialSeleccionado") && (document.getElementById("materialSeleccionado").innerHTML = "Ningún material seleccionado");
+  const buscarInput = document.getElementById("buscarMaterial");
+  if (buscarInput) buscarInput.value = "";
+  const checkSerie = document.getElementById("checkSerie");
+  if (checkSerie) checkSerie.checked = false;
+  const serieInput = document.getElementById("serieInput");
+  if (serieInput) serieInput.value = "";
+  const checkIp = document.getElementById("checkIp");
+  if (checkIp) checkIp.checked = false;
+  const ipInput = document.getElementById("ipInput");
+  if (ipInput) ipInput.value = "";
+  const checkMac = document.getElementById("checkMac");
+  if (checkMac) checkMac.checked = false;
+  const macInput = document.getElementById("macInput");
+  if (macInput) macInput.value = "";
+  const cantidadInput = document.getElementById("cantidadInput");
+  if (cantidadInput) cantidadInput.value = "";
+  const materialSeleccionado = document.getElementById("materialSeleccionado");
+  if (materialSeleccionado) materialSeleccionado.innerHTML = "Selecciona un material del catálogo";
+
   document.getElementById("serieContainer")?.classList.add("d-none");
   document.getElementById("ipContainer")?.classList.add("d-none");
   document.getElementById("macContainer")?.classList.add("d-none");
   document.getElementById("cantidadContainer")?.classList.add("d-none");
-  document.getElementById("camposDinamicos")?.classList.add("d-none");
-  document.getElementById("configuracionColumna")?.classList.add("d-none");
-
-  const materialesColumna = document.getElementById("materialesColumna");
-  materialesColumna?.classList.remove("col-lg-8", "col-lg-7");
-  materialesColumna?.classList.add("col-12");
 
   document.querySelectorAll("#modalAgregarMaterial .material-item").forEach(item => {
     item.style.display = "";
+    limpiarClasesSeleccionMaterial(item);
   });
-
-  document.querySelectorAll("#modalAgregarMaterial .material-card").forEach(limpiarClasesSeleccionMaterial);
 }
+
+/* ========================================================
+   COMPONENTE SMART CARD PICKER (CENTRALIZADO EN JS/SMART_PICKER.JS)
+   ======================================================== */
+// Las funciones y clase SmartCardPicker se cargan globalmente desde js/smart_picker.js
 
 function renderListaMaterialesArco(lista, containerId) {
   const contenedor = document.getElementById(containerId);
@@ -2075,6 +2502,8 @@ function renderListaMaterialesArco(lista, containerId) {
       ? `<img src="../uploads/materiales/${foto}" class="material-image" alt="${nombre}">`
       : `<div class="material-placeholder"><i class="bi bi-box-seam"></i></div>`;
 
+    const tieneDetalles = Boolean(serie || ip || mac);
+
     return `
       <div class="material-card-added shadow-sm${editListClass}" data-index="${index}">
         <div class="material-card-buttons">
@@ -2090,25 +2519,27 @@ function renderListaMaterialesArco(lista, containerId) {
 
         <div class="material-card-top">
           <div class="material-image-container">${imagen}</div>
-          <div class="flex-grow-1">
+          <div class="flex-grow-1 min-w-0">
             <div class="material-title text-capitalize">${nombre}</div>
-            <div class="material-subtitle">
-              ${material.medida === "pz" ? "Por pieza" : `${cantidad} ${medida}`}
+            <div class="material-subtitle d-flex align-items-center flex-wrap gap-2">
+              <span>${material.medida === "pz" ? "Por pieza" : `${cantidad} ${medida}`}</span>
+              ${tieneDetalles ? `
+                <button type="button" class="material-details-toggle" title="Mostrar u ocultar detalles (Serie, IP, MAC)">
+                  <i class="bi bi-eye"></i>
+                  <span>Datos</span>
+                </button>
+              ` : ""}
             </div>
           </div>
         </div>
 
-        <div class="material-data">
-          ${serie ? `
-            <div class="material-chip">
-              <i class="bi bi-upc-scan text-primary"></i>
-              <span>${serie}</span>
-            </div>
-          ` : ""}
-          ${ip ? `
-            <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i>IP: ${ip}</span>` : ''}
-          ${mac ? `<span class="badge bg-light text-dark border"><i class="bi bi-ethernet text-success me-1"></i>MAC: ${mac}</span>` : ''}
-        </div>
+        ${tieneDetalles ? `
+          <div class="material-data is-hidden">
+            ${serie ? `<span class="material-tag material-tag-serie" title="Serie: ${serie}"><i class="bi bi-upc-scan me-1"></i>${serie}</span>` : ""}
+            ${ip ? `<span class="material-tag material-tag-ip" title="IP: ${ip}"><i class="bi bi-hdd-network me-1"></i>IP: ${ip}</span>` : ""}
+            ${mac ? `<span class="material-tag material-tag-mac" title="MAC: ${mac}"><i class="bi bi-ethernet me-1"></i>MAC: ${mac}</span>` : ""}
+          </div>
+        ` : ""}
 
         <input type="hidden" name="material_id[]" value="${escapeHtml(material.id)}">
         <input type="hidden" name="cantidad[]" value="${cantidad}">
@@ -2138,17 +2569,12 @@ function seleccionarMaterialEnModal(material) {
     foto: material.foto || ""
   };
 
-  document.querySelectorAll("#modalAgregarMaterial .material-card").forEach(limpiarClasesSeleccionMaterial);
+  document.querySelectorAll("#modalAgregarMaterial .material-item").forEach(limpiarClasesSeleccionMaterial);
 
   const item = document.querySelector(`#modalAgregarMaterial .material-item[data-id="${CSS.escape(String(material.id))}"]`);
-  marcarMaterialSeleccionado(item?.querySelector(".material-card"));
-
-  document.getElementById("configuracionColumna")?.classList.remove("d-none");
-  document.getElementById("camposDinamicos")?.classList.remove("d-none");
-
-  const materialesColumna = document.getElementById("materialesColumna");
-  materialesColumna?.classList.remove("col-12");
-  materialesColumna?.classList.add("col-lg-8");
+  if (item) {
+    marcarMaterialSeleccionado(item);
+  }
 
   const materialSeleccionado = document.getElementById("materialSeleccionado");
   if (materialSeleccionado) {
@@ -2181,9 +2607,9 @@ function seleccionarMaterialEnModal(material) {
   if (macInput) macInput.value = material.mac || "";
   macContainer?.classList.toggle("d-none", !material.mac);
 
-  checkSerie?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
-  checkIp?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
-  checkMac?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
+  document.getElementById("serieConfigGroup")?.classList.toggle("d-none", !esPieza);
+  document.getElementById("ipConfigGroup")?.classList.toggle("d-none", !esPieza);
+  document.getElementById("macConfigGroup")?.classList.toggle("d-none", !esPieza);
 
   cantidadContainer?.classList.toggle("d-none", esPieza);
 
@@ -2191,7 +2617,7 @@ function seleccionarMaterialEnModal(material) {
   if (cantidadInput) {
     cantidadInput.min = esPieza ? "1" : "0.1";
     cantidadInput.step = esPieza ? "1" : "0.1";
-    cantidadInput.value = esPieza ? "1" : (material.cantidad || "");
+    cantidadInput.value = material.cantidad || (esPieza ? "1" : "");
   }
 }
 
@@ -2308,11 +2734,66 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       buscarInfraArcos?.addEventListener("input", filtrarInfraArcos);
-      ubicacionPrincipalSelect?.addEventListener("change", filtrarInfraArcos);
+      ubicacionPrincipalSelect?.addEventListener("change", function() {
+        filtrarInfraArcos();
+        const ubiId = String(this.value || "");
+        const select = document.getElementById("agregar_infra_vinculada");
+        if (select) {
+          let matchCurrent = false;
+          Array.from(select.options).forEach(opt => {
+            if (!opt.value) { opt.style.display = ""; return; }
+            const match = !ubiId || String(opt.dataset.ubicacionId || "") === ubiId;
+            opt.style.display = match ? "" : "none";
+            if (opt.value === select.value && match) matchCurrent = true;
+          });
+          select.querySelectorAll("optgroup").forEach(og => {
+            const hasVisible = Array.from(og.querySelectorAll("option")).some(o => o.style.display !== "none");
+            og.style.display = hasVisible ? "" : "none";
+          });
+          if (!matchCurrent) select.value = "";
+          syncSearchableSelect("agregar_infra_vinculada");
+        }
+      });
+      document.getElementById("editar_ubicacion")?.addEventListener("change", function() {
+        const ubiId = String(this.value || "");
+        const select = document.getElementById("editar_infra_vinculada");
+        if (select) {
+          let matchCurrent = false;
+          Array.from(select.options).forEach(opt => {
+            if (!opt.value) { opt.style.display = ""; return; }
+            const match = !ubiId || String(opt.dataset.ubicacionId || "") === ubiId;
+            opt.style.display = match ? "" : "none";
+            if (opt.value === select.value && match) matchCurrent = true;
+          });
+          select.querySelectorAll("optgroup").forEach(og => {
+            const hasVisible = Array.from(og.querySelectorAll("option")).some(o => o.style.display !== "none");
+            og.style.display = hasVisible ? "" : "none";
+          });
+          if (!matchCurrent) select.value = "";
+          syncSearchableSelect("editar_infra_vinculada");
+        }
+      });
       infraArcosVinculados?.addEventListener("change", e => {
         if (e.target.classList.contains("infra-arco-check")) {
           actualizarContadorInfraArcos();
         }
+      });
+
+      document.getElementById("btnSelectAllInfraArcos")?.addEventListener("click", () => {
+        infraArcosVinculados?.querySelectorAll(".infra-arco-option").forEach(opt => {
+          if (opt.style.display !== "none") {
+            const chk = opt.querySelector(".infra-arco-check");
+            if (chk) chk.checked = true;
+          }
+        });
+        actualizarContadorInfraArcos();
+      });
+
+      document.getElementById("btnClearInfraArcos")?.addEventListener("click", () => {
+        infraArcosVinculados?.querySelectorAll(".infra-arco-check").forEach(chk => {
+          chk.checked = false;
+        });
+        actualizarContadorInfraArcos();
       });
 
       function actualizarModoPuenteSitio() {
@@ -2320,6 +2801,11 @@ document.addEventListener("DOMContentLoaded", () => {
         camposPuenteSitio?.classList.toggle("d-none", !activo);
         tipoPuenteSitioGroup?.classList.toggle("d-none", !activo);
         ubicacionPrincipalGroup?.classList.remove("d-none");
+
+        const grupoInfraNuevo = document.getElementById("grupoInfraVinculadaArcoNuevo");
+        if (grupoInfraNuevo) {
+          grupoInfraNuevo.classList.toggle("d-none", activo);
+        }
 
         if (ubicacionPrincipalSelect) {
           ubicacionPrincipalSelect.required = true;
@@ -2348,6 +2834,8 @@ document.addEventListener("DOMContentLoaded", () => {
         actualizarModoPuenteSitio();
         renderMaterialesAgregadosArco();
         renderInfraestructurasArco();
+        syncSearchableSelect("ubicacionPrincipalSelect");
+        syncSearchableSelect("agregar_infra_vinculada");
       });
 
       document.getElementById("modalEditarArco")?.addEventListener("hidden.bs.modal", () => {
@@ -2530,9 +3018,8 @@ document.addEventListener("DOMContentLoaded", () => {
     item.addEventListener("click", function (e) {
       if (e.target.closest("input, textarea, button")) return;
 
-      document.querySelectorAll("#modalAgregarMaterial .material-card").forEach(limpiarClasesSeleccionMaterial);
-
-      marcarMaterialSeleccionado(this.querySelector(".material-card"));
+      document.querySelectorAll("#modalAgregarMaterial .material-item").forEach(limpiarClasesSeleccionMaterial);
+      marcarMaterialSeleccionado(this);
 
       materialSeleccionadoArco = {
         id: this.dataset.id,
@@ -2540,13 +3027,6 @@ document.addEventListener("DOMContentLoaded", () => {
         medida: this.dataset.medida,
         foto: this.dataset.foto
       };
-
-      document.getElementById("configuracionColumna")?.classList.remove("d-none");
-      document.getElementById("camposDinamicos")?.classList.remove("d-none");
-
-      const materialesColumna = document.getElementById("materialesColumna");
-      materialesColumna?.classList.remove("col-12");
-      materialesColumna?.classList.add("col-lg-8");
 
       const materialSeleccionado = document.getElementById("materialSeleccionado");
       if (materialSeleccionado) {
@@ -2576,9 +3056,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (macInput) macInput.value = "";
       macContainer?.classList.add("d-none");
 
-      checkSerie?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
-      checkIp?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
-      checkMac?.closest('.form-check')?.classList.toggle("d-none", !esPieza);
+      document.getElementById("serieConfigGroup")?.classList.toggle("d-none", !esPieza);
+      document.getElementById("ipConfigGroup")?.classList.toggle("d-none", !esPieza);
+      document.getElementById("macConfigGroup")?.classList.toggle("d-none", !esPieza);
 
       const cantidadContainer = document.getElementById("cantidadContainer");
       const cantidadInput = document.getElementById("cantidadInput");
@@ -2760,6 +3240,87 @@ document.addEventListener("DOMContentLoaded", () => {
   renderMaterialesEditarArco();
   renderInfraestructurasArco();
   actualizarModoPuenteSitio();
+
+  // Inicialización de SmartCardPicker (Buscador Predictivo con Tarjeta) en modales
+  initSmartCardPicker("ubicacionPrincipalSelect", {
+    placeholder: "Escribe para buscar municipio o ubicación...",
+    icon: "bi-geo-alt-fill",
+    isOptional: false
+  });
+
+  initSmartCardPicker("agregar_infra_vinculada", {
+    placeholder: "Buscar puente o sitio de enlace (opcional)...",
+    icon: "bi-broadcast-pin",
+    isOptional: true
+  });
+
+  initSmartCardPicker("editar_ubicacion", {
+    placeholder: "Escribe para buscar municipio o ubicación...",
+    icon: "bi-geo-alt-fill",
+    isOptional: false
+  });
+
+  initSmartCardPicker("editar_infra_vinculada", {
+    placeholder: "Buscar puente o sitio de enlace (opcional)...",
+    icon: "bi-broadcast-pin",
+    isOptional: true
+  });
+
+  initSmartCardPicker("editarInfraUbicacion", {
+    placeholder: "Escribe para buscar municipio o ubicación...",
+    icon: "bi-geo-alt-fill",
+    isOptional: false
+  });
+});
+
+// Delegación global para mostrar/ocultar detalles de materiales (Serie, IP, MAC)
+document.addEventListener("click", e => {
+  const toggleBtn = e.target.closest(".material-details-toggle");
+  if (toggleBtn) {
+    e.preventDefault();
+    const card = toggleBtn.closest(".material-card-added");
+    const dataContainer = card?.querySelector(".material-data");
+    if (dataContainer) {
+      const isHidden = dataContainer.classList.toggle("is-hidden");
+      toggleBtn.classList.toggle("is-active", !isHidden);
+      const icon = toggleBtn.querySelector("i");
+      if (icon) {
+        icon.className = isHidden ? "bi bi-eye" : "bi bi-eye-slash";
+      }
+    }
+    return;
+  }
+
+  const toggleAllBtn = e.target.closest(".btn-toggle-all-data");
+  if (toggleAllBtn) {
+    e.preventDefault();
+    const modal = toggleAllBtn.closest(".modal");
+    if (!modal) return;
+    const allDataContainers = modal.querySelectorAll(".material-data");
+    if (!allDataContainers.length) return;
+
+    const hasHidden = Array.from(allDataContainers).some(el => el.classList.contains("is-hidden"));
+    allDataContainers.forEach(el => {
+      el.classList.toggle("is-hidden", !hasHidden);
+    });
+
+    modal.querySelectorAll(".material-details-toggle").forEach(btn => {
+      btn.classList.toggle("is-active", hasHidden);
+      const icon = btn.querySelector("i");
+      if (icon) {
+        icon.className = hasHidden ? "bi bi-eye-slash" : "bi bi-eye";
+      }
+    });
+
+    const label = toggleAllBtn.querySelector(".btn-toggle-all-text");
+    const iconAll = toggleAllBtn.querySelector("i");
+    if (label) {
+      label.textContent = hasHidden ? "Ocultar datos" : "Ver datos";
+    }
+    if (iconAll) {
+      iconAll.className = hasHidden ? "bi bi-eye-slash" : "bi bi-eye";
+    }
+  }
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -2806,11 +3367,62 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("editarInfraLat").value = data.lat || "";
         document.getElementById("editarInfraLng").value = data.lng || "";
 
+        syncSearchableSelect("editarInfraUbicacion");
+
+        const badgeTipo = document.getElementById("editarInfraBadgeTipo");
+        if (badgeTipo) {
+          badgeTipo.textContent = data.tipo || "Nodo";
+          badgeTipo.className = "badge " + (data.tipo === 'Sitio/Torre' ? 'bg-light text-primary' : 'bg-warning text-dark') + " fw-semibold";
+        }
+
+        // Marcar arcos vinculados
         const arcos = (data.arcos || []).map(String);
         document.querySelectorAll("#editarInfraArcosLista .editar-infra-arco-check").forEach(check => {
           check.checked = arcos.includes(String(check.value));
         });
+
+        // Marcar sitios vinculados
+        const sitios = (data.sitios_vinculados || []).map(String);
+        document.querySelectorAll("#editarInfraSitiosLista .editar-infra-sitio-check").forEach(check => {
+          check.checked = sitios.includes(String(check.value));
+        });
+
+        // Marcar postes vinculados
+        const postes = (data.postes_vinculados || []).map(String);
+        document.querySelectorAll("#editarInfraPostesLista .editar-infra-poste-check").forEach(check => {
+          check.checked = postes.includes(String(check.value));
+        });
+
+        // Marcar enlaces con enlaces vinculados (saltos y relevos)
+        const enlacesConEnlaces = (data.enlaces_con_enlaces || []).map(String);
+        document.querySelectorAll("#editarInfraEnlacesEnlacesLista .editar-infra-enlace-enlace-check").forEach(check => {
+          check.checked = enlacesConEnlaces.includes(String(check.value));
+        });
+
+        // Limpiar búsquedas
+        const buscarArcos = document.getElementById("buscarEditarInfraArcos");
+        if (buscarArcos) buscarArcos.value = "";
+        const buscarSitios = document.getElementById("buscarEditarInfraSitios");
+        if (buscarSitios) buscarSitios.value = "";
+        const buscarPostes = document.getElementById("buscarEditarInfraPostes");
+        if (buscarPostes) buscarPostes.value = "";
+        const buscarEnlacesEnlaces = document.getElementById("buscarEditarInfraEnlacesEnlaces");
+        if (buscarEnlacesEnlaces) buscarEnlacesEnlaces.value = "";
+
+        // Ejecutar filtros y renderizado de chips / contadores
         filtrarEditarInfraArcos();
+        filtrarEditarInfraSitios(id);
+        filtrarEditarInfraPostes(id);
+        filtrarEditarInfraEnlacesEnlaces(id);
+        renderChipsEditarInfra();
+        actualizarContadoresEditarInfra();
+
+        // Activar la primera pestaña de enlaces
+        const firstSubTab = document.getElementById("tab-arcos-btn");
+        if (firstSubTab && typeof bootstrap !== "undefined") {
+          const bsTab = bootstrap.Tab.getOrCreateInstance(firstSubTab);
+          bsTab.show();
+        }
 
         materialesEditandoInfraestructura = (data.materiales || []).map(material => ({
           id: material.material_id,
@@ -2829,11 +3441,143 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  editarInfraUbicacion?.addEventListener("change", filtrarEditarInfraArcos);
-  buscarEditarInfraArcos?.addEventListener("input", filtrarEditarInfraArcos);
-  editarInfraArcosLista?.addEventListener("change", e => {
+  // Filtro estricto por ubicación del nodo
+  document.getElementById("editarInfraUbicacion")?.addEventListener("change", () => {
+    const ubicacionId = String(document.getElementById("editarInfraUbicacion")?.value || "");
+    // Desmarcar elementos que no pertenezcan a la nueva ubicación seleccionada
+    document.querySelectorAll("#editarInfraArcosLista .editar-infra-arco-check:checked").forEach(chk => {
+      const card = chk.closest(".arco-node-item");
+      if (card && String(card.dataset.ubicacionId || "") !== ubicacionId) {
+        chk.checked = false;
+      }
+    });
+    document.querySelectorAll("#editarInfraSitiosLista .editar-infra-sitio-check:checked").forEach(chk => {
+      const card = chk.closest(".sitio-node-item");
+      if (card && String(card.dataset.ubicacionId || "") !== ubicacionId) {
+        chk.checked = false;
+      }
+    });
+    document.querySelectorAll("#editarInfraPostesLista .editar-infra-poste-check:checked").forEach(chk => {
+      const card = chk.closest(".poste-node-item");
+      if (card && String(card.dataset.ubicacionId || "") !== ubicacionId) {
+        chk.checked = false;
+      }
+    });
+    document.querySelectorAll("#editarInfraEnlacesEnlacesLista .editar-infra-enlace-enlace-check:checked").forEach(chk => {
+      const card = chk.closest(".enlace-node-item");
+      if (card && String(card.dataset.ubicacionId || "") !== ubicacionId) {
+        chk.checked = false;
+      }
+    });
+
+    filtrarEditarInfraArcos();
+    filtrarEditarInfraSitios();
+    filtrarEditarInfraPostes();
+    filtrarEditarInfraEnlacesEnlaces();
+    renderChipsEditarInfra();
+    actualizarContadoresEditarInfra();
+  });
+
+  // Búsquedas de arcos y enlaces por texto
+  document.getElementById("buscarEditarInfraArcos")?.addEventListener("input", filtrarEditarInfraArcos);
+  document.getElementById("buscarEditarInfraSitios")?.addEventListener("input", () => filtrarEditarInfraSitios());
+  document.getElementById("buscarEditarInfraPostes")?.addEventListener("input", () => filtrarEditarInfraPostes());
+  document.getElementById("buscarEditarInfraEnlacesEnlaces")?.addEventListener("input", () => filtrarEditarInfraEnlacesEnlaces());
+
+  // Botones de selección masiva y limpieza
+  document.getElementById("btnSelectAllEditarInfraArcos")?.addEventListener("click", () => {
+    document.querySelectorAll("#editarInfraArcosLista .arco-node-item").forEach(item => {
+      if (item.style.display !== "none") {
+        const chk = item.querySelector(".editar-infra-arco-check");
+        if (chk) chk.checked = true;
+      }
+    });
+    renderChipsEditarInfra('arcos');
+    actualizarContadoresEditarInfra();
+  });
+
+  document.getElementById("btnSelectAllEditarInfraEnlacesEnlaces")?.addEventListener("click", () => {
+    document.querySelectorAll("#editarInfraEnlacesEnlacesLista .enlace-node-item").forEach(item => {
+      if (item.style.display !== "none") {
+        const chk = item.querySelector(".editar-infra-enlace-enlace-check");
+        if (chk) chk.checked = true;
+      }
+    });
+    renderChipsEditarInfra('enlaces_enlaces');
+    actualizarContadoresEditarInfra();
+  });
+
+  document.getElementById("btnClearEditarInfraArcos")?.addEventListener("click", () => {
+    document.querySelectorAll("#editarInfraArcosLista .editar-infra-arco-check").forEach(chk => chk.checked = false);
+    renderChipsEditarInfra('arcos');
+    actualizarContadoresEditarInfra();
+  });
+
+  document.getElementById("btnClearEditarInfraSitios")?.addEventListener("click", () => {
+    document.querySelectorAll("#editarInfraSitiosLista .editar-infra-sitio-check").forEach(chk => chk.checked = false);
+    renderChipsEditarInfra('sitios');
+    actualizarContadoresEditarInfra();
+  });
+
+  document.getElementById("btnClearEditarInfraPostes")?.addEventListener("click", () => {
+    document.querySelectorAll("#editarInfraPostesLista .editar-infra-poste-check").forEach(chk => chk.checked = false);
+    renderChipsEditarInfra('postes');
+    actualizarContadoresEditarInfra();
+  });
+
+  document.getElementById("btnClearEditarInfraEnlacesEnlaces")?.addEventListener("click", () => {
+    document.querySelectorAll("#editarInfraEnlacesEnlacesLista .editar-infra-enlace-enlace-check").forEach(chk => chk.checked = false);
+    renderChipsEditarInfra('enlaces_enlaces');
+    actualizarContadoresEditarInfra();
+  });
+
+  // Eventos de cambios en checkboxes y clics en tarjetas dentro del modal
+  document.getElementById("modalEditarInfraestructura")?.addEventListener("change", e => {
     if (e.target.classList.contains("editar-infra-arco-check")) {
-      actualizarContadorEditarInfraArcos();
+      renderChipsEditarInfra('arcos');
+      actualizarContadoresEditarInfra();
+    } else if (e.target.classList.contains("editar-infra-sitio-check")) {
+      renderChipsEditarInfra('sitios');
+      actualizarContadoresEditarInfra();
+    } else if (e.target.classList.contains("editar-infra-poste-check")) {
+      renderChipsEditarInfra('postes');
+      actualizarContadoresEditarInfra();
+    } else if (e.target.classList.contains("editar-infra-enlace-enlace-check")) {
+      renderChipsEditarInfra('enlaces_enlaces');
+      actualizarContadoresEditarInfra();
+    }
+  });
+
+  document.getElementById("modalEditarInfraestructura")?.addEventListener("click", e => {
+    // Manejar clic en tarjeta de nodo para activar/desactivar checkbox
+    const card = e.target.closest(".infra-node-card");
+    if (card && e.target.tagName !== "INPUT" && !e.target.closest(".chip-remove-btn")) {
+      const chk = card.querySelector('input[type="checkbox"]');
+      if (chk) {
+        chk.checked = !chk.checked;
+        chk.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      return;
+    }
+
+    // Manejar clic en botón de remover chip
+    const removeBtn = e.target.closest(".chip-remove-btn");
+    if (removeBtn) {
+      const tipo = removeBtn.dataset.targetTipo;
+      const targetId = removeBtn.dataset.id;
+      let selector = "";
+      if (tipo === 'arcos') selector = `#editarInfraArcosLista .editar-infra-arco-check[value="${targetId}"]`;
+      else if (tipo === 'sitios') selector = `#editarInfraSitiosLista .editar-infra-sitio-check[value="${targetId}"]`;
+      else if (tipo === 'postes') selector = `#editarInfraPostesLista .editar-infra-poste-check[value="${targetId}"]`;
+      else if (tipo === 'enlaces_enlaces') selector = `#editarInfraEnlacesEnlacesLista .editar-infra-enlace-enlace-check[value="${targetId}"]`;
+
+      if (selector) {
+        const chk = document.querySelector(selector);
+        if (chk) {
+          chk.checked = false;
+          chk.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
     }
   });
 
