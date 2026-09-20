@@ -635,6 +635,116 @@
   margin-top:.14rem;
 }
 
+.report-filter-group .btn {
+  font-weight:600;
+  font-size:.78rem;
+  padding:.3rem .65rem;
+}
+
+.report-critical-card.is-info {
+  border-color:#b8e2f2;
+}
+
+.report-critical-card.is-info::before {
+  background:#0dcaf0;
+}
+
+.report-critical-card.is-neutral {
+  border-color:#e5e7eb;
+}
+
+.report-critical-card.is-neutral::before {
+  background:#6c757d;
+}
+
+.report-critical-card-stats-v2 {
+  display:grid;
+  gap:.45rem;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
+.report-critical-card-stats-v2 .stat-box {
+  background:#f8fafc;
+  border:1px solid #e6edf4;
+  border-radius:7px;
+  padding:.45rem .5rem;
+}
+
+.report-critical-card-stats-v2 .stat-box span {
+  color:#687582;
+  display:block;
+  font-size:.64rem;
+  font-weight:800;
+  text-transform:uppercase;
+}
+
+.report-critical-card-stats-v2 .stat-box strong {
+  color:#17202a;
+  display:block;
+  font-size:.95rem;
+  line-height:1.12;
+}
+
+.report-critical-card-stats-v2 .stat-box strong small {
+  font-size:.72rem;
+  font-weight:normal;
+  color:#66727c;
+}
+
+.report-critical-card-stats-v2 .stat-box small {
+  color:#66727c;
+  display:block;
+  font-size:.68rem;
+  line-height:1.1;
+  margin-top:2px;
+}
+
+.report-critical-card-stats-v2 .stat-fallas.has-failures {
+  background:#fff5f5;
+  border-color:#f8d7da;
+}
+
+.report-critical-card-stats-v2 .stat-fallas.has-failures strong {
+  color:#dc3545;
+}
+
+.report-critical-card-stats-v2 .stat-fallas.has-failures span {
+  color:#b02a37;
+}
+
+.report-critical-card-stats-v2 .stat-preventivos.has-renewals {
+  background:#f0fdf4;
+  border-color:#bbf7d0;
+}
+
+.report-critical-card-stats-v2 .stat-preventivos.has-renewals strong {
+  color:#16a34a;
+}
+
+.report-critical-card-stats-v2 .stat-preventivos.has-renewals span {
+  color:#15803d;
+}
+
+.report-mini-progress.progress-falla-alta span {
+  background:#dc3545;
+}
+
+.report-mini-progress.progress-falla-media span {
+  background:#f59e0b;
+}
+
+.report-mini-progress.progress-renovacion span {
+  background:#0dcaf0;
+}
+
+.report-mini-progress.progress-estable span {
+  background:#198754;
+}
+
+.report-mini-progress.progress-catalogo span {
+  background:#adb5bd;
+}
+
 .report-critical-card-stats {
   display:grid;
   gap:.5rem;
@@ -688,7 +798,7 @@
 
 .report-critical-card .report-detail-btn {
   align-self:flex-end;
-  min-width:96px;
+  min-width:115px;
 }
 
 #arcosMaterialTable td:first-child {
@@ -966,6 +1076,52 @@
   justify-self:end;
 }
 
+.report-detail-summary-v2 {
+  display:grid;
+  gap:.65rem;
+  grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.report-detail-summary-v2 .summary-box {
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:8px;
+  padding:.7rem .8rem;
+}
+
+.report-detail-summary-v2 .summary-box span {
+  color:#6c757d;
+  display:block;
+  font-size:.75rem;
+  font-weight:700;
+  text-transform:uppercase;
+}
+
+.report-detail-summary-v2 .summary-box strong {
+  display:block;
+  font-size:1.25rem;
+  line-height:1.15;
+  margin-top:2px;
+}
+
+.report-detail-summary-v2 .summary-box.summary-danger {
+  background:#fff5f5;
+  border-color:#f8d7da;
+}
+
+.report-detail-summary-v2 .summary-box.summary-danger strong {
+  color:#dc3545;
+}
+
+.report-detail-summary-v2 .summary-box.summary-info {
+  background:#f0f9ff;
+  border-color:#bae6fd;
+}
+
+.report-detail-summary-v2 .summary-box.summary-info strong {
+  color:#0284c7;
+}
+
 .report-detail-summary {
   display:grid;
   gap:.65rem;
@@ -1018,8 +1174,132 @@
   padding:.75rem;
 }
 
+.report-component-detail-card.is-danger {
+  border-left-color:#dc3545;
+}
+
 .report-component-detail-card.is-warning {
   border-left-color:#f59e0b;
+}
+
+.report-component-detail-card.is-info {
+  border-left-color:#0dcaf0;
+}
+
+.report-component-detail-card.is-ok {
+  border-left-color:#198754;
+}
+
+.report-component-metrics-v2 {
+  display:grid;
+  gap:.45rem;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  margin-top:.7rem;
+}
+
+.report-component-metrics-v2 .metric-box {
+  background:#f8fafc;
+  border:1px solid #e8eef4;
+  border-radius:7px;
+  padding:.45rem .5rem;
+}
+
+.report-component-metrics-v2 .metric-box span {
+  color:#687582;
+  display:block;
+  font-size:.68rem;
+  font-weight:800;
+  text-transform:uppercase;
+}
+
+.report-component-metrics-v2 .metric-box strong {
+  color:#17202a;
+  display:block;
+  font-size:.95rem;
+  line-height:1.15;
+}
+
+.report-component-metrics-v2 .metric-box.metric-danger {
+  background:#fff5f5;
+  border-color:#f8d7da;
+}
+
+.report-component-metrics-v2 .metric-box.metric-danger strong {
+  color:#dc3545;
+}
+
+.report-component-metrics-v2 .metric-box.metric-info {
+  background:#f0fdf4;
+  border-color:#bbf7d0;
+}
+
+.report-component-metrics-v2 .metric-box.metric-info strong {
+  color:#16a34a;
+}
+
+.report-component-history {
+  display:flex;
+  flex-direction:column;
+  gap:.45rem;
+  margin-top:.75rem;
+}
+
+.history-title {
+  color:#4b5563;
+  font-size:.78rem;
+  font-weight:700;
+  text-transform:uppercase;
+}
+
+.history-item {
+  background:#f8fafc;
+  border-left:3px solid #cbd5df;
+  border-radius:0 6px 6px 0;
+  font-size:.83rem;
+  padding:.45rem .6rem;
+}
+
+.history-item.is-correctivo {
+  background:#fffafa;
+  border-left-color:#dc3545;
+}
+
+.history-item.is-preventivo {
+  background:#f8fdf9;
+  border-left-color:#198754;
+}
+
+.history-item-header {
+  align-items:center;
+  display:flex;
+  flex-wrap:wrap;
+  gap:.45rem;
+  font-size:.78rem;
+  margin-bottom:.25rem;
+}
+
+.history-date {
+  color:#4b5563;
+  font-weight:600;
+}
+
+.history-cant {
+  color:#111827;
+  font-weight:700;
+}
+
+.history-serie {
+  background:#e5e7eb;
+  border-radius:4px;
+  font-family:monospace;
+  font-size:.74rem;
+  padding:.1rem .35rem;
+}
+
+.history-obs {
+  color:#374151;
+  font-size:.82rem;
+  line-height:1.3;
 }
 
 .report-component-detail-head {
@@ -1180,8 +1460,27 @@
     min-height:150px;
   }
 
-  .report-critical-card-stats {
+  .report-critical-card-stats,
+  .report-critical-card-stats-v2 {
     grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .report-component-metrics-v2 {
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .report-detail-summary-v2 {
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .report-filter-group {
+    display:flex;
+    flex-wrap:wrap;
+    width:100%;
+  }
+
+  .report-filter-group .btn {
+    flex:1 1 auto;
   }
 
   .report-location-modal-grid,

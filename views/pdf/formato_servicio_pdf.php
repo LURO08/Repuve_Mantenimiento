@@ -334,6 +334,21 @@ if (!empty($registro['tecnico_firma'])) {
         <td style="width:28%"><strong>Ubicación</strong><?= pdfText($registro['ubicacion']) ?></td>
         <td style="width:38%"><strong>Técnico responsable</strong><?= pdfText($registro['tecnico_responsable']) ?></td>
       </tr>
+      <?php elseif ($registro['tipo'] === 'tools'): ?>
+      <tr>
+        <td style="width:38%">
+          <strong>Servicio / Destino</strong>
+          <?= pdfText($registro['servicio'] ?: $registro['arco']) ?>
+        </td>
+        <td style="width:27%">
+          <strong>Ubicación / Zona</strong>
+          <?= pdfText($registro['ubicacion']) ?>
+        </td>
+        <td style="width:35%">
+          <strong>Técnico responsable</strong>
+          <?= pdfText($registro['tecnico_responsable']) ?>
+        </td>
+      </tr>
       <?php else: ?>
       <tr>
         <td style="width:58%">
@@ -348,15 +363,15 @@ if (!empty($registro['tecnico_firma'])) {
           <strong>Fecha y hora</strong>
           <?= $fechaMantenimiento ? date('d/m/Y H:i', $fechaMantenimiento) : 'N/A' ?>
         </td>
-        <td>
-          <strong style="margin: 5px 0px;">Tipo de mantenimiento</strong>
+        <td <?= $registro['tipo'] === 'tools' ? 'colspan="2"' : '' ?>>
+          <strong style="margin: 3px 0px;"><?= $registro['tipo'] === 'tools' ? 'Tipo de servicio' : 'Tipo de mantenimiento' ?></strong>
           <?php if ($registro['tipo'] === 'tools'): ?>
-            <span class="mark"><?= pdfMark($registro['tipo_mantenimiento'] === 'Nueva Instalacion') ?></span> Nueva instalación
+            <span class="mark"><?= pdfMark($registro['tipo_mantenimiento'] === 'Nueva Instalacion' || ($registro['tipo_servicio'] ?? '') === 'Nueva Instalacion') ?></span> Nueva instalación
             &nbsp;
           <?php endif; ?>
-          <span class="mark"><?= pdfMark($registro['tipo_mantenimiento'] === 'Preventivo') ?></span> Preventivo
+          <span class="mark"><?= pdfMark($registro['tipo_mantenimiento'] === 'Preventivo' || ($registro['tipo_servicio'] ?? '') === 'Preventivo') ?></span> Preventivo
           &nbsp;
-          <span class="mark"><?= pdfMark($registro['tipo_mantenimiento'] === 'Correctivo') ?></span> Correctivo
+          <span class="mark"><?= pdfMark($registro['tipo_mantenimiento'] === 'Correctivo' || ($registro['tipo_servicio'] ?? '') === 'Correctivo') ?></span> Correctivo
         </td>
       </tr>
     </table>
@@ -576,6 +591,13 @@ if (!empty($registro['tecnico_firma'])) {
         </table>
       </div>
     <?php endforeach; ?>
+
+    <div class="section">
+      <div class="section-title">V. SERVICIOS REALIZADOS</div>
+      <div class="observation-box" style="min-height: 24px; padding: 4px 6px; font-size: 7.5px; border-left: 3px solid #003865; background: #f8fafc;">
+        <?= trim((string)($datos['servicios_realizados'] ?? '')) !== '' ? nl2br(pdfText($datos['servicios_realizados'])) : '<span class="muted">No se detallaron servicios específicos.</span>' ?>
+      </div>
+    </div>
   <?php endif; ?>
 
   <div class="signature">

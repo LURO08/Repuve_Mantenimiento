@@ -77,13 +77,28 @@ $tecnicoRow = obtenerTecnicoPorId($pdo, $tecnicoId);
 $tecnico = $tecnicoRow['nombre'] ?? '';
 $fecha = cleanValue($_POST['fecha'] ?? '');
 $hora = cleanValue($_POST['hora'] ?? '');
-if (($arcoId <= 0 && $infraId <= 0) || !$tecnicoRow || $fecha === '' || $hora === '') {
-    $message = urlencode('Selecciona ubicación, arco o sitio, técnico, fecha y hora.');
-    $backUrl = "../views/formato_llenar.php?type={$type}&error={$message}";
-    if ($revisionId > 0) $backUrl .= "&revision_id={$revisionId}";
-    if ($infraRevisionId > 0) $backUrl .= "&infraestructura_revision_id={$infraRevisionId}";
-    header("Location: {$backUrl}");
-    exit;
+$servicio = cleanValue($_POST['servicio'] ?? '');
+$ubicacionCustom = cleanValue($_POST['ubicacion'] ?? '');
+$serviciosRealizados = cleanValue($_POST['servicios_realizados'] ?? '');
+
+if ($type === 'tools') {
+    if (($arcoId <= 0 && $infraId <= 0 && $servicio === '') || !$tecnicoRow || $fecha === '' || $hora === '') {
+        $message = urlencode('Ingresa el servicio o destino, técnico, fecha y hora.');
+        $backUrl = "../views/formato_llenar.php?type={$type}&error={$message}";
+        if ($revisionId > 0) $backUrl .= "&revision_id={$revisionId}";
+        if ($infraRevisionId > 0) $backUrl .= "&infraestructura_revision_id={$infraRevisionId}";
+        header("Location: {$backUrl}");
+        exit;
+    }
+} else {
+    if (($arcoId <= 0 && $infraId <= 0) || !$tecnicoRow || $fecha === '' || $hora === '') {
+        $message = urlencode('Selecciona ubicación, arco o sitio, técnico, fecha y hora.');
+        $backUrl = "../views/formato_llenar.php?type={$type}&error={$message}";
+        if ($revisionId > 0) $backUrl .= "&revision_id={$revisionId}";
+        if ($infraRevisionId > 0) $backUrl .= "&infraestructura_revision_id={$infraRevisionId}";
+        header("Location: {$backUrl}");
+        exit;
+    }
 }
 
 $nombreObjetivo = '';
@@ -98,14 +113,15 @@ if ($infraId > 0) {
     ");
     $infStmt->execute([$infraId]);
     $infra = $infStmt->fetch(PDO::FETCH_ASSOC);
-    if (!$infra) {
+    if ($infra) {
+        $nombreObjetivo = $infra['infraestructura'];
+        $nombreUbicacion = $infra['ubicacion'];
+    } elseif ($type !== 'tools') {
         $message = urlencode('El puente o sitio seleccionado no existe.');
         header("Location: ../views/formato_llenar.php?type={$type}&error={$message}");
         exit;
     }
-    $nombreObjetivo = $infra['infraestructura'];
-    $nombreUbicacion = $infra['ubicacion'];
-} else {
+} elseif ($arcoId > 0) {
     $arcoStmt = $pdo->prepare("
         SELECT
             a.nombre AS arco,
@@ -117,24 +133,34 @@ if ($infraId > 0) {
     $arcoStmt->execute([$arcoId]);
     $arco = $arcoStmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$arco) {
+    if ($arco) {
+        $nombreObjetivo = $arco['arco'];
+        $nombreUbicacion = $arco['ubicacion'];
+    } elseif ($type !== 'tools') {
         $message = urlencode('El arco seleccionado no existe o está dado de baja.');
         header("Location: ../views/formato_llenar.php?type={$type}&error={$message}");
         exit;
     }
-    $nombreObjetivo = $arco['arco'];
-    $nombreUbicacion = $arco['ubicacion'];
+}
+
+if ($type === 'tools' && $servicio !== '') {
+    $nombreObjetivo = $servicio;
+}
+if ($type === 'tools' && $ubicacionCustom !== '') {
+    $nombreUbicacion = $ubicacionCustom;
 }
 
 $fechaServicio = $fecha . ' ' . $hora . ':00';
 $datos = [
+    'servicio' => $nombreObjetivo,
     'arco' => $nombreObjetivo,
     'ubicacion' => $nombreUbicacion,
     'es_infra' => ($infraId > 0),
     'tecnico_id' => $tecnicoId,
     'tecnico' => $tecnico,
     'fecha_servicio' => $fechaServicio,
-    'tipo_mantenimiento' => cleanValue($_POST['tipo_mantenimiento'] ?? 'Correctivo'),
+    'tipo_mantenimiento' => cleanValue($_POST['tipo_mantenimiento'] ?? ($_POST['tipo_servicio'] ?? 'Correctivo')),
+    'tipo_servicio' => cleanValue($_POST['tipo_servicio'] ?? ($_POST['tipo_mantenimiento'] ?? 'Correctivo')),
 ];
 
 if ($type === 'checklist') {
@@ -180,6 +206,7 @@ if ($type === 'quality') {
 if ($type === 'tools') {
     $datos['tipo_servicio'] = cleanValue($_POST['tipo_servicio'] ?? 'Correctivo');
     $datos['tipo_mantenimiento'] = $datos['tipo_servicio'];
+    $datos['servicios_realizados'] = cleanValue($_POST['servicios_realizados'] ?? '');
     $datos['herramientas'] = [];
     $datos['consumibles'] = [];
     $datos['epp'] = [];

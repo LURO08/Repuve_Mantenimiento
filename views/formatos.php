@@ -56,9 +56,9 @@ $todosFormatos = $pdo->query("
         fm.created_at,
         COALESCE(fm.datos->>'fecha_servicio', r.fecha_mantenimiento::text, ir.fecha_mantenimiento::text, fm.created_at::text) AS fecha_servicio,
         COALESCE(tf.nombre, tr.nombre, tir.nombre, fm.datos->>'tecnico', '') AS tecnico_nombre,
-        COALESCE(a.nombre, n.nombre, fm.datos->>'arco', 'Arco / Sitio') AS objetivo_nombre,
+        COALESCE(NULLIF(fm.datos->>'servicio', ''), a.nombre, n.nombre, fm.datos->>'arco', 'Servicio General') AS objetivo_nombre,
         COALESCE(u.id, un.id, 0) AS ubicacion_id,
-        COALESCE(u.nombre, un.nombre, fm.datos->>'ubicacion', 'Sin ubicación') AS ubicacion_nombre,
+        COALESCE(NULLIF(fm.datos->>'ubicacion', ''), u.nombre, un.nombre, 'Sin ubicación') AS ubicacion_nombre,
         CASE WHEN fm.infraestructura_id IS NOT NULL OR fm.infraestructura_revision_id IS NOT NULL OR ir.id IS NOT NULL THEN 'infra' ELSE 'arco' END AS tipo_entidad
     FROM formatos_mantenimiento fm
     LEFT JOIN revisiones r ON r.id = fm.revision_id
@@ -87,26 +87,31 @@ $formatosJsVersion = file_exists(__DIR__ . '/../css/formatos.css') ? filemtime(_
       </div>
       <div>
         <h1 class="fs-4 fw-bold mb-0 text-dark">Formatos de Servicio</h1>
-        <p class="text-muted small mb-0">Consulta, filtrado por ubicación y descarga de formatos por arco.</p>
+        <p class="text-muted small mb-0">Consulta, filtrado por ubicación y descarga de formatos por servicio / arco.</p>
       </div>
     </div>
 
-    <!-- ACCIONES DE CABECERA (PLANTILLAS EN BLANCO) -->
-    <div class="dropdown">
-      <button class="btn btn-outline-secondary btn-sm dropdown-toggle shadow-xs" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-        <i class="bi bi-file-earmark-arrow-down me-1"></i> Plantillas en blanco (DOCX)
-      </button>
-      <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-        <?php foreach ($formatos as $fKey => $fCfg): ?>
-          <li>
-            <a class="dropdown-item small d-flex align-items-center gap-2" href="../controllers/formatos_controller.php?action=download_blank&type=<?= urlencode($fKey) ?>">
-              <i class="bi <?= htmlspecialchars($fCfg['icon']) ?> text-secondary"></i>
-              <span><?= htmlspecialchars($fCfg['title']) ?></span>
-              <span class="badge bg-light text-muted border ms-auto"><?= htmlspecialchars($fCfg['code']) ?></span>
-            </a>
-          </li>
-        <?php endforeach; ?>
-      </ul>
+    <!-- ACCIONES DE CABECERA -->
+    <div class="d-flex align-items-center gap-2">
+      <a href="formato_llenar.php?type=tools" class="btn btn-warning btn-sm text-dark fw-bold shadow-xs">
+        <i class="bi bi-tools me-1"></i> Nueva Salida de Herramientas
+      </a>
+      <div class="dropdown">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle shadow-xs" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-file-earmark-arrow-down me-1"></i> Plantillas en blanco (DOCX)
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+          <?php foreach ($formatos as $fKey => $fCfg): ?>
+            <li>
+              <a class="dropdown-item small d-flex align-items-center gap-2" href="../controllers/formatos_controller.php?action=download_blank&type=<?= urlencode($fKey) ?>">
+                <i class="bi <?= htmlspecialchars($fCfg['icon']) ?> text-secondary"></i>
+                <span><?= htmlspecialchars($fCfg['title']) ?></span>
+                <span class="badge bg-light text-muted border ms-auto"><?= htmlspecialchars($fCfg['code']) ?></span>
+              </a>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
     </div>
   </header>
 
@@ -263,7 +268,7 @@ $formatosJsVersion = file_exists(__DIR__ . '/../css/formatos.css') ? filemtime(_
               </div>
               <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
                 <span class="badge bg-light text-dark border fw-semibold">
-                  <i class="bi <?= $guardado['tipo_entidad'] === 'infra' ? 'bi-broadcast-pin text-primary' : 'bi-diagram-3 text-success' ?> me-1"></i>
+                  <i class="bi <?= $guardado['tipo'] === 'tools' ? 'bi-tools text-warning' : ($guardado['tipo_entidad'] === 'infra' ? 'bi-broadcast-pin text-primary' : 'bi-diagram-3 text-success') ?> me-1"></i>
                   <?= htmlspecialchars($guardado['objetivo_nombre']) ?>
                 </span>
                 <span class="badge bg-light text-secondary border">

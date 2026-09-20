@@ -56,8 +56,11 @@ if (!isset($formatos[$registro['tipo']])) {
 
 $config = $formatos[$registro['tipo']];
 $datos = json_decode($registro['datos'], true) ?: [];
+$registro['servicio'] = $datos['servicio'] ?? $registro['arco'] ?? 'Servicio General';
+$registro['ubicacion'] = $datos['ubicacion'] ?? $registro['ubicacion'] ?? '';
 $registro['fecha_mantenimiento'] = $datos['fecha_servicio'] ?? $registro['fecha_mantenimiento'];
-$registro['tipo_mantenimiento'] = $datos['tipo_mantenimiento'] ?? $registro['tipo_mantenimiento'] ?? 'Correctivo';
+$registro['tipo_mantenimiento'] = $datos['tipo_servicio'] ?? $datos['tipo_mantenimiento'] ?? $registro['tipo_mantenimiento'] ?? 'Correctivo';
+$registro['tipo_servicio'] = $registro['tipo_mantenimiento'];
 $registro['tecnico_responsable'] = $registro['tecnico_nombre'] ?? $datos['tecnico'] ?? '';
 $logoPath = $rootDir . '/assets/LOGO INNOVATEC PDF.jpg';
 $logoData = is_file($logoPath)
@@ -93,7 +96,8 @@ $prefijoFormato = $config['file_prefix'] ?? match ($registro['tipo']) {
     default     => 'Formato_Servicio'
 };
 
-$safeArc = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $registro['arco'] ?: 'Arco') ?: 'Arco';
+$targetNameForFile = ($registro['tipo'] === 'tools' && !empty($registro['servicio'])) ? $registro['servicio'] : ($registro['arco'] ?: 'Servicio');
+$safeArc = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $targetNameForFile) ?: 'Servicio';
 $safeArc = trim(preg_replace('/[^a-zA-Z0-9_-]+/', '_', $safeArc), '_');
 
 $fechaTimestamp = !empty($registro['fecha_mantenimiento'])

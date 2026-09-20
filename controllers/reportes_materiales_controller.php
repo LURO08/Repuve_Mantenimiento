@@ -1,5 +1,5 @@
 <?php
-require_once('../config/db.php');
+require_once __DIR__ . '/../config/db.php';
 
 $hoy = date('Y-m-d');
 
@@ -325,6 +325,36 @@ $kpis['porcentaje_preventivos_bimestre'] = round(((int)$kpis['preventivos_bimest
 $kpis['porcentaje_correctivos_bimestre'] = round(((int)$kpis['correctivos_bimestre'] / $totalArcosPorcentaje) * 100, 1);
 
 $materiales = $pdo->query("
+    WITH revision_timeline AS (
+        SELECT 
+            rm.id AS rm_id,
+            rm.revision_id,
+            rm.arco_material_id,
+            rm.material_id AS material_colocado_id,
+            rm.cantidad,
+            rm.serie AS nueva_serie,
+            rm.accion,
+            r.arco_id,
+            r.fecha_mantenimiento,
+            r.tipo_mantenimiento,
+            r.observaciones,
+            r.tecnico_id,
+            am.material_id AS base_material_id,
+            COALESCE(
+                LAG(rm.material_id) OVER (
+                    PARTITION BY rm.arco_material_id 
+                    ORDER BY r.fecha_mantenimiento ASC, rm.id ASC
+                ),
+                am.material_id,
+                rm.material_id
+            ) AS material_retirado_id
+        FROM revision_material rm
+        JOIN revisiones r ON r.id = rm.revision_id
+        LEFT JOIN arco_material am ON am.id = rm.arco_material_id
+        JOIN arcos a ON a.id = r.arco_id
+        WHERE COALESCE(a.estado, 'Activo') <> 'Baja'
+          AND COALESCE(rm.accion, 'cambio') <> 'retiro'
+    )
     SELECT
         m.id AS material_id,
         m.nombre AS componente,
@@ -333,15 +363,35 @@ $materiales = $pdo->query("
         COALESCE(inst.total_instalado, 0) AS total_instalado,
         COALESCE(inst.arcos_instalado, 0) AS arcos_instalado,
         COALESCE(inst.series_instaladas, 0) AS series_instaladas,
-        COALESCE(cambios.total_cambios, 0) AS total_usos,
-        COALESCE(cambios.piezas_cambiadas, 0) AS piezas_cambiadas,
-        COALESCE(cambios.arcos_afectados, 0) AS arcos_afectados,
-        cambios.primera,
-        cambios.ultima,
-        CASE WHEN COALESCE(cambios.total_cambios, 0) > 1
-             THEN ROUND((DATE_PART('day', cambios.ultima::timestamp - cambios.primera::timestamp) / (cambios.total_cambios - 1))::numeric)
+        
+        -- Intervenciones Correctivas (Fallas / Averías sufridas por este componente)
+        COALESCE(corr.fallas_correctivas, 0) AS fallas_correctivas,
+        COALESCE(corr.piezas_falla, 0) AS piezas_falla,
+        COALESCE(corr.arcos_fallados, 0) AS arcos_fallados,
+        corr.primera_falla,
+        corr.ultima_falla,
+        
+        -- Intervenciones Preventivas (Renovaciones / Retiros en Preventivo)
+        COALESCE(prev.cambios_preventivos, 0) AS cambios_preventivos,
+        COALESCE(prev.piezas_preventivas, 0) AS piezas_preventivas,
+        COALESCE(prev.arcos_preventivos, 0) AS arcos_preventivos,
+        prev.primer_preventivo,
+        prev.ultimo_preventivo,
+        
+        -- Colocaciones de este material como equipo nuevo / reemplazo
+        COALESCE(nuevos.veces_colocado, 0) AS veces_colocado_nuevo,
+        COALESCE(nuevos.piezas_colocadas, 0) AS piezas_colocadas_nuevo,
+        
+        -- Totales Combinados (veces que fue intervenido, retirado o colocado)
+        COALESCE(tot.total_usos, 0) AS total_usos,
+        COALESCE(tot.piezas_cambiadas, 0) AS piezas_cambiadas,
+        COALESCE(tot.arcos_afectados, 0) AS arcos_afectados,
+        tot.primera,
+        tot.ultima,
+        CASE WHEN COALESCE(tot.total_usos, 0) > 1 AND tot.ultima IS NOT NULL AND tot.primera IS NOT NULL
+             THEN ROUND((DATE_PART('day', tot.ultima::timestamp - tot.primera::timestamp) / (tot.total_usos - 1))::numeric)
              ELSE NULL END AS avg_interval_days,
-        CASE WHEN cambios.ultima IS NULL THEN NULL ELSE cambios.ultima + INTERVAL '1 year' END AS proxima_estimacion
+        CASE WHEN tot.ultima IS NULL THEN NULL ELSE tot.ultima + INTERVAL '1 year' END AS proxima_estimacion
     FROM materiales m
     LEFT JOIN (
         SELECT
@@ -356,22 +406,63 @@ $materiales = $pdo->query("
     ) inst ON inst.material_id = m.id
     LEFT JOIN (
         SELECT
-            rm.material_id,
-            COUNT(rm.id) AS total_cambios,
-            SUM(rm.cantidad) AS piezas_cambiadas,
-            COUNT(DISTINCT r.arco_id) AS arcos_afectados,
-            MIN(r.fecha_mantenimiento) AS primera,
-            MAX(r.fecha_mantenimiento) AS ultima
-        FROM revision_material rm
-        JOIN revisiones r ON r.id = rm.revision_id
-        JOIN arcos a ON a.id = r.arco_id
-        WHERE COALESCE(rm.accion, 'cambio') <> 'retiro'
-          AND COALESCE(a.estado, 'Activo') <> 'Baja'
-        GROUP BY rm.material_id
-    ) cambios ON cambios.material_id = m.id
-    WHERE LOWER(COALESCE(m.medida, '')) NOT IN ('m', 'mt', 'ml')
-      AND LOWER(m.nombre) NOT LIKE '%cable%'
-    ORDER BY total_usos DESC, total_instalado DESC, m.nombre ASC
+            material_retirado_id AS material_id,
+            COUNT(rm_id) AS fallas_correctivas,
+            SUM(cantidad) AS piezas_falla,
+            COUNT(DISTINCT arco_id) AS arcos_fallados,
+            MIN(fecha_mantenimiento) AS primera_falla,
+            MAX(fecha_mantenimiento) AS ultima_falla
+        FROM revision_timeline
+        WHERE tipo_mantenimiento = 'Correctivo'
+        GROUP BY material_retirado_id
+    ) corr ON corr.material_id = m.id
+    LEFT JOIN (
+        SELECT
+            material_retirado_id AS material_id,
+            COUNT(rm_id) AS cambios_preventivos,
+            SUM(cantidad) AS piezas_preventivas,
+            COUNT(DISTINCT arco_id) AS arcos_preventivos,
+            MIN(fecha_mantenimiento) AS primer_preventivo,
+            MAX(fecha_mantenimiento) AS ultimo_preventivo
+        FROM revision_timeline
+        WHERE tipo_mantenimiento = 'Preventivo'
+        GROUP BY material_retirado_id
+    ) prev ON prev.material_id = m.id
+    LEFT JOIN (
+        SELECT
+            material_colocado_id AS material_id,
+            COUNT(rm_id) AS veces_colocado,
+            SUM(cantidad) AS piezas_colocadas
+        FROM revision_timeline
+        GROUP BY material_colocado_id
+    ) nuevos ON nuevos.material_id = m.id
+    LEFT JOIN (
+        SELECT
+            mat_id AS material_id,
+            COUNT(DISTINCT rm_id) AS total_usos,
+            SUM(cantidad) AS piezas_cambiadas,
+            COUNT(DISTINCT arco_id) AS arcos_afectados,
+            MIN(fecha_mantenimiento) AS primera,
+            MAX(fecha_mantenimiento) AS ultima
+        FROM (
+            SELECT material_retirado_id AS mat_id, rm_id, cantidad, arco_id, fecha_mantenimiento FROM revision_timeline
+            UNION
+            SELECT material_colocado_id AS mat_id, rm_id, cantidad, arco_id, fecha_mantenimiento FROM revision_timeline
+        ) u
+        GROUP BY mat_id
+    ) tot ON tot.material_id = m.id
+    WHERE (
+        LOWER(COALESCE(m.medida, '')) NOT IN ('m', 'mt', 'ml')
+        OR COALESCE(corr.fallas_correctivas, 0) > 0
+        OR COALESCE(tot.total_usos, 0) > 0
+    )
+    ORDER BY
+        fallas_correctivas DESC,
+        piezas_falla DESC,
+        cambios_preventivos DESC,
+        veces_colocado_nuevo DESC,
+        total_instalado DESC,
+        m.nombre ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
 $topUbicaciones = $pdo->query("

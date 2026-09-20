@@ -1,6 +1,6 @@
 <?php
-include('../views/header.php');
-require_once('../controllers/reportes_materiales_controller.php');
+include __DIR__ . '/header.php';
+require_once __DIR__ . '/../controllers/reportes_materiales_controller.php';
 
 function fechaReporte($fecha)
 {
@@ -29,16 +29,93 @@ function estadoArcoReporte($r)
 
 function nivelMaterialReporte($m)
 {
-  if ((int)$m['total_usos'] >= 5 || (int)$m['arcos_afectados'] >= 3) {
-    return ['Critico', 'bg-danger'];
+  $fallas = (int)($m['fallas_correctivas'] ?? 0);
+  $piezasFalla = (float)($m['piezas_falla'] ?? 0);
+  $arcosFalla = (int)($m['arcos_fallados'] ?? 0);
+  $preventivos = (int)($m['cambios_preventivos'] ?? 0);
+  $piezasPrev = (float)($m['piezas_preventivas'] ?? 0);
+  $instalado = (float)($m['total_instalado'] ?? 0);
+  $arcosInstalado = (int)($m['arcos_instalado'] ?? 0);
+  $totalUsos = (int)($m['total_usos'] ?? 0);
+  $piezasCambiadas = (float)($m['piezas_cambiadas'] ?? 0);
+
+  // 1. Equipos nuevos en despliegue / renovaciones (ej. Baterias Epcom nuevas)
+  if ($instalado <= 0 && $totalUsos > 0 && ($preventivos > 0 || $piezasPrev >= $piezasFalla)) {
+    return [
+      'texto' => 'Equipo nuevo en despliegue',
+      'clase' => 'bg-info text-dark',
+      'visual' => 'is-info',
+      'categoria' => 'renovaciones',
+      'resumen' => "{$piezasCambiadas} pz colocadas como nuevo modelo en {$m['arcos_afectados']} arcos",
+      'porcentaje' => 100,
+      'barra_tipo' => 'renovacion'
+    ];
   }
-  if ((int)$m['total_usos'] >= 2) {
-    return ['Atencion', 'bg-warning text-dark'];
+
+  // 2. Falla recurrente en mantenimiento correctivo (ej. Switch 5 puertos Witek, Baterías con daño/vida útil)
+  if ($fallas >= 3 || ($fallas >= 2 && $arcosFalla >= 2)) {
+    $pctFalla = $instalado > 0 ? min(100, round(($piezasFalla / $instalado) * 100)) : 100;
+    return [
+      'texto' => 'Falla recurrente (' . $fallas . ' correctivos)',
+      'clase' => 'bg-danger',
+      'visual' => 'is-danger',
+      'categoria' => 'fallas',
+      'resumen' => "{$fallas} cambios por daño/avería en {$arcosFalla} arcos ({$piezasFalla} pz)",
+      'porcentaje' => max(25, $pctFalla),
+      'barra_tipo' => 'falla-alta'
+    ];
   }
-  if ((float)$m['total_instalado'] <= 0) {
-    return ['Sin instalar', 'bg-secondary'];
+
+  // 3. Falla reportada / moderada en mantenimiento correctivo
+  if ($fallas >= 1) {
+    $pctFalla = $instalado > 0 ? min(100, round(($piezasFalla / $instalado) * 100)) : 50;
+    return [
+      'texto' => 'Falla reportada (' . $fallas . ' correctivo' . ($fallas > 1 ? 's' : '') . ')',
+      'clase' => 'bg-warning text-dark',
+      'visual' => 'is-warning',
+      'categoria' => 'fallas',
+      'resumen' => "{$fallas} cambio(s) por daño ({$piezasFalla} pz)",
+      'porcentaje' => max(15, $pctFalla),
+      'barra_tipo' => 'falla-media'
+    ];
   }
-  return ['Normal', 'bg-success'];
+
+  // 4. Renovación preventiva
+  if ($preventivos > 0) {
+    return [
+      'texto' => 'Renovación preventiva',
+      'clase' => 'bg-primary',
+      'visual' => 'is-info',
+      'categoria' => 'renovaciones',
+      'resumen' => "{$preventivos} cambio(s) en preventivo ({$piezasPrev} pz)",
+      'porcentaje' => 100,
+      'barra_tipo' => 'renovacion'
+    ];
+  }
+
+  // 5. Operativo estable instalado en arcos
+  if ($instalado > 0) {
+    return [
+      'texto' => 'Operativo estable',
+      'clase' => 'bg-success',
+      'visual' => 'is-ok',
+      'categoria' => 'estables',
+      'resumen' => "Instalado en {$arcosInstalado} arcos sin fallas registradas",
+      'porcentaje' => 100,
+      'barra_tipo' => 'estable'
+    ];
+  }
+
+  // 6. En catálogo sin arcos asignados
+  return [
+    'texto' => 'En catálogo',
+    'clase' => 'bg-secondary',
+    'visual' => 'is-neutral',
+    'categoria' => 'catalogo',
+    'resumen' => 'Sin arcos asignados',
+    'porcentaje' => 0,
+    'barra_tipo' => 'catalogo'
+  ];
 }
 ?>
 
@@ -211,27 +288,47 @@ function nivelMaterialReporte($m)
   <div class="card shadow-sm report-card">
     <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
       <div>
-        <h5 class="mb-0 fw-bold">Componentes criticos</h5>
-        <small class="text-muted">Material instalado contra material cambiado en mantenimientos.</small>
+        <h5 class="mb-0 fw-bold">Componentes: Frecuencia de Reemplazo y Fallas</h5>
+        <small class="text-muted">Análisis de componentes por incidencia de fallas en correctivos y renovaciones preventivas.</small>
       </div>
-      <div class="input-group report-search">
-        <span class="input-group-text bg-success text-white"><i class="bi bi-search"></i></span>
-        <input type="search" id="searchReportes" class="form-control" placeholder="Buscar componente..."
-          onkeyup="filterTable('searchReportes', 'reportesTable')">
+      <div class="d-flex align-items-center flex-wrap gap-2">
+        <div class="btn-group btn-group-sm report-filter-group" role="group" aria-label="Filtro de componentes">
+          <button type="button" class="btn btn-success report-comp-filter-btn active" data-filter="todos">
+            Todos (<?= count($materiales) ?>)
+          </button>
+          <button type="button" class="btn btn-outline-danger report-comp-filter-btn" data-filter="fallas">
+            <i class="bi bi-exclamation-octagon-fill me-1"></i> Fallas y Daños
+          </button>
+          <button type="button" class="btn btn-outline-primary report-comp-filter-btn" data-filter="renovaciones">
+            <i class="bi bi-arrow-repeat me-1"></i> Renovaciones y Nuevos
+          </button>
+          <button type="button" class="btn btn-outline-success report-comp-filter-btn" data-filter="estables">
+            <i class="bi bi-check-circle-fill me-1"></i> Operativos Estables
+          </button>
+        </div>
+        <div class="input-group report-search" style="max-width: 250px;">
+          <span class="input-group-text bg-success text-white"><i class="bi bi-search"></i></span>
+          <input type="search" id="searchReportes" class="form-control form-control-sm" placeholder="Buscar componente..."
+            onkeyup="filterTable('searchReportes', 'reportesTable')">
+        </div>
       </div>
     </div>
     <div id="reportesTable" class="report-critical-card-grid report-card-scroll">
       <?php foreach ($materiales as $m): ?>
-        <?php [$nivelTexto, $nivelClase] = nivelMaterialReporte($m); ?>
         <?php
+          $eval = nivelMaterialReporte($m);
           $instalado = (float)$m['total_instalado'];
-          $cambiado = (float)$m['piezas_cambiadas'];
-          $porcentajeCambio = $instalado > 0 ? min(100, round(($cambiado / $instalado) * 100)) : ($cambiado > 0 ? 100 : 0);
+          $piezasFalla = (float)$m['piezas_falla'];
+          $fallas = (int)$m['fallas_correctivas'];
+          $arcosFalla = (int)$m['arcos_fallados'];
+          $piezasPrev = (float)$m['piezas_preventivas'];
+          $preventivos = (int)$m['cambios_preventivos'];
+          $totalUsos = (int)$m['total_usos'];
           $foto = trim((string)($m['foto'] ?? ''));
           $tieneFoto = $foto !== '' && strtolower($foto) !== 'null';
-          $nivelVisual = $nivelClase === 'bg-danger' ? 'is-danger' : ($nivelClase === 'bg-warning text-dark' ? 'is-warning' : 'is-ok');
+          $fechaIntervencion = $m['ultima_falla'] ?: ($m['ultimo_preventivo'] ?: $m['ultima']);
         ?>
-        <article class="report-critical-card report-page-item <?= $nivelVisual ?>">
+        <article class="report-critical-card report-page-item <?= $eval['visual'] ?>" data-categoria="<?= $eval['categoria'] ?>">
           <div class="report-critical-photo">
             <?php if ($tieneFoto): ?>
               <img
@@ -251,29 +348,34 @@ function nivelMaterialReporte($m)
                 <h6><?= htmlspecialchars($m['componente']) ?></h6>
                 <small><?= htmlspecialchars($m['medida'] ?: 'pieza') ?></small>
               </div>
-              <span class="badge <?= $nivelClase ?>"><?= $nivelTexto ?></span>
+              <span class="badge <?= $eval['clase'] ?>"><?= $eval['texto'] ?></span>
             </div>
 
-            <div class="report-critical-card-stats">
-              <div>
+            <div class="report-critical-card-stats-v2">
+              <div class="stat-box stat-instalado">
                 <span>Instalado</span>
-                <strong><?= number_format($instalado, 0) ?> <?= htmlspecialchars($m['medida'] ?? '') ?></strong>
+                <strong><?= number_format($instalado, 0) ?> <small><?= htmlspecialchars($m['medida'] ?? '') ?></small></strong>
                 <small><?= (int)$m['arcos_instalado'] ?> arco(s)</small>
               </div>
-              <div>
-                <span>Cambiado</span>
-                <strong><?= number_format($cambiado, 0) ?> <?= htmlspecialchars($m['medida'] ?? '') ?></strong>
-                <small><?= (int)$m['total_usos'] ?> vez/veces</small>
+              <div class="stat-box stat-fallas <?= $fallas > 0 ? 'has-failures' : '' ?>">
+                <span>Fallas (Correctivos)</span>
+                <strong><?= number_format($piezasFalla, 0) ?> <small><?= htmlspecialchars($m['medida'] ?? '') ?></small></strong>
+                <small><?= $fallas ?> cambio(s) (<?= $arcosFalla ?> arcos)</small>
+              </div>
+              <div class="stat-box stat-preventivos <?= $preventivos > 0 ? 'has-renewals' : '' ?>">
+                <span>Nuevos (Preventivos)</span>
+                <strong><?= number_format($piezasPrev, 0) ?> <small><?= htmlspecialchars($m['medida'] ?? '') ?></small></strong>
+                <small><?= $preventivos ?> colocación(es)</small>
               </div>
             </div>
 
             <div class="report-critical-impact">
               <div>
-                <span><?= (int)$m['arcos_afectados'] ?> arco(s) afectados · Ultimo: <?= fechaReporte($m['ultima']) ?></span>
-                <strong><?= $porcentajeCambio ?>%</strong>
+                <span><i class="bi bi-info-circle me-1"></i><?= htmlspecialchars($eval['resumen']) ?><?= $fechaIntervencion ? ' · ' . fechaReporte($fechaIntervencion) : '' ?></span>
+                <strong><?= $totalUsos ?> uso(s)</strong>
               </div>
-              <div class="report-mini-progress" title="<?= $porcentajeCambio ?>% contra instalado">
-                <span style="width: <?= $porcentajeCambio ?>%"></span>
+              <div class="report-mini-progress progress-<?= $eval['barra_tipo'] ?>" title="<?= htmlspecialchars($eval['resumen']) ?>">
+                <span style="width: <?= $eval['porcentaje'] ?>%"></span>
               </div>
             </div>
 
@@ -284,7 +386,7 @@ function nivelMaterialReporte($m)
               data-nombre="<?= htmlspecialchars($m['componente'], ENT_QUOTES, 'UTF-8') ?>"
               data-bs-toggle="modal"
               data-bs-target="#modalArcos">
-              <i class="bi bi-eye me-1"></i> Detalle
+              <i class="bi bi-eye me-1"></i> Detalle por Arco
             </button>
           </div>
         </article>
@@ -376,5 +478,5 @@ function nivelMaterialReporte($m)
 
 <script src="../js/reporte.js?v=<?= filemtime(__DIR__ . '/../js/reporte.js') ?>"></script>
 
-<?php include('../views/footer.php'); ?>
+<?php include __DIR__ . '/footer.php'; ?>
 

@@ -162,7 +162,32 @@ function changePageLimit(tableId, limit) {
   renderPagination(tableId);
 }
 
+let currentComponentFilter = 'todos';
+
+function filterComponents() {
+  const input = document.getElementById("searchReportes");
+  const table = document.getElementById("reportesTable");
+  if (!table || !config.reportesTable) return;
+
+  const q = input ? input.value.trim().toLowerCase() : "";
+  const items = getReportItems(table);
+
+  items.forEach(row => {
+    const cat = row.dataset.categoria || "";
+    const matchesCategory = (currentComponentFilter === "todos") || (cat === currentComponentFilter);
+    const matchesSearch = !q || row.textContent.toLowerCase().includes(q);
+    row.dataset.visible = (matchesCategory && matchesSearch) ? "1" : "0";
+  });
+
+  config.reportesTable.page = 1;
+  renderPagination("reportesTable");
+}
+
 function filterTable(inputId, tableId) {
+  if (tableId === "reportesTable") {
+    filterComponents();
+    return;
+  }
   const input = document.getElementById(inputId);
   const table = document.getElementById(tableId);
   if (!input || !table || !config[tableId]) return;
@@ -684,6 +709,34 @@ function initReportes() {
 
   document.querySelectorAll(".btnVerArcosUbicacion").forEach(btn => {
     btn.addEventListener("click", () => renderArcosUbicacion(btn.dataset.ubicacionKey || ""));
+  });
+
+  document.querySelectorAll('.report-comp-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.report-comp-filter-btn').forEach(b => {
+        b.classList.remove('active', 'btn-success', 'btn-danger', 'btn-primary');
+        const f = b.dataset.filter;
+        if (f === 'fallas') b.className = 'btn btn-outline-danger report-comp-filter-btn';
+        else if (f === 'renovaciones') b.className = 'btn btn-outline-primary report-comp-filter-btn';
+        else if (f === 'estables') b.className = 'btn btn-outline-success report-comp-filter-btn';
+        else b.className = 'btn btn-outline-success report-comp-filter-btn';
+      });
+
+      btn.classList.add('active');
+      const f = btn.dataset.filter;
+      if (f === 'fallas') {
+        btn.className = 'btn btn-danger report-comp-filter-btn active';
+      } else if (f === 'renovaciones') {
+        btn.className = 'btn btn-primary report-comp-filter-btn active';
+      } else if (f === 'estables') {
+        btn.className = 'btn btn-success report-comp-filter-btn active';
+      } else {
+        btn.className = 'btn btn-success report-comp-filter-btn active';
+      }
+
+      currentComponentFilter = f || 'todos';
+      filterComponents();
+    });
   });
 }
 
